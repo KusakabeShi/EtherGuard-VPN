@@ -11,11 +11,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
+	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/device"
+	"github.com/KusakabeSi/EtherGuardVPN/ipc"
 
-	"golang.zx2c4.com/wireguard/tun"
+	"github.com/KusakabeSi/EtherGuardVPN/tun"
 )
 
 const (

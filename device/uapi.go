@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.zx2c4.com/wireguard/ipc"
+	"github.com/KusakabeSi/EtherGuardVPN/ipc"
 )
 
 type IPCError struct {

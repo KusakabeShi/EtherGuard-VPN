@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 
-	"golang.zx2c4.com/wireguard/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/conn"
 )
 
 type QueueHandshakeElement struct {

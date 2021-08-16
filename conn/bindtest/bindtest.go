@@ -12,7 +12,7 @@ import (
 	"os"
 	"strconv"
 
-	"golang.zx2c4.com/wireguard/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/conn"
 )
 
 type ChannelBind struct {

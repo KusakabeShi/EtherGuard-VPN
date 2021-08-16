@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/ipc/winpipe"
+	"github.com/KusakabeSi/EtherGuardVPN/ipc/winpipe"
 )
 
 func randomPipePath() string {

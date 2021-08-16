@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"golang.zx2c4.com/wireguard/tun"
+	"github.com/KusakabeSi/EtherGuardVPN/tun"
 )
 
 const DefaultMTU = 1420

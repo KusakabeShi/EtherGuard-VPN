@@ -11,7 +11,7 @@ import (
 	"net"
 	"os"
 
-	"golang.zx2c4.com/wireguard/tun"
+	"github.com/KusakabeSi/EtherGuardVPN/tun"
 )
 
 func Ping(dst, src net.IP) []byte {

@@ -17,7 +17,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"golang.zx2c4.com/wireguard/tun/wintun"
+	"github.com/KusakabeSi/EtherGuardVPN/tun/wintun"
 )
 
 const (

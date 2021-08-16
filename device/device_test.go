@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/conn/bindtest"
-	"golang.zx2c4.com/wireguard/tun/tuntest"
+	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/conn/bindtest"
+	"github.com/KusakabeSi/EtherGuardVPN/tun/tuntest"
 )
 
 // uapiCfg returns a string that contains cfg formatted use with IpcSet.
