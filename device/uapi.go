@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"net"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/ipc"
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 )
 
 type IPCError struct {
@@ -120,11 +122,8 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 			sendf("tx_bytes=%d", atomic.LoadUint64(&peer.stats.txBytes))
 			sendf("rx_bytes=%d", atomic.LoadUint64(&peer.stats.rxBytes))
 			sendf("persistent_keepalive_interval=%d", atomic.LoadUint32(&peer.persistentKeepaliveInterval))
-
-			device.allowedips.EntriesForPeer(peer, func(ip net.IP, cidr uint8) bool {
-				sendf("allowed_ip=%s/%d", ip.String(), cidr)
-				return true
-			})
+			sendf("allowed_ip=%s/%d", net.IPv4zero.String(), 0)
+			sendf("allowed_ip=%s/%d", net.IPv6zero.String(), 0)
 		}
 	}()
 
@@ -269,6 +268,8 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 	if err != nil {
 		return ipcErrorf(ipc.IpcErrorInvalid, "failed to get peer by public key: %w", err)
 	}
+	h := crc32.NewIEEE()
+	h.Write(publicKey[:])
 
 	// Ignore peer with the same public key as this device.
 	device.staticIdentity.RLock()
@@ -283,7 +284,7 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 
 	peer.created = peer.Peer == nil
 	if peer.created {
-		peer.Peer, err = device.NewPeer(publicKey)
+		peer.Peer, err = device.NewPeer(publicKey, path.Vertex(h.Sum32()))
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)
 		}
@@ -366,7 +367,6 @@ func (device *Device) handlePeerLine(peer *ipcSetPeer, key, value string) error 
 		if peer.dummy {
 			return nil
 		}
-		device.allowedips.RemoveByPeer(peer.Peer)
 
 	case "allowed_ip":
 		device.log.Verbosef("%v - UAPI: Adding allowedip", peer.Peer)
@@ -378,8 +378,7 @@ func (device *Device) handlePeerLine(peer *ipcSetPeer, key, value string) error 
 		if peer.dummy {
 			return nil
 		}
-		ones, _ := network.Mask.Size()
-		device.allowedips.Insert(network.IP, uint8(ones), peer.Peer)
+		_, _ = network.Mask.Size()
 
 	case "protocol_version":
 		if value != "1" {

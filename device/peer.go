@@ -8,11 +8,13 @@ package device
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 )
 
 type Peer struct {
@@ -23,6 +25,8 @@ type Peer struct {
 	device       *Device
 	endpoint     conn.Endpoint
 	stopping     sync.WaitGroup // routines pending stop
+
+	ID path.Vertex
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -63,7 +67,7 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
+func (device *Device) NewPeer(pk NoisePublicKey, id path.Vertex) (*Peer, error) {
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
@@ -94,8 +98,13 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	// map public key
 	_, ok := device.peers.keyMap[pk]
 	if ok {
-		return nil, errors.New("adding existing peer")
+		return nil, errors.New("adding existing peer pubkey:" + fmt.Sprint(pk))
 	}
+	_, ok = device.peers.IDMap[id]
+	if ok {
+		return nil, errors.New("adding existing peer id:" + fmt.Sprint(id))
+	}
+	peer.ID = id
 
 	// pre-compute DH
 	handshake := &peer.handshake
@@ -109,6 +118,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 
 	// add
 	device.peers.keyMap[pk] = peer
+	device.peers.IDMap[id] = peer
 
 	// start peer
 	peer.timersInit()

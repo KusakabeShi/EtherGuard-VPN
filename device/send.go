@@ -9,15 +9,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"net"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/KusakabeSi/EtherGuardVPN/tap"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 )
 
 /* Outbound flow
@@ -225,7 +224,7 @@ func (device *Device) RoutineReadFromTUN() {
 		// read packet
 
 		offset := MessageTransportHeaderSize
-		size, err := device.tun.device.Read(elem.buffer[:], offset)
+		size, err := device.tap.device.Read(elem.buffer[:], offset+path.EgHeaderLen)
 
 		if err != nil {
 			if !device.isClosed() {
@@ -239,42 +238,62 @@ func (device *Device) RoutineReadFromTUN() {
 			return
 		}
 
-		if size == 0 || size > MaxContentSize {
+		if size == 0 || (size+path.EgHeaderLen) > MaxContentSize {
 			continue
 		}
 
+		//add custom header dst_node, src_node, ttl
+		size += path.EgHeaderLen
 		elem.packet = elem.buffer[offset : offset+size]
-
+		EgBody, err := path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
+		dst_nodeID := EgBody.GetDst()
+		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
+		if tap.IsBoardCast(dstMacAddr) {
+			dst_nodeID = path.Boardcast
+		} else if val, ok := device.l2fib[dstMacAddr]; !ok { //Lookup failed
+			dst_nodeID = path.Boardcast
+		} else {
+			dst_nodeID = val
+		}
+		EgBody.SetSrc(device.ID)
+		EgBody.SetDst(dst_nodeID)
+		//EgBody.SetPacketLength(uint16(len(elem.packet)))
+		EgBody.SetTTL(200)
 
-		var peer *Peer
-		switch elem.packet[0] >> 4 {
-		case ipv4.Version:
-			if len(elem.packet) < ipv4.HeaderLen {
+		if dst_nodeID != path.Boardcast {
+			var peer_out *Peer
+			next_id := *device.NhTable[device.ID][dst_nodeID]
+			peer_out = device.peers.IDMap[next_id]
+			if peer_out == nil {
 				continue
 			}
-			dst := elem.packet[IPv4offsetDst : IPv4offsetDst+net.IPv4len]
-			peer = device.allowedips.Lookup(dst)
-
-		case ipv6.Version:
-			if len(elem.packet) < ipv6.HeaderLen {
-				continue
+			if peer_out.isRunning.Get() {
+				peer_out.StagePacket(elem)
+				elem = nil
+				peer_out.SendStagedPackets()
 			}
-			dst := elem.packet[IPv6offsetDst : IPv6offsetDst+net.IPv6len]
-			peer = device.allowedips.Lookup(dst)
-
-		default:
-			device.log.Verbosef("Received packet with unknown IP version")
+		} else {
+			for key, _ := range path.GetBoardcastList(device.ID, device.NhTable) {
+				device.SendPacket(device.peers.IDMap[key], elem.packet, offset)
+			}
 		}
 
-		if peer == nil {
-			continue
-		}
-		if peer.isRunning.Get() {
-			peer.StagePacket(elem)
-			elem = nil
-			peer.SendStagedPackets()
-		}
+	}
+}
+
+func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
+	if peer == nil {
+		return
+	}
+	var elem *QueueOutboundElement
+	elem = device.NewOutboundElement()
+	copy(elem.buffer[offset:offset+len(packet)], packet)
+	elem.packet = elem.buffer[offset : offset+len(packet)]
+	if peer.isRunning.Get() {
+		peer.StagePacket(elem)
+		elem = nil
+		peer.SendStagedPackets()
 	}
 }
 
@@ -386,7 +405,7 @@ func (device *Device) RoutineEncryption(id int) {
 		binary.LittleEndian.PutUint64(fieldNonce, elem.nonce)
 
 		// pad content to multiple of 16
-		paddingSize := calculatePaddingSize(len(elem.packet), int(atomic.LoadInt32(&device.tun.mtu)))
+		paddingSize := calculatePaddingSize(len(elem.packet), int(atomic.LoadInt32(&device.tap.mtu)))
 		elem.packet = append(elem.packet, paddingZeros[:paddingSize]...)
 
 		// encrypt content and release to consumer

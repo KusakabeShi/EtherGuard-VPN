@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/ratelimiter"
 	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
-	"github.com/KusakabeSi/EtherGuardVPN/tun"
+	"github.com/KusakabeSi/EtherGuardVPN/tap"
 )
 
 type Device struct {
@@ -60,11 +61,16 @@ type Device struct {
 	peers struct {
 		sync.RWMutex // protects keyMap
 		keyMap       map[NoisePublicKey]*Peer
+		IDMap        map[path.Vertex]*Peer
 	}
 
-	allowedips    AllowedIPs
 	indexTable    IndexTable
 	cookieChecker CookieChecker
+
+	ID         path.Vertex
+	NhTable    path.NextHopTable
+	l2fib      map[tap.MacAddress]path.Vertex
+	LogTransit bool
 
 	pool struct {
 		messageBuffers   *WaitPool
@@ -78,8 +84,8 @@ type Device struct {
 		handshake  *handshakeQueue
 	}
 
-	tun struct {
-		device tun.Device
+	tap struct {
+		device tap.Device
 		mtu    int32
 	}
 
@@ -126,7 +132,6 @@ func (device *Device) isUp() bool {
 // Must hold device.peers.Lock()
 func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	// stop routing and processing of packets
-	device.allowedips.RemoveByPeer(peer)
 	peer.Stop()
 
 	// remove from peer map
@@ -274,20 +279,23 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
+func NewDevice(tapDevice tap.Device, id path.Vertex, bind conn.Bind, logger *Logger) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
 	device.closed = make(chan struct{})
 	device.log = logger
 	device.net.bind = bind
-	device.tun.device = tunDevice
-	mtu, err := device.tun.device.MTU()
+	device.tap.device = tapDevice
+	mtu, err := device.tap.device.MTU()
 	if err != nil {
 		device.log.Errorf("Trouble determining MTU, assuming default: %v", err)
 		mtu = DefaultMTU
 	}
-	device.tun.mtu = int32(mtu)
+	device.tap.mtu = int32(mtu)
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
+	device.peers.IDMap = make(map[path.Vertex]*Peer)
+	device.ID = id
+	device.l2fib = make(map[tap.MacAddress]path.Vertex)
 	device.rate.limiter.Init()
 	device.indexTable.Init()
 	device.PopulatePools()
@@ -344,6 +352,7 @@ func (device *Device) RemoveAllPeers() {
 	}
 
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
+	device.peers.IDMap = make(map[path.Vertex]*Peer)
 }
 
 func (device *Device) Close() {
@@ -355,7 +364,7 @@ func (device *Device) Close() {
 	atomic.StoreUint32(&device.state.state, uint32(deviceStateClosed))
 	device.log.Verbosef("Device closing")
 
-	device.tun.device.Close()
+	device.tap.device.Close()
 	device.downLocked()
 
 	// Remove peers before closing queues,

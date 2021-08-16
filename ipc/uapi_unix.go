@@ -28,6 +28,10 @@ const (
 // flag in wireguard-android.
 var socketDirectory = "/var/run/wireguard"
 
+func SetsocketDirectory(path string) {
+	socketDirectory = path
+}
+
 func sockPath(iface string) string {
 	return fmt.Sprintf("%s/%s.sock", socketDirectory, iface)
 }

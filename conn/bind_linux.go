@@ -60,10 +60,15 @@ type LinuxSocketBind struct {
 	mu    sync.RWMutex
 	sock4 int
 	sock6 int
+	use4  bool
+	use6  bool
 }
 
-func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1} }
+func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1, use4: true, use6: true} }
 func NewDefaultBind() Bind     { return NewLinuxSocketBind() }
+func NewCustomBind(use4 bool, use6 bool) Bind {
+	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6}
+}
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)
 var _ Bind = (*LinuxSocketBind)(nil)
@@ -120,32 +125,35 @@ func (bind *LinuxSocketBind) Open(port uint16) ([]ReceiveFunc, uint16, error) {
 again:
 	port = originalPort
 	var sock4, sock6 int
-	// Attempt ipv6 bind, update port if successful.
-	sock6, newPort, err = create6(port)
-	if err != nil {
-		if !errors.Is(err, syscall.EAFNOSUPPORT) {
-			return nil, 0, err
+	if bind.use6 {
+		// Attempt ipv6 bind, update port if successful.
+		sock6, newPort, err = create6(port)
+		if err != nil {
+			if !errors.Is(err, syscall.EAFNOSUPPORT) {
+				return nil, 0, err
+			}
+		} else {
+			port = newPort
 		}
-	} else {
-		port = newPort
 	}
 
-	// Attempt ipv4 bind, update port if successful.
-	sock4, newPort, err = create4(port)
-	if err != nil {
-		if originalPort == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-			unix.Close(sock6)
-			tries++
-			goto again
+	if bind.use4 {
+		// Attempt ipv4 bind, update port if successful.
+		sock4, newPort, err = create4(port)
+		if err != nil {
+			if originalPort == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+				unix.Close(sock6)
+				tries++
+				goto again
+			}
+			if !errors.Is(err, syscall.EAFNOSUPPORT) {
+				unix.Close(sock6)
+				return nil, 0, err
+			}
+		} else {
+			port = newPort
 		}
-		if !errors.Is(err, syscall.EAFNOSUPPORT) {
-			unix.Close(sock6)
-			return nil, 0, err
-		}
-	} else {
-		port = newPort
 	}
-
 	var fns []ReceiveFunc
 	if sock4 != -1 {
 		bind.sock4 = sock4

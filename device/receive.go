@@ -9,16 +9,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/KusakabeSi/EtherGuardVPN/tap"
 )
 
 type QueueHandshakeElement struct {
@@ -397,6 +398,7 @@ func (device *Device) RoutineHandshake(id int) {
 
 func (peer *Peer) RoutineSequentialReceiver() {
 	device := peer.device
+	var peer_out *Peer
 	defer func() {
 		device.log.Verbosef("%v - Routine: sequential receiver - stopped", peer)
 		peer.stopping.Done()
@@ -407,7 +409,12 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if elem == nil {
 			return
 		}
+		var EgBody path.EgHeader
 		var err error
+		var src_nodeID path.Vertex
+		var dst_nodeID path.Vertex
+		should_receive := false
+		should_transfer := false
 		elem.Lock()
 		if elem.packet == nil {
 			// decryption failed
@@ -435,55 +442,64 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 		peer.timersDataReceived()
 
-		switch elem.packet[0] >> 4 {
-		case ipv4.Version:
-			if len(elem.packet) < ipv4.HeaderLen {
-				goto skip
-			}
-			field := elem.packet[IPv4offsetTotalLength : IPv4offsetTotalLength+2]
-			length := binary.BigEndian.Uint16(field)
-			if int(length) > len(elem.packet) || int(length) < ipv4.HeaderLen {
-				goto skip
-			}
-			elem.packet = elem.packet[:length]
-			src := elem.packet[IPv4offsetSrc : IPv4offsetSrc+net.IPv4len]
-			if device.allowedips.Lookup(src) != peer {
-				device.log.Verbosef("IPv4 packet with disallowed source address from %v", peer)
-				goto skip
-			}
+		EgBody, err = path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
+		src_nodeID = EgBody.GetSrc()
+		dst_nodeID = EgBody.GetDst()
+		//elem.packet = elem.packet[:EgBody.GetPacketLength()]
 
-		case ipv6.Version:
-			if len(elem.packet) < ipv6.HeaderLen {
-				goto skip
-			}
-			field := elem.packet[IPv6offsetPayloadLength : IPv6offsetPayloadLength+2]
-			length := binary.BigEndian.Uint16(field)
-			length += ipv6.HeaderLen
-			if int(length) > len(elem.packet) {
-				goto skip
-			}
-			elem.packet = elem.packet[:length]
-			src := elem.packet[IPv6offsetSrc : IPv6offsetSrc+net.IPv6len]
-			if device.allowedips.Lookup(src) != peer {
-				device.log.Verbosef("IPv6 packet with disallowed source address from %v", peer)
-				goto skip
-			}
-
-		default:
-			device.log.Verbosef("Packet with invalid IP version from %v", peer)
+		if dst_nodeID == device.ID {
+			should_receive = true
+		} else if dst_nodeID == path.Boardcast {
+			should_receive = true
+			should_transfer = true
+		} else if device.NhTable[device.ID][dst_nodeID] != nil {
+			should_transfer = true
+		} else {
+			device.log.Verbosef("No route to peer ID %v", dst_nodeID)
 			goto skip
 		}
 
-		_, err = device.tun.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent)
-		if err != nil && !device.isClosed() {
-			device.log.Errorf("Failed to write packet to TUN device: %v", err)
-		}
-		if len(peer.queue.inbound.c) == 0 {
-			err = device.tun.device.Flush()
-			if err != nil {
-				peer.device.log.Errorf("Unable to flush packets: %v", err)
+		if should_transfer { //Send to another peer
+			l2ttl := EgBody.GetTTL()
+			if l2ttl == 0 {
+				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
+			} else {
+				EgBody.SetTTL(l2ttl - 1)
+				if dst_nodeID != path.Boardcast {
+					next_id := *device.NhTable[device.ID][dst_nodeID]
+					peer_out = device.peers.IDMap[next_id]
+					if device.LogTransit {
+						fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+					}
+					device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
+				} else {
+					node_boardcast_list := path.GetBoardcastThroughList(device.ID, src_nodeID, device.NhTable)
+					for peer_id := range node_boardcast_list {
+						peer_out = device.peers.IDMap[peer_id]
+						if device.LogTransit {
+							fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+						}
+						device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
+					}
+				}
 			}
 		}
+
+		if should_receive {
+			src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
+			device.l2fib[src_macaddr] = src_nodeID // Write to l2fib table
+			_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)
+			if err != nil && !device.isClosed() {
+				device.log.Errorf("Failed to write packet to TUN device: %v", err)
+			}
+			if len(peer.queue.inbound.c) == 0 {
+				err = device.tap.device.Flush()
+				if err != nil {
+					peer.device.log.Errorf("Unable to flush packets: %v", err)
+				}
+			}
+		}
+
 	skip:
 		device.PutMessageBuffer(elem.buffer)
 		device.PutInboundElement(elem)
