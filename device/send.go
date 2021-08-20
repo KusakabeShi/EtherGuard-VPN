@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -258,12 +259,13 @@ func (device *Device) RoutineReadFromTUN() {
 		}
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
-		//EgBody.SetPacketLength(uint16(len(elem.packet)))
+		EgBody.SetPacketLength(uint16(len(elem.packet)))
 		EgBody.SetTTL(200)
+		EgBody.SetUsage(path.NornalPacket)
 
 		if dst_nodeID != path.Boardcast {
 			var peer_out *Peer
-			next_id := *device.NhTable[device.ID][dst_nodeID]
+			next_id := *device.graph.NhTable[device.ID][dst_nodeID]
 			peer_out = device.peers.IDMap[next_id]
 			if peer_out == nil {
 				continue
@@ -274,26 +276,9 @@ func (device *Device) RoutineReadFromTUN() {
 				peer_out.SendStagedPackets()
 			}
 		} else {
-			for key, _ := range path.GetBoardcastList(device.ID, device.NhTable) {
-				device.SendPacket(device.peers.IDMap[key], elem.packet, offset)
-			}
+			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.packet, offset)
 		}
 
-	}
-}
-
-func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
-	if peer == nil {
-		return
-	}
-	var elem *QueueOutboundElement
-	elem = device.NewOutboundElement()
-	copy(elem.buffer[offset:offset+len(packet)], packet)
-	elem.packet = elem.buffer[offset : offset+len(packet)]
-	if peer.isRunning.Get() {
-		peer.StagePacket(elem)
-		elem = nil
-		peer.SendStagedPackets()
 	}
 }
 

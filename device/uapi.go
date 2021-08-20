@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/ipc"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
 )
 
 type IPCError struct {
@@ -284,7 +284,7 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 
 	peer.created = peer.Peer == nil
 	if peer.created {
-		peer.Peer, err = device.NewPeer(publicKey, path.Vertex(h.Sum32()))
+		peer.Peer, err = device.NewPeer(publicKey, config.Vertex(h.Sum32()))
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)
 		}

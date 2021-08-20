@@ -43,17 +43,13 @@ func readYaml(filePath string, out interface{}) (err error) {
 }
 
 var (
-	config  = flag.String("config", "", "Config path for the interface.")
-	mode    = flag.String("mode", "edge", "Running mode. [super|edge]")
-	version = flag.Bool("version", false, "Show version")
-	help    = flag.Bool("help", false, "Show this help")
-	nouapi  = flag.Bool("no-uapi", false, "Do not use UAPI")
+	tconfig      = flag.String("config", "", "Config path for the interface.")
+	mode         = flag.String("mode", "edge", "Running mode. [super|edge]")
+	printExample = flag.Bool("example", false, "Print example config")
+	nouapi       = flag.Bool("no-uapi", false, "Do not use UAPI")
+	version      = flag.Bool("version", false, "Show version")
+	help         = flag.Bool("help", false, "Show this help")
 )
-
-type LoggerInfo struct {
-	LogLevel   string
-	LogTransit bool
-}
 
 func main() {
 	flag.Parse()
@@ -73,9 +69,9 @@ func main() {
 
 	switch *mode {
 	case "edge":
-		Edge(*config, !*nouapi)
+		Edge(*tconfig, !*nouapi, *printExample)
 	case "super":
-		Super(*config, !*nouapi)
+		Super(*tconfig, !*nouapi, *printExample)
 	case "path":
 		path.Solve()
 	default:

@@ -13,20 +13,23 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 )
 
 type Peer struct {
-	isRunning    AtomicBool
-	sync.RWMutex // Mostly protects endpoint, but is generally taken whenever we modify peer
-	keypairs     Keypairs
-	handshake    Handshake
-	device       *Device
-	endpoint     conn.Endpoint
-	stopping     sync.WaitGroup // routines pending stop
+	isRunning        AtomicBool
+	sync.RWMutex     // Mostly protects endpoint, but is generally taken whenever we modify peer
+	keypairs         Keypairs
+	handshake        Handshake
+	device           *Device
+	endpoint         conn.Endpoint
+	endpoint_trylist map[string]time.Time
+	LastPingReceived time.Time
+	stopping         sync.WaitGroup // routines pending stop
 
-	ID path.Vertex
+	ID config.Vertex
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -67,7 +70,7 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey, id path.Vertex) (*Peer, error) {
+func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error) {
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
@@ -117,8 +120,13 @@ func (device *Device) NewPeer(pk NoisePublicKey, id path.Vertex) (*Peer, error) 
 	peer.endpoint = nil
 
 	// add
-	device.peers.keyMap[pk] = peer
-	device.peers.IDMap[id] = peer
+	if id == path.SuperNodeMessage { // To communicate with supernode
+		device.peers.SuperPeer[pk] = peer
+	} else { // Regular peer, other edgenodes
+		_, ok = device.peers.IDMap[id]
+		device.peers.keyMap[pk] = peer
+		device.peers.IDMap[id] = peer
+	}
 
 	// start peer
 	peer.timersInit()
@@ -287,4 +295,12 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 	peer.Lock()
 	peer.endpoint = endpoint
 	peer.Unlock()
+}
+
+func (peer *Peer) GetEndpointSrcStr() string {
+	return peer.endpoint.SrcToString()
+}
+
+func (peer *Peer) GetEndpointDstStr() string {
+	return peer.endpoint.DstToString()
 }

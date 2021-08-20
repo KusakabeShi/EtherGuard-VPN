@@ -6,16 +6,19 @@
 package device
 
 import (
+	"encoding/base64"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/ratelimiter"
 	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	fixed_time_cache "github.com/KusakabeSi/go-cache"
 )
 
 type Device struct {
@@ -61,16 +64,30 @@ type Device struct {
 	peers struct {
 		sync.RWMutex // protects keyMap
 		keyMap       map[NoisePublicKey]*Peer
-		IDMap        map[path.Vertex]*Peer
+		IDMap        map[config.Vertex]*Peer
+		SuperPeer    map[NoisePublicKey]*Peer
+		Peer_state   [32]byte
 	}
+	event_tryendpoint chan struct{}
+
+	EdgeConfigPath string
+	EdgeConfig     *config.EdgeConfig
+
+	Event_server_register        chan path.RegisterMsg
+	Event_server_pong            chan path.PongMsg
+	Event_server_NhTable_changed chan struct{}
+	Event_save_config            chan struct{}
 
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
-	ID         path.Vertex
-	NhTable    path.NextHopTable
-	l2fib      map[tap.MacAddress]path.Vertex
-	LogTransit bool
+	IsSuperNode bool
+	ID          config.Vertex
+	graph       *path.IG
+	l2fib       map[tap.MacAddress]config.Vertex
+	LogTransit  bool
+	DRoute      config.DynamicRouteInfo
+	DupData     fixed_time_cache.Cache
 
 	pool struct {
 		messageBuffers   *WaitPool
@@ -135,7 +152,13 @@ func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	peer.Stop()
 
 	// remove from peer map
+	id := peer.ID
 	delete(device.peers.keyMap, key)
+	if id == path.SuperNodeMessage {
+		delete(device.peers.SuperPeer, key)
+	} else {
+		delete(device.peers.IDMap, id)
+	}
 }
 
 // changeState attempts to change the device state to match want.
@@ -279,7 +302,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tapDevice tap.Device, id path.Vertex, bind conn.Bind, logger *Logger) *Device {
+func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, theconfigpath string, theconfig *config.EdgeConfig, superevents *path.SUPER_Events) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
 	device.closed = make(chan struct{})
@@ -293,13 +316,32 @@ func NewDevice(tapDevice tap.Device, id path.Vertex, bind conn.Bind, logger *Log
 	}
 	device.tap.mtu = int32(mtu)
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
-	device.peers.IDMap = make(map[path.Vertex]*Peer)
+	device.peers.IDMap = make(map[config.Vertex]*Peer)
+	device.IsSuperNode = IsSuperNode
 	device.ID = id
-	device.l2fib = make(map[tap.MacAddress]path.Vertex)
+	device.graph = graph
+	device.l2fib = make(map[tap.MacAddress]config.Vertex)
+
 	device.rate.limiter.Init()
 	device.indexTable.Init()
 	device.PopulatePools()
-
+	if IsSuperNode {
+		device.Event_server_pong = superevents.Event_server_pong
+		device.Event_server_register = superevents.Event_server_register
+		device.Event_server_NhTable_changed = superevents.Event_server_NhTable_changed
+		go device.RoutineRecalculateNhTable()
+	} else {
+		device.EdgeConfigPath = theconfigpath
+		device.EdgeConfig = theconfig
+		device.DRoute = theconfig.DynamicRoute
+		device.DupData = *fixed_time_cache.NewCache(path.S2TD(theconfig.DynamicRoute.DupCheckTimeout))
+		device.event_tryendpoint = make(chan struct{}, 1<<6)
+		device.Event_save_config = make(chan struct{}, 1<<5)
+		go device.RoutineSetEndpoint()
+		go device.RoutineRegister()
+		go device.RoutineSendPing()
+		go device.RoutineRecalculateNhTable()
+	}
 	// create queues
 
 	device.queue.handshake = newHandshakeQueue()
@@ -332,6 +374,49 @@ func (device *Device) LookupPeer(pk NoisePublicKey) *Peer {
 	return device.peers.keyMap[pk]
 }
 
+func (device *Device) LookupPeerByStr(pks string) *Peer {
+	var pk NoisePublicKey
+	sk_slice, _ := base64.StdEncoding.DecodeString(pks)
+	copy(pk[:], sk_slice)
+	return device.LookupPeer(pk)
+}
+
+func PubKey2Str(pk NoisePublicKey) (result string) {
+	result = string(base64.StdEncoding.EncodeToString(pk[:]))
+	return
+}
+
+func PriKey2Str(pk NoisePrivateKey) (result string) {
+	result = string(base64.StdEncoding.EncodeToString(pk[:]))
+	return
+}
+func PSKeyStr(pk NoisePresharedKey) (result string) {
+	result = string(base64.StdEncoding.EncodeToString(pk[:]))
+	return
+}
+
+func Str2PubKey(k string) (pk NoisePublicKey) {
+	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+	copy(pk[:], sk_slice)
+	return
+}
+
+func Str2PriKey(k string) (pk NoisePrivateKey) {
+	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+	copy(pk[:], sk_slice)
+	return
+}
+
+func Str2PSKey(k string) (pk NoisePresharedKey) {
+	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+	copy(pk[:], sk_slice)
+	return
+}
+
+func (device *Device) GetIPMap() map[config.Vertex]*Peer {
+	return device.peers.IDMap
+}
+
 func (device *Device) RemovePeer(key NoisePublicKey) {
 	device.peers.Lock()
 	defer device.peers.Unlock()
@@ -352,7 +437,7 @@ func (device *Device) RemoveAllPeers() {
 	}
 
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
-	device.peers.IDMap = make(map[path.Vertex]*Peer)
+	device.peers.IDMap = make(map[config.Vertex]*Peer)
 }
 
 func (device *Device) Close() {

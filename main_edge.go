@@ -9,6 +9,7 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -16,93 +17,130 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/device"
-	"github.com/KusakabeSi/EtherGuardVPN/ipc"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
 	yaml "gopkg.in/yaml.v2"
 )
 
-type edgeConfig struct {
-	Interface    InterfaceConf
-	NodeID       path.Vertex
-	NodeName     string
-	PrivKey      string
-	ListenPort   int
-	LogLevel     LoggerInfo
-	SuperNode    SuperInfo
-	NextHopTable path.NextHopTable
-	Peers        []PeerInfo
-}
+func printExampleEdgeConf() {
+	tconfig := config.EdgeConfig{
+		Interface: config.InterfaceConf{
+			Itype:         "stdio",
+			IfaceID:       5,
+			Name:          "tap1",
+			MacAddr:       "AA:BB:CC:DD:EE:FF",
+			MTU:           1400,
+			RecvAddr:      "127.0.0.1:4001",
+			SendAddr:      "127.0.0.1:5001",
+			HumanFriendly: true,
+		},
+		NodeID:     1,
+		NodeName:   "Node01",
+		PrivKey:    "SM8pGjT0r8njy1/7ffN4wMwF7nnJ8UYSjGRWpCqo3ng=",
+		ListenPort: 3001,
+		LogLevel: config.LoggerInfo{
+			LogLevel:   "normal",
+			LogTransit: true,
+		},
+		DynamicRoute: config.DynamicRouteInfo{
+			SendPingInterval: 20,
+			DupCheckTimeout:  40,
+			ConnTimeOut:      30,
+			SaveNewPeers:     true,
+			SuperNode: config.SuperInfo{
+				UseSuperNode:         true,
+				ConnURLV4:            "127.0.0.1:3000",
+				PubKeyV4:             "j8i4dY1i7CUqd/ftaCSfCWosnURiztM+ExI7QRezU2Y=",
+				ConnURLV6:            "[::1]:3000",
+				PubKeyV6:             "cCcPlZw0hVkPSi15G+jpJpKE3TdCVEtO1nSiaedukGw=",
+				APIUrl:               "http://127.0.0.1:3000/api",
+				SuperNodeInfoTimeout: 40,
+			},
+			P2P: config.P2Pinfo{
+				UseP2P:           true,
+				SendPeerInterval: 20,
+				PeerAliveTimeout: 30,
+				GraphRecalculateSetting: config.GraphRecalculateSetting{
+					JitterTolerance:           20,
+					JitterToleranceMultiplier: 1.1,
+					NodeReportTimeout:         40,
+					RecalculateCoolDown:       5,
+				},
+			},
+			NTPconfig: config.NTPinfo{
+				UseNTP:       true,
+				MaxServerUse: 5,
+				Servers: []string{"time.google.com",
+					"time1.google.com",
+					"time2.google.com",
+					"time3.google.com",
+					"time4.google.com",
+					"time1.facebook.com",
+					"time2.facebook.com",
+					"time3.facebook.com",
+					"time4.facebook.com",
+					"time5.facebook.com",
+					"time.cloudflare.com",
+					"time.apple.com",
+					"time.asia.apple.com",
+					"time.euro.apple.com",
+					"time.windows.com"},
+			},
+		},
+		NextHopTable: config.NextHopTable{},
+		Peers: []config.PeerInfo{
+			{
+				NodeID:   2,
+				PubKey:   "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
+				EndPoint: "127.0.0.1:3002",
+				Static:   true,
+			},
+		},
+	}
+	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting)
 
-type InterfaceConf struct {
-	Itype         string
-	IfaceID       int
-	Name          string
-	MacAddr       string
-	MTU           int
-	RecvAddr      string
-	SendAddr      string
-	HumanFriendly bool
-}
-
-type SuperInfo struct {
-	Enable   bool
-	PubKeyV4 string
-	PubKeyV6 string
-	RegURLV4 string
-	RegURLV6 string
-	APIUrl   string
-}
-
-type PeerInfo struct {
-	NodeID   path.Vertex
-	PubKey   string
-	EndPoint string
-}
-
-func printExampleConf() {
-	var config edgeConfig
-	config.Peers = make([]PeerInfo, 3)
-	var g path.IG
-	g.Init(4)
-	g.Edge(1, 2, 0.5)
-	g.Edge(2, 1, 0.5)
-	g.Edge(2, 3, 0.5)
-	g.Edge(3, 2, 0.5)
-	g.Edge(2, 4, 0.5)
-	g.Edge(4, 2, 0.5)
-	g.Edge(3, 4, 0.5)
-	g.Edge(4, 3, 0.5)
-	g.Edge(5, 3, 0.5)
-	g.Edge(3, 5, 0.5)
-	g.Edge(6, 4, 0.5)
-	g.Edge(4, 6, 0.5)
+	g.UpdateLentancy(1, 2, path.S2TD(0.5), false)
+	g.UpdateLentancy(2, 1, path.S2TD(0.5), false)
+	g.UpdateLentancy(2, 3, path.S2TD(0.5), false)
+	g.UpdateLentancy(3, 2, path.S2TD(0.5), false)
+	g.UpdateLentancy(2, 4, path.S2TD(0.5), false)
+	g.UpdateLentancy(4, 2, path.S2TD(0.5), false)
+	g.UpdateLentancy(3, 4, path.S2TD(0.5), false)
+	g.UpdateLentancy(4, 3, path.S2TD(0.5), false)
+	g.UpdateLentancy(5, 3, path.S2TD(0.5), false)
+	g.UpdateLentancy(3, 5, path.S2TD(0.5), false)
+	g.UpdateLentancy(6, 4, path.S2TD(0.5), false)
+	g.UpdateLentancy(4, 6, path.S2TD(0.5), false)
 	_, next := path.FloydWarshall(g)
-	config.NextHopTable = next
-	test, _ := yaml.Marshal(config)
-	fmt.Print(string(test))
+	tconfig.NextHopTable = next
+	toprint, _ := yaml.Marshal(tconfig)
+	fmt.Print(string(toprint))
 	return
 }
 
-func Edge(configPath string, useUAPI bool) (err error) {
-
-	var config edgeConfig
+func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
+	if printExample {
+		printExampleEdgeConf()
+		return nil
+	}
+	var tconfig config.EdgeConfig
 	//printExampleConf()
 	//return
 
-	err = readYaml(configPath, &config)
+	err = readYaml(configPath, &tconfig)
 	if err != nil {
 		fmt.Printf("Error read config: %s :", configPath)
 		fmt.Print(err)
 		return err
 	}
 
-	interfaceName := config.NodeName
+	interfaceName := tconfig.NodeName
 
 	var logLevel int
-	switch config.LogLevel.LogLevel {
+	switch tconfig.LogLevel.LogLevel {
 	case "verbose", "debug":
 		logLevel = device.LogLevelVerbose
 	case "error":
@@ -110,13 +148,10 @@ func Edge(configPath string, useUAPI bool) (err error) {
 	case "silent":
 		logLevel = device.LogLevelSilent
 	}
-
 	logger := device.NewLogger(
 		logLevel,
 		fmt.Sprintf("(%s) ", interfaceName),
 	)
-
-	logger.Verbosef("Starting wireguard-go version %s", Version)
 
 	if err != nil {
 		logger.Errorf("UAPI listen error: %v", err)
@@ -126,40 +161,44 @@ func Edge(configPath string, useUAPI bool) (err error) {
 
 	var thetap tap.Device
 	// open TUN device (or use supplied fd)
-	switch config.Interface.Itype {
+	switch tconfig.Interface.Itype {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
-		thetap, err = tap.CreateStdIOTAP(config.Interface.Name, config.Interface.HumanFriendly)
+		thetap, err = tap.CreateStdIOTAP(tconfig.Interface.Name, tconfig.Interface.HumanFriendly)
 	case "udpsock":
 		{
-			lis, _ := net.ResolveUDPAddr("udp", config.Interface.RecvAddr)
-			sen, _ := net.ResolveUDPAddr("udp", config.Interface.SendAddr)
-			thetap, err = tap.CreateUDPSockTAP(config.Interface.Name, lis, sen, config.Interface.HumanFriendly)
+			lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
+			sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
+			thetap, err = tap.CreateUDPSockTAP(tconfig.Interface.Name, lis, sen, tconfig.Interface.HumanFriendly)
 		}
 	}
-
 	if err != nil {
-		logger.Errorf("Failed to create TUN device: %v", err)
+		logger.Errorf("Failed to create TAP device: %v", err)
 		os.Exit(ExitSetupFailed)
 	}
 
 	////////////////////////////////////////////////////
 	// Config
-	the_device := device.NewDevice(thetap, config.NodeID, conn.NewDefaultBind(), logger)
-	the_device.LogTransit = config.LogLevel.LogTransit
-	the_device.NhTable = config.NextHopTable
+	graph := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting)
+	graph.SetNHTable(tconfig.NextHopTable, [32]byte{})
+
+	the_device := device.NewDevice(thetap, tconfig.NodeID, conn.NewDefaultBind(), logger, &graph, false, configPath, &tconfig, nil)
+	the_device.LogTransit = tconfig.LogLevel.LogTransit
 	defer the_device.Close()
 	var sk [32]byte
-	sk_slice, _ := base64.StdEncoding.DecodeString(config.PrivKey)
+	sk_slice, _ := base64.StdEncoding.DecodeString(tconfig.PrivKey)
 	copy(sk[:], sk_slice)
 	the_device.SetPrivateKey(sk)
 	the_device.IpcSet("fwmark=0\n")
-	the_device.IpcSet("listen_port=" + strconv.Itoa(config.ListenPort) + "\n")
+	the_device.IpcSet("listen_port=" + strconv.Itoa(tconfig.ListenPort) + "\n")
 	the_device.IpcSet("replace_peers=true\n")
-	for _, peerconf := range config.Peers {
+	for _, peerconf := range tconfig.Peers {
 		sk_slice, _ = base64.StdEncoding.DecodeString(peerconf.PubKey)
 		copy(sk[:], sk_slice)
+		if peerconf.NodeID >= path.SuperNodeMessage {
+			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
+		}
 		the_device.NewPeer(sk, peerconf.NodeID)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(sk)
@@ -172,45 +211,42 @@ func Edge(configPath string, useUAPI bool) (err error) {
 		}
 	}
 
+	if tconfig.DynamicRoute.SuperNode.UseSuperNode {
+		if tconfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
+			sk_slice, _ = base64.StdEncoding.DecodeString(tconfig.DynamicRoute.SuperNode.PubKeyV4)
+			copy(sk[:], sk_slice)
+			endpoint, err := the_device.Bind().ParseEndpoint(tconfig.DynamicRoute.SuperNode.ConnURLV4)
+			if err != nil {
+				return err
+			}
+			peer, err := the_device.NewPeer(sk, path.SuperNodeMessage)
+			if err != nil {
+				return err
+			}
+			peer.SetEndpointFromPacket(endpoint)
+		}
+		if tconfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
+			sk_slice, _ = base64.StdEncoding.DecodeString(tconfig.DynamicRoute.SuperNode.PubKeyV6)
+			copy(sk[:], sk_slice)
+			endpoint, err := the_device.Bind().ParseEndpoint(tconfig.DynamicRoute.SuperNode.ConnURLV6)
+			if err != nil {
+				return err
+			}
+			peer, err := the_device.NewPeer(sk, path.SuperNodeMessage)
+			if err != nil {
+				return err
+			}
+			peer.SetEndpointFromPacket(endpoint)
+		}
+	}
+
 	logger.Verbosef("Device started")
 
 	errs := make(chan error)
 	term := make(chan os.Signal, 1)
 
 	if useUAPI {
-
-		fileUAPI, err := func() (*os.File, error) {
-			uapiFdStr := os.Getenv(ENV_WP_UAPI_FD)
-			if uapiFdStr == "" {
-				return ipc.UAPIOpen(interfaceName)
-			}
-
-			// use supplied fd
-
-			fd, err := strconv.ParseUint(uapiFdStr, 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			return os.NewFile(uintptr(fd), ""), nil
-		}()
-		uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
-		if err != nil {
-			logger.Errorf("Failed to listen on uapi socket: %v", err)
-			os.Exit(ExitSetupFailed)
-		}
-
-		go func() {
-			for {
-				conn, err := uapi.Accept()
-				if err != nil {
-					errs <- err
-					return
-				}
-				go the_device.IpcHandle(conn)
-			}
-		}()
-		defer uapi.Close()
-		logger.Verbosef("UAPI listener started")
+		startUAPI(interfaceName, logger, the_device, errs)
 	}
 
 	// wait for program to terminate

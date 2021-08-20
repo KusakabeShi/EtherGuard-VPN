@@ -17,6 +17,7 @@ import (
 
 	"golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
@@ -411,8 +412,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 		var EgBody path.EgHeader
 		var err error
-		var src_nodeID path.Vertex
-		var dst_nodeID path.Vertex
+		var src_nodeID config.Vertex
+		var dst_nodeID config.Vertex
+		var packet_type path.Usage
+		should_process := false
 		should_receive := false
 		should_transfer := false
 		elem.Lock()
@@ -445,57 +448,99 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		EgBody, err = path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
 		src_nodeID = EgBody.GetSrc()
 		dst_nodeID = EgBody.GetDst()
-		//elem.packet = elem.packet[:EgBody.GetPacketLength()]
+		elem.packet = elem.packet[:EgBody.GetPacketLength()]
+		packet_type = EgBody.GetUsage()
 
-		if dst_nodeID == device.ID {
-			should_receive = true
-		} else if dst_nodeID == path.Boardcast {
-			should_receive = true
-			should_transfer = true
-		} else if device.NhTable[device.ID][dst_nodeID] != nil {
-			should_transfer = true
+		if device.IsSuperNode {
+			peer.LastPingReceived = time.Now()
+			switch dst_nodeID {
+			case path.ControlMessage:
+				should_process = true
+			case path.SuperNodeMessage:
+				should_process = true
+			default:
+				device.log.Errorf("Invalid dst_nodeID received. Check your code for bug")
+			}
 		} else {
-			device.log.Verbosef("No route to peer ID %v", dst_nodeID)
-			goto skip
+			switch dst_nodeID {
+			case path.Boardcast:
+				should_receive = true
+				should_transfer = true
+			case path.PingMessage:
+				peer.LastPingReceived = time.Now()
+				should_process = true
+			case path.SuperNodeMessage:
+				should_process = true
+			case path.ControlMessage:
+				packet := elem.packet[path.EgHeaderLen:]
+				if device.CheckNoDup(packet) {
+					should_process = true
+					should_transfer = true
+				} else {
+					should_process = false
+					should_transfer = false
+					if device.LogTransit {
+						fmt.Printf("Duplicate packet received from %d through %d , src_nodeID = %d . Dropeed.\n", peer.ID, device.ID, src_nodeID)
+					}
+				}
+			case device.ID:
+				if packet_type == path.NornalPacket {
+					should_receive = true
+				} else {
+					should_process = true
+				}
+			default:
+				if _, ok := device.graph.NhTable[device.ID][dst_nodeID]; ok {
+					should_transfer = true
+				} else {
+					device.log.Verbosef("No route to peer ID %v", dst_nodeID)
+				}
+			}
 		}
-
-		if should_transfer { //Send to another peer
+		if should_transfer {
 			l2ttl := EgBody.GetTTL()
 			if l2ttl == 0 {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
 				EgBody.SetTTL(l2ttl - 1)
-				if dst_nodeID != path.Boardcast {
-					next_id := *device.NhTable[device.ID][dst_nodeID]
+				if dst_nodeID == path.Boardcast { //Regular transfer algorithm
+					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.packet, MessageTransportOffsetContent)
+				} else if dst_nodeID == path.ControlMessage { // Control Message will try send to every know node regardless the connectivity
+					skip_list := make(map[config.Vertex]bool)
+					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
+					skip_list[peer.ID] = true
+					device.SpreadPacket(skip_list, elem.packet, MessageTransportOffsetContent)
+
+				} else {
+					next_id := *device.graph.NhTable[device.ID][dst_nodeID]
 					peer_out = device.peers.IDMap[next_id]
 					if device.LogTransit {
 						fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 					}
 					device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
-				} else {
-					node_boardcast_list := path.GetBoardcastThroughList(device.ID, src_nodeID, device.NhTable)
-					for peer_id := range node_boardcast_list {
-						peer_out = device.peers.IDMap[peer_id]
-						if device.LogTransit {
-							fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
-						}
-						device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
-					}
 				}
 			}
 		}
 
-		if should_receive {
-			src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
-			device.l2fib[src_macaddr] = src_nodeID // Write to l2fib table
-			_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)
-			if err != nil && !device.isClosed() {
-				device.log.Errorf("Failed to write packet to TUN device: %v", err)
+		if should_process {
+			if packet_type != path.NornalPacket {
+				device.process_received(packet_type, elem.packet[path.EgHeaderLen:])
 			}
-			if len(peer.queue.inbound.c) == 0 {
-				err = device.tap.device.Flush()
-				if err != nil {
-					peer.device.log.Errorf("Unable to flush packets: %v", err)
+		}
+
+		if should_receive { // Write message to tap device
+			if packet_type == path.NornalPacket {
+				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
+				device.l2fib[src_macaddr] = src_nodeID // Write to l2fib table
+				_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)
+				if err != nil && !device.isClosed() {
+					device.log.Errorf("Failed to write packet to TUN device: %v", err)
+				}
+				if len(peer.queue.inbound.c) == 0 {
+					err = device.tap.device.Flush()
+					if err != nil {
+						peer.device.log.Errorf("Unable to flush packets: %v", err)
+					}
 				}
 			}
 		}

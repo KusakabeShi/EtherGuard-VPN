@@ -5,85 +5,179 @@ import (
 	"math"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/config"
 	yaml "gopkg.in/yaml.v2"
 )
 
-var (
-	timeout = time.Second * 3
+const Infinity = float64(99999)
+
+const (
+	Boardcast        config.Vertex = math.MaxUint32 - iota // Normal boardcast, boardcast with route table
+	ControlMessage   config.Vertex = math.MaxUint32 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
+	PingMessage      config.Vertex = math.MaxUint32 - iota // boardsact to every know peer but don't transit
+	SuperNodeMessage config.Vertex = math.MaxUint32 - iota
+	Special_NodeID   config.Vertex = SuperNodeMessage
 )
+
+func (g *IG) GetCurrentTime() time.Time {
+	return time.Now()
+}
 
 // A Graph is the interface implemented by graphs that
 // this algorithm can run on.
 type Graph interface {
-	Vertices() map[Vertex]bool
-	Neighbors(v Vertex) []Vertex
-	Weight(u, v Vertex) float64
+	Vertices() map[config.Vertex]bool
+	Neighbors(v config.Vertex) []config.Vertex
+	Weight(u, v config.Vertex) float64
 }
-
-// Nonnegative integer ID of vertex
-type Vertex uint32
-
-const Infinity = 99999
-
-var Boardcast = Vertex(math.MaxUint32)
 
 type Latency struct {
 	ping float64
 	time time.Time
 }
 
-type DistTable map[Vertex]map[Vertex]float64
-type NextHopTable map[Vertex]map[Vertex]*Vertex
-
 type Fullroute struct {
-	Dist DistTable    `json:"total distance"`
-	Next NextHopTable `json:"next hop"`
+	Dist config.DistTable    `json:"total distance"`
+	Next config.NextHopTable `json:"next hop"`
 }
 
 // IG is a graph of integers that satisfies the Graph interface.
 type IG struct {
-	Vert  map[Vertex]bool
-	Edges map[Vertex]map[Vertex]Latency
+	Vert                      map[config.Vertex]bool
+	Edges                     map[config.Vertex]map[config.Vertex]Latency
+	JitterTolerance           float64
+	JitterToleranceMultiplier float64
+	NodeReportTimeout         time.Duration
+	SuperNodeInfoTimeout      time.Duration
+	RecalculateCoolDown       time.Duration
+	RecalculateTime           time.Time
+	dlTable                   config.DistTable
+	NhTable                   config.NextHopTable
+	NhTableHash               [32]byte
+	nhTableExpire             time.Time
+	IsSuperMode               bool
 }
 
-func (g *IG) Init(num_node int) error {
-	g.Vert = make(map[Vertex]bool, num_node)
-	g.Edges = make(map[Vertex]map[Vertex]Latency, num_node)
-	return nil
+func S2TD(secs float64) time.Duration {
+	return time.Duration(secs * float64(time.Second))
 }
 
-func (g *IG) Edge(u, v Vertex, w float64) {
+func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting) IG {
+	g := IG{
+		JitterTolerance:           theconfig.JitterTolerance,
+		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
+		NodeReportTimeout:         S2TD(theconfig.NodeReportTimeout),
+		RecalculateCoolDown:       S2TD(theconfig.RecalculateCoolDown),
+	}
+	g.Vert = make(map[config.Vertex]bool, num_node)
+	g.Edges = make(map[config.Vertex]map[config.Vertex]Latency, num_node)
+	g.IsSuperMode = IsSuperMode
+
+	return g
+}
+
+func (g *IG) GetWeightType(x float64) float64 {
+	x = math.Abs(x)
+	y := x
+	if g.JitterTolerance > 1 && g.JitterToleranceMultiplier > 0.001 {
+		r := g.JitterTolerance
+		m := g.JitterToleranceMultiplier
+		y = math.Pow(math.Ceil(math.Pow(x/m, 1/r)), r) * m
+	}
+	return y
+}
+
+func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool {
+	oldval := g.Weight(u, v) * 1000
+	newval *= 1000
+	if g.IsSuperMode {
+		return (oldval-newval)*(oldval*g.JitterToleranceMultiplier) <= g.JitterTolerance
+	} else {
+		return g.GetWeightType(oldval) == g.GetWeightType(newval)
+	}
+}
+
+func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
+	if g.RecalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
+		dist, next := FloydWarshall(g)
+		if checkchange {
+		CheckLoop:
+			for src, dsts := range next {
+				for dst, cost := range dsts {
+					nexthop := g.Next(src, dst)
+					if nexthop != nil {
+						changed = cost == nexthop
+						if changed {
+							break CheckLoop
+						}
+					}
+				}
+			}
+		}
+		g.dlTable, g.NhTable = dist, next
+		g.nhTableExpire = time.Now().Add(g.NodeReportTimeout)
+		g.RecalculateTime = time.Now()
+	}
+	return
+}
+
+func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bool) (changed bool) {
 	g.Vert[u] = true
 	g.Vert[v] = true
+	w := float64(dt) / float64(time.Second)
 	if _, ok := g.Edges[u]; !ok {
-		g.Edges[u] = make(map[Vertex]Latency)
+		g.Edges[u] = make(map[config.Vertex]Latency)
+	}
+	if g.ShouldUpdate(u, v, w) {
+		changed = g.RecalculateNhTable(checkchange)
 	}
 	g.Edges[u][v] = Latency{
 		ping: w,
 		time: time.Now(),
 	}
+	return
 }
-func (g IG) Vertices() map[Vertex]bool { return g.Vert }
-func (g IG) Neighbors(v Vertex) (vs []Vertex) {
+func (g IG) Vertices() map[config.Vertex]bool {
+	return g.Vert
+}
+func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
 	for k := range g.Edges[v] {
 		vs = append(vs, k)
 	}
 	return vs
 }
-func (g IG) Weight(u, v Vertex) float64 {
-	if time.Now().Sub(g.Edges[u][v].time) < timeout {
-		return g.Edges[u][v].ping
+
+func (g IG) Next(u, v config.Vertex) *config.Vertex {
+	if _, ok := g.NhTable[u]; !ok {
+		return nil
 	}
-	return Infinity
+	if _, ok := g.NhTable[u][v]; !ok {
+		return nil
+	}
+	return g.NhTable[u][v]
 }
 
-func FloydWarshall(g Graph) (dist DistTable, next NextHopTable) {
+func (g IG) Weight(u, v config.Vertex) float64 {
+	if _, ok := g.Edges[u]; !ok {
+		g.Edges[u] = make(map[config.Vertex]Latency)
+		return Infinity
+	}
+	if _, ok := g.Edges[u][v]; !ok {
+		return Infinity
+	}
+	if time.Now().After(g.Edges[u][v].time.Add(g.NodeReportTimeout)) {
+		return Infinity
+	}
+	return g.Edges[u][v].ping
+}
+
+func FloydWarshall(g Graph) (dist config.DistTable, next config.NextHopTable) {
 	vert := g.Vertices()
-	dist = make(DistTable)
-	next = make(NextHopTable)
+	dist = make(config.DistTable)
+	next = make(config.NextHopTable)
 	for u, _ := range vert {
-		dist[u] = make(map[Vertex]float64)
-		next[u] = make(map[Vertex]*Vertex)
+		dist[u] = make(map[config.Vertex]float64)
+		next[u] = make(map[config.Vertex]*config.Vertex)
 		for v, _ := range vert {
 			dist[u][v] = Infinity
 		}
@@ -112,11 +206,11 @@ func FloydWarshall(g Graph) (dist DistTable, next NextHopTable) {
 	return dist, next
 }
 
-func Path(u, v Vertex, next NextHopTable) (path []Vertex) {
+func Path(u, v config.Vertex, next config.NextHopTable) (path []config.Vertex) {
 	if next[u][v] == nil {
-		return []Vertex{}
+		return []config.Vertex{}
 	}
-	path = []Vertex{u}
+	path = []config.Vertex{u}
 	for u != v {
 		u = *next[u][v]
 		path = append(path, u)
@@ -124,19 +218,32 @@ func Path(u, v Vertex, next NextHopTable) (path []Vertex) {
 	return path
 }
 
-func GetBoardcastList(id Vertex, nh NextHopTable) (tosend map[Vertex]bool) {
-	tosend = make(map[Vertex]bool)
-	for _, element := range nh[id] {
+func (g *IG) SetNHTable(nh config.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
+	g.NhTable = nh
+	g.NhTableHash = table_hash
+	g.nhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
+}
+
+func (g *IG) GetNHTable(checkChange bool) config.NextHopTable {
+	if time.Now().After(g.nhTableExpire) {
+		g.RecalculateNhTable(checkChange)
+	}
+	return g.NhTable
+}
+
+func (g *IG) GetBoardcastList(id config.Vertex) (tosend map[config.Vertex]bool) {
+	tosend = make(map[config.Vertex]bool)
+	for _, element := range g.NhTable[id] {
 		tosend[*element] = true
 	}
 	return
 }
 
-func GetBoardcastThroughList(id Vertex, src Vertex, nh NextHopTable) (tosend map[Vertex]bool) {
-	tosend = make(map[Vertex]bool)
-	for check_id, _ := range GetBoardcastList(id, nh) {
-		for _, path_node := range Path(src, check_id, nh) {
-			if path_node == id {
+func (g *IG) GetBoardcastThroughList(self_id config.Vertex, in_id config.Vertex, src_id config.Vertex) (tosend map[config.Vertex]bool) {
+	tosend = make(map[config.Vertex]bool)
+	for check_id, _ := range g.GetBoardcastList(self_id) {
+		for _, path_node := range Path(src_id, check_id, g.NhTable) {
+			if path_node == self_id && check_id != in_id {
 				tosend[check_id] = true
 				continue
 			}
@@ -147,13 +254,13 @@ func GetBoardcastThroughList(id Vertex, src Vertex, nh NextHopTable) (tosend map
 
 func Solve() {
 	var g IG
-	g.Init(4)
-	g.Edge(1, 2, 0.5)
-	g.Edge(2, 1, 0.5)
-	g.Edge(2, 3, 2)
-	g.Edge(3, 2, 2)
-	g.Edge(2, 4, 0.7)
-	g.Edge(4, 2, 2)
+	//g.Init()
+	g.UpdateLentancy(1, 2, S2TD(0.5), false)
+	g.UpdateLentancy(2, 1, S2TD(0.5), false)
+	g.UpdateLentancy(2, 3, S2TD(2), false)
+	g.UpdateLentancy(3, 2, S2TD(2), false)
+	g.UpdateLentancy(2, 4, S2TD(0.7), false)
+	g.UpdateLentancy(4, 2, S2TD(2), false)
 	dist, next := FloydWarshall(g)
 	fmt.Println("pair\tdist\tpath")
 	for u, m := range dist {
