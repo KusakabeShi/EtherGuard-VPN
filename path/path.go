@@ -3,6 +3,7 @@ package path
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
@@ -20,7 +21,7 @@ const (
 )
 
 func (g *IG) GetCurrentTime() time.Time {
-	return time.Now()
+	return time.Now().Round(0)
 }
 
 // A Graph is the interface implemented by graphs that
@@ -44,7 +45,8 @@ type Fullroute struct {
 // IG is a graph of integers that satisfies the Graph interface.
 type IG struct {
 	Vert                      map[config.Vertex]bool
-	Edges                     map[config.Vertex]map[config.Vertex]Latency
+	edges                     map[config.Vertex]map[config.Vertex]Latency
+	edgelock                  sync.RWMutex
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
 	NodeReportTimeout         time.Duration
@@ -62,7 +64,7 @@ func S2TD(secs float64) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting) IG {
+func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting) *IG {
 	g := IG{
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
@@ -70,10 +72,10 @@ func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateS
 		RecalculateCoolDown:       S2TD(theconfig.RecalculateCoolDown),
 	}
 	g.Vert = make(map[config.Vertex]bool, num_node)
-	g.Edges = make(map[config.Vertex]map[config.Vertex]Latency, num_node)
+	g.edges = make(map[config.Vertex]map[config.Vertex]Latency, num_node)
 	g.IsSuperMode = IsSuperMode
 
-	return g
+	return &g
 }
 
 func (g *IG) GetWeightType(x float64) float64 {
@@ -91,7 +93,7 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 	oldval := g.Weight(u, v) * 1000
 	newval *= 1000
 	if g.IsSuperMode {
-		return (oldval-newval)*(oldval*g.JitterToleranceMultiplier) <= g.JitterTolerance
+		return (oldval-newval)*(oldval*g.JitterToleranceMultiplier) >= g.JitterTolerance
 	} else {
 		return g.GetWeightType(oldval) == g.GetWeightType(newval)
 	}
@@ -100,16 +102,15 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 	if g.RecalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
 		dist, next := FloydWarshall(g)
+		changed = false
 		if checkchange {
 		CheckLoop:
 			for src, dsts := range next {
-				for dst, cost := range dsts {
+				for dst, old_next := range dsts {
 					nexthop := g.Next(src, dst)
-					if nexthop != nil {
-						changed = cost == nexthop
-						if changed {
-							break CheckLoop
-						}
+					if old_next != nexthop {
+						changed = true
+						break CheckLoop
 					}
 				}
 			}
@@ -122,26 +123,32 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 }
 
 func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bool) (changed bool) {
+	g.edgelock.Lock()
 	g.Vert[u] = true
 	g.Vert[v] = true
+	g.edgelock.Unlock()
 	w := float64(dt) / float64(time.Second)
-	if _, ok := g.Edges[u]; !ok {
-		g.Edges[u] = make(map[config.Vertex]Latency)
+	if _, ok := g.edges[u]; !ok {
+		g.edgelock.Lock()
+		g.edges[u] = make(map[config.Vertex]Latency)
+		g.edgelock.Unlock()
 	}
 	if g.ShouldUpdate(u, v, w) {
 		changed = g.RecalculateNhTable(checkchange)
 	}
-	g.Edges[u][v] = Latency{
+	g.edgelock.Lock()
+	g.edges[u][v] = Latency{
 		ping: w,
 		time: time.Now(),
 	}
+	g.edgelock.Unlock()
 	return
 }
 func (g IG) Vertices() map[config.Vertex]bool {
 	return g.Vert
 }
 func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
-	for k := range g.Edges[v] {
+	for k := range g.edges[v] {
 		vs = append(vs, k)
 	}
 	return vs
@@ -158,17 +165,19 @@ func (g IG) Next(u, v config.Vertex) *config.Vertex {
 }
 
 func (g IG) Weight(u, v config.Vertex) float64 {
-	if _, ok := g.Edges[u]; !ok {
-		g.Edges[u] = make(map[config.Vertex]Latency)
+	if _, ok := g.edges[u]; !ok {
+		g.edgelock.Lock()
+		g.edges[u] = make(map[config.Vertex]Latency)
+		g.edgelock.Unlock()
 		return Infinity
 	}
-	if _, ok := g.Edges[u][v]; !ok {
+	if _, ok := g.edges[u][v]; !ok {
 		return Infinity
 	}
-	if time.Now().After(g.Edges[u][v].time.Add(g.NodeReportTimeout)) {
+	if time.Now().After(g.edges[u][v].time.Add(g.NodeReportTimeout)) {
 		return Infinity
 	}
-	return g.Edges[u][v].ping
+	return g.edges[u][v].ping
 }
 
 func FloydWarshall(g Graph) (dist config.DistTable, next config.NextHopTable) {

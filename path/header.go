@@ -7,7 +7,7 @@ import (
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 )
 
-const EgHeaderLen = 12
+const EgHeaderLen = 16
 
 type EgHeader struct {
 	buf []byte
@@ -71,4 +71,11 @@ func (e EgHeader) GetPacketLength() uint16 {
 }
 func (e EgHeader) SetPacketLength(length uint16) {
 	binary.BigEndian.PutUint16(e.buf[10:12], length)
+}
+
+func (e EgHeader) GetMessageID() uint32 {
+	return binary.BigEndian.Uint32(e.buf[12:16])
+}
+func (e EgHeader) SetMessageID(MessageID uint32) {
+	binary.BigEndian.PutUint32(e.buf[12:16], MessageID)
 }

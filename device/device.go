@@ -81,11 +81,13 @@ type Device struct {
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
+	MsgCount    uint32
 	IsSuperNode bool
 	ID          config.Vertex
 	graph       *path.IG
 	l2fib       map[tap.MacAddress]config.Vertex
 	LogTransit  bool
+	LogControl  bool
 	DRoute      config.DynamicRouteInfo
 	DupData     fixed_time_cache.Cache
 
@@ -302,7 +304,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, theconfigpath string, theconfig *config.EdgeConfig, superevents *path.SUPER_Events) *Device {
+func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, theconfigpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
 	device.closed = make(chan struct{})
@@ -317,6 +319,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	device.tap.mtu = int32(mtu)
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
 	device.peers.IDMap = make(map[config.Vertex]*Peer)
+	device.peers.SuperPeer = make(map[NoisePublicKey]*Peer)
 	device.IsSuperNode = IsSuperNode
 	device.ID = id
 	device.graph = graph
@@ -329,14 +332,18 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.Event_server_pong = superevents.Event_server_pong
 		device.Event_server_register = superevents.Event_server_register
 		device.Event_server_NhTable_changed = superevents.Event_server_NhTable_changed
+		device.LogTransit = sconfig.LogLevel.LogTransit
+		device.LogControl = sconfig.LogLevel.LogControl
 		go device.RoutineRecalculateNhTable()
 	} else {
 		device.EdgeConfigPath = theconfigpath
-		device.EdgeConfig = theconfig
-		device.DRoute = theconfig.DynamicRoute
-		device.DupData = *fixed_time_cache.NewCache(path.S2TD(theconfig.DynamicRoute.DupCheckTimeout))
+		device.EdgeConfig = econfig
+		device.DRoute = econfig.DynamicRoute
+		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Event_save_config = make(chan struct{}, 1<<5)
+		device.LogTransit = econfig.LogLevel.LogTransit
+		device.LogControl = econfig.LogLevel.LogControl
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()

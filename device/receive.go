@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -410,7 +411,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if elem == nil {
 			return
 		}
-		var EgBody path.EgHeader
+		var EgHeader path.EgHeader
 		var err error
 		var src_nodeID config.Vertex
 		var dst_nodeID config.Vertex
@@ -445,11 +446,11 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 		peer.timersDataReceived()
 
-		EgBody, err = path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
-		src_nodeID = EgBody.GetSrc()
-		dst_nodeID = EgBody.GetDst()
-		elem.packet = elem.packet[:EgBody.GetPacketLength()]
-		packet_type = EgBody.GetUsage()
+		EgHeader, err = path.NewEgHeader(elem.packet[0:path.EgHeaderLen]) // EG header
+		src_nodeID = EgHeader.GetSrc()
+		dst_nodeID = EgHeader.GetDst()
+		elem.packet = elem.packet[:EgHeader.GetPacketLength()+path.EgHeaderLen] // EG header + true packet
+		packet_type = EgHeader.GetUsage()
 
 		if device.IsSuperNode {
 			peer.LastPingReceived = time.Now()
@@ -472,7 +473,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			case path.SuperNodeMessage:
 				should_process = true
 			case path.ControlMessage:
-				packet := elem.packet[path.EgHeaderLen:]
+				packet := elem.packet[path.EgHeaderLen:] //true packet
 				if device.CheckNoDup(packet) {
 					should_process = true
 					should_transfer = true
@@ -498,11 +499,11 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 		}
 		if should_transfer {
-			l2ttl := EgBody.GetTTL()
+			l2ttl := EgHeader.GetTTL()
 			if l2ttl == 0 {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
-				EgBody.SetTTL(l2ttl - 1)
+				EgHeader.SetTTL(l2ttl - 1)
 				if dst_nodeID == path.Boardcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == path.ControlMessage { // Control Message will try send to every know node regardless the connectivity
@@ -524,7 +525,15 @@ func (peer *Peer) RoutineSequentialReceiver() {
 
 		if should_process {
 			if packet_type != path.NornalPacket {
-				device.process_received(packet_type, elem.packet[path.EgHeaderLen:])
+				if device.LogControl {
+					if peer.GetEndpointDstStr() != "" {
+						fmt.Printf("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]) + "\n")
+					}
+				}
+				err = device.process_received(packet_type, elem.packet[path.EgHeaderLen:])
+				if err != nil {
+					device.log.Errorf(err.Error())
+				}
 			}
 		}
 

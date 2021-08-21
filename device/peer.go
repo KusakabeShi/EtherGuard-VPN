@@ -7,8 +7,10 @@ package device
 
 import (
 	"container/list"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,6 +90,9 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	}
 
 	// create peer
+	if device.LogControl {
+		fmt.Println("Create peer with ID : " + strconv.Itoa(int(id)) + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
+	}
 	peer := new(Peer)
 	peer.Lock()
 	defer peer.Unlock()
@@ -97,6 +102,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
+	peer.endpoint_trylist = make(map[string]time.Time)
 
 	// map public key
 	_, ok := device.peers.keyMap[pk]
@@ -122,8 +128,8 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	// add
 	if id == path.SuperNodeMessage { // To communicate with supernode
 		device.peers.SuperPeer[pk] = peer
+		device.peers.keyMap[pk] = peer
 	} else { // Regular peer, other edgenodes
-		_, ok = device.peers.IDMap[id]
 		device.peers.keyMap[pk] = peer
 		device.peers.IDMap[id] = peer
 	}
@@ -288,6 +294,12 @@ func (peer *Peer) Stop() {
 	peer.ZeroAndFlushAll()
 }
 
+func (peer *Peer) SetPSK(psk NoisePresharedKey) {
+	peer.handshake.mutex.Lock()
+	peer.handshake.presharedKey = psk
+	peer.handshake.mutex.Unlock()
+}
+
 func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 	if peer.disableRoaming {
 		return
@@ -298,9 +310,15 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 }
 
 func (peer *Peer) GetEndpointSrcStr() string {
+	if peer.endpoint == nil {
+		return ""
+	}
 	return peer.endpoint.SrcToString()
 }
 
 func (peer *Peer) GetEndpointDstStr() string {
+	if peer.endpoint == nil {
+		return ""
+	}
 	return peer.endpoint.DstToString()
 }

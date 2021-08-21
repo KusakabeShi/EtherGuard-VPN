@@ -3,6 +3,7 @@ package path
 import (
 	"bytes"
 	"encoding/gob"
+	"strconv"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
@@ -19,94 +20,125 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 }
 
 type RegisterMsg struct {
-	Node_id config.Vertex
+	Node_id config.Vertex `struc:"uint32"`
+	Init    bool
 }
 
-func ParseRegisterMsg(bin []byte) (RegisterMsg, error) {
-	var StructPlace RegisterMsg
+func (c *RegisterMsg) ToString() string {
+	return "RegisterMsg Node_id:" + strconv.Itoa(int(c.Node_id))
+}
+
+func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type UpdatePeerMsg struct {
-	State_hash [32]byte
+	State_hash [32]byte `struc:"[32]uint8"`
 }
 
-func ParseUpdatePeerMsg(bin []byte) (UpdatePeerMsg, error) {
-	var StructPlace UpdatePeerMsg
+func (c *UpdatePeerMsg) ToString() string {
+	return "UpdatePeerMsg State_hash:" + string(c.State_hash[:])
+}
+
+func ParseUpdatePeerMsg(bin []byte) (StructPlace UpdatePeerMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type UpdateNhTableMsg struct {
-	State_hash [32]byte
+	State_hash [32]byte `struc:"[32]uint8"`
 }
 
-func ParseUpdateNhTableMsg(bin []byte) (UpdateNhTableMsg, error) {
-	var StructPlace UpdateNhTableMsg
+func (c *UpdateNhTableMsg) ToString() string {
+	return "UpdateNhTableMsg State_hash:" + string(c.State_hash[:])
+}
+
+func ParseUpdateNhTableMsg(bin []byte) (StructPlace UpdateNhTableMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type PingMsg struct {
-	Src_nodeID config.Vertex
-	Time       time.Time
+	RequestID  uint32        `struc:"uint32"`
+	Src_nodeID config.Vertex `struc:"uint32"`
+	Time       time.Time     `struc:"uint64"`
 }
 
-func ParsePingMsg(bin []byte) (PingMsg, error) {
-	var StructPlace PingMsg
+func (c *PingMsg) ToString() string {
+	return "PingMsg SID:" + strconv.Itoa(int(c.Src_nodeID)) + " Time:" + c.Time.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
+}
+
+func ParsePingMsg(bin []byte) (StructPlace PingMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type PongMsg struct {
-	Src_nodeID config.Vertex
-	Dst_nodeID config.Vertex
-	Timediff   time.Duration
+	RequestID  uint32
+	Src_nodeID config.Vertex `struc:"uint32"`
+	Dst_nodeID config.Vertex `struc:"uint32"`
+	Timediff   time.Duration `struc:"int64"`
 }
 
-func ParsePongMsg(bin []byte) (PongMsg, error) {
-	var StructPlace PongMsg
+func (c *PongMsg) ToString() string {
+	return "PongMsg SID:" + strconv.Itoa(int(c.Src_nodeID)) + " DID:" + strconv.Itoa(int(c.Dst_nodeID)) + " Timediff:" + c.Timediff.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
+}
+
+func ParsePongMsg(bin []byte) (StructPlace PongMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type RequestPeerMsg struct {
-	Request_ID uint32
+	Request_ID uint32 `struc:"uint32"`
 }
 
-func ParseRequestPeerMsg(bin []byte) (RequestPeerMsg, error) {
-	var StructPlace RequestPeerMsg
+func (c *RequestPeerMsg) ToString() string {
+	return "RequestPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID))
+}
+
+func ParseRequestPeerMsg(bin []byte) (StructPlace RequestPeerMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type BoardcastPeerMsg struct {
-	RequestID uint32
-	NodeID    config.Vertex
-	PubKey    [32]byte
-	PSKey     [32]byte
-	ConnURL   string
+	Request_ID uint32        `struc:"uint32"`
+	NodeID     config.Vertex `struc:"uint32"`
+	PubKey     [32]byte      `struc:"[32]uint8"`
+	PSKey      [32]byte      `struc:"[32]uint8"`
+	ConnURL    string
 }
 
-func ParseBoardcastPeerMsg(bin []byte) (BoardcastPeerMsg, error) {
-	var StructPlace BoardcastPeerMsg
+func (c *BoardcastPeerMsg) ToString() string {
+	return "BoardcastPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID)) + " NodeID:" + strconv.Itoa(int(c.NodeID)) + " ConnURL:" + c.ConnURL
+}
+
+func ParseBoardcastPeerMsg(bin []byte) (StructPlace BoardcastPeerMsg, err error) {
 	var b bytes.Buffer
+	b.Write(bin)
 	d := gob.NewDecoder(&b)
-	err := d.Decode(&StructPlace)
-	return StructPlace, err
+	err = d.Decode(&StructPlace)
+	return
 }
 
 type SUPER_Events struct {

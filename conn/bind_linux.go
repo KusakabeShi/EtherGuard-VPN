@@ -155,11 +155,11 @@ again:
 		}
 	}
 	var fns []ReceiveFunc
-	if sock4 != -1 {
+	if sock4 != -1 && bind.use4 {
 		bind.sock4 = sock4
 		fns = append(fns, bind.receiveIPv4)
 	}
-	if sock6 != -1 {
+	if sock6 != -1 && bind.use6 {
 		bind.sock6 = sock6
 		fns = append(fns, bind.receiveIPv6)
 	}

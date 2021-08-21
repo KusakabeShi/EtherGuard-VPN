@@ -8,6 +8,8 @@ all: generate-version-and-build
 MAKEFLAGS += --no-print-directory
 
 generate-version-and-build:
+	go mod download && \
+	go mod tidy && \
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
 	tag="$$(git describe --dirty 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \

@@ -18,6 +18,7 @@ type SuperConfig struct {
 	PrivKeyV6               string
 	ListenPort              int
 	LogLevel                LoggerInfo
+	RePushConfigInterval    float64
 	GraphRecalculateSetting GraphRecalculateSetting
 	Peers                   []PeerInfo
 }
@@ -36,6 +37,7 @@ type InterfaceConf struct {
 type PeerInfo struct {
 	NodeID   Vertex
 	PubKey   string
+	PSKey    string
 	EndPoint string
 	Static   bool
 }
@@ -43,6 +45,7 @@ type PeerInfo struct {
 type LoggerInfo struct {
 	LogLevel   string
 	LogTransit bool
+	LogControl bool
 }
 
 // Nonnegative integer ID of vertex
@@ -100,4 +103,3 @@ type HTTP_Peerinfo struct {
 type HTTP_Peers struct {
 	Peers map[string]HTTP_Peerinfo
 }
-

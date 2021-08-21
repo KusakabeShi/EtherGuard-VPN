@@ -8,6 +8,8 @@ import (
 	"hash/crc32"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
@@ -18,6 +20,16 @@ import (
 func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 	if peer == nil {
 		return
+	}
+	if device.LogControl {
+		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
+		if EgHeader.GetUsage() != path.NornalPacket {
+			device.MsgCount += 1
+			EgHeader.SetMessageID(device.MsgCount)
+			if peer.GetEndpointDstStr() != "" {
+				fmt.Printf("Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]) + "\n")
+			}
+		}
 	}
 	var elem *QueueOutboundElement
 	elem = device.NewOutboundElement()
@@ -135,6 +147,42 @@ func (device *Device) process_received(msg_type path.Usage, body []byte) (err er
 	return
 }
 
+func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret string) {
+	switch msg_type {
+	case path.Register:
+		if content, err := path.ParseRegisterMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.UpdatePeer:
+		if content, err := path.ParseUpdatePeerMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.UpdateNhTable:
+		if content, err := path.ParseUpdateNhTableMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.PingPacket:
+		if content, err := path.ParsePingMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.PongPacket:
+		if content, err := path.ParsePongMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.RequestPeer:
+		if content, err := path.ParseRequestPeerMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	case path.BoardcastPeer:
+		if content, err := path.ParseBoardcastPeerMsg(body); err == nil {
+			ret = content.ToString()
+		}
+	default:
+		ret = "Not a valid msg_type"
+	}
+	return
+}
+
 func (device *Device) server_process_RegisterMsg(content path.RegisterMsg) error {
 	device.Event_server_register <- content
 	return nil
@@ -161,6 +209,7 @@ func (device *Device) process_ping(content path.PingMsg) error {
 	header.SetTTL(200)
 	header.SetUsage(path.PongPacket)
 	header.SetPacketLength(uint16(len(body)))
+	copy(buf[path.EgHeaderLen:], body)
 	if device.DRoute.SuperNode.UseSuperNode {
 		header.SetDst(path.SuperNodeMessage)
 		device.Send2Super(buf, MessageTransportOffsetContent)
@@ -186,7 +235,12 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
 			return nil
 		}
-		resp, err := http.Get(device.DRoute.SuperNode.APIUrl + "/peerinfo?PubKey=" + PubKey2Str(device.staticIdentity.publicKey) + "?State=" + string(content.State_hash[:]))
+
+		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		if device.LogControl {
+			fmt.Println("Download peerinfo from :" + downloadurl)
+		}
+		resp, err := http.Get(downloadurl)
 		if err != nil {
 			return err
 		}
@@ -263,6 +317,9 @@ func (device *Device) RoutineSetEndpoint() {
 							device.log.Errorf("Can't bind " + url)
 							delete(thepeer.endpoint_trylist, url)
 						}
+						if device.LogControl {
+							fmt.Println("Set endpoint to " + endpoint.DstToString() + " for NodeID:" + strconv.Itoa(int(thepeer.ID)))
+						}
 						thepeer.SetEndpointFromPacket(endpoint)
 						NextRun = true
 						thepeer.endpoint_trylist[url] = time.Now()
@@ -312,9 +369,11 @@ func (device *Device) RoutineRegister() {
 	if !(device.DRoute.SuperNode.UseSuperNode) {
 		return
 	}
+	first := true
 	for {
 		body, _ := path.GetByte(path.RegisterMsg{
 			Node_id: device.ID,
+			Init:    first,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
@@ -326,6 +385,7 @@ func (device *Device) RoutineRegister() {
 		copy(buf[path.EgHeaderLen:], body)
 		device.Send2Super(buf, MessageTransportOffsetContent)
 		time.Sleep(path.S2TD(device.DRoute.SendPingInterval))
+		first = false
 	}
 }
 
@@ -343,7 +403,6 @@ func (device *Device) RoutineRecalculateNhTable() {
 			return
 		}
 		for {
-
 			device.graph.RecalculateNhTable(false)
 			time.Sleep(device.graph.NodeReportTimeout)
 		}
@@ -382,7 +441,11 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
 			return nil
 		}
-		resp, err := http.Get(device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + PubKey2Str(device.staticIdentity.publicKey) + "?State=" + string(content.State_hash[:]))
+		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		if device.LogControl {
+			fmt.Println("Download NhTable from :" + downloadurl)
+		}
+		resp, err := http.Get(downloadurl)
 		if err != nil {
 			return err
 		}
@@ -407,11 +470,11 @@ func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error 
 			}
 
 			response := path.BoardcastPeerMsg{
-				RequestID: content.Request_ID,
-				NodeID:    peer.ID,
-				PubKey:    pubkey,
-				PSKey:     peer.handshake.presharedKey,
-				ConnURL:   peer.endpoint.DstToString(),
+				Request_ID: content.Request_ID,
+				NodeID:     peer.ID,
+				PubKey:     pubkey,
+				PSKey:      peer.handshake.presharedKey,
+				ConnURL:    peer.endpoint.DstToString(),
 			}
 			body, err := path.GetByte(response)
 			if err != nil {

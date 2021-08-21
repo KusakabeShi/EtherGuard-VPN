@@ -183,8 +183,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	graph := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting)
 	graph.SetNHTable(tconfig.NextHopTable, [32]byte{})
 
-	the_device := device.NewDevice(thetap, tconfig.NodeID, conn.NewDefaultBind(), logger, &graph, false, configPath, &tconfig, nil)
-	the_device.LogTransit = tconfig.LogLevel.LogTransit
+	the_device := device.NewDevice(thetap, tconfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &tconfig, nil, nil)
 	defer the_device.Close()
 	var sk [32]byte
 	sk_slice, _ := base64.StdEncoding.DecodeString(tconfig.PrivKey)
