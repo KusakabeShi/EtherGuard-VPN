@@ -92,6 +92,7 @@ func (tap *StdIOTap) Events() chan Event {
 func (tap *StdIOTap) Close() error {
 	tap.events <- EventDown
 	os.Stdin.Close()
+	os.Stdin.WriteString("end\n")
 	close(tap.events)
 	return nil
 } // stops the device and closes the event channel

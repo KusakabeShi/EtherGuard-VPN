@@ -14,12 +14,12 @@ listenport: 3006
 loglevel:
   loglevel: normal
   logtransit: true
-  logcontrol: false
+  logcontrol: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40
   conntimeout: 30
-  savenewpeers: true
+  savenewpeers: false
   supernode:
     usesupernode: false
     connurlv4: 127.0.0.1:3000
@@ -29,7 +29,7 @@ dynamicroute:
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 40
   p2p:
-    usep2p: false
+    usep2p: true
     sendpeerinterval: 20
     peeralivetimeout: 30
     graphrecalculatesetting:

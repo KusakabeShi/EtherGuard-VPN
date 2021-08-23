@@ -446,6 +446,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 		peer.timersDataReceived()
 
+		if len(elem.packet) <= path.EgHeaderLen {
+			device.log.Errorf("Invalid EgHeader from peer %v", peer)
+			goto skip
+		}
 		EgHeader, err = path.NewEgHeader(elem.packet[0:path.EgHeaderLen]) // EG header
 		src_nodeID = EgHeader.GetSrc()
 		dst_nodeID = EgHeader.GetDst()
@@ -530,7 +534,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						fmt.Printf("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]) + "\n")
 					}
 				}
-				err = device.process_received(packet_type, elem.packet[path.EgHeaderLen:])
+				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])
 				if err != nil {
 					device.log.Errorf(err.Error())
 				}
@@ -539,6 +543,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 
 		if should_receive { // Write message to tap device
 			if packet_type == path.NornalPacket {
+				if len(elem.packet) <= path.EgHeaderLen+12 {
+					device.log.Errorf("Invalid normal packet from peer %v", peer)
+					goto skip
+				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
 				if !tap.IsBoardCast(src_macaddr) {
 					device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table

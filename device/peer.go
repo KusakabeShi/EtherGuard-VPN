@@ -27,11 +27,12 @@ type Peer struct {
 	handshake        Handshake
 	device           *Device
 	endpoint         conn.Endpoint
-	endpoint_trylist map[string]time.Time
+	endpoint_trylist sync.Map //map[string]time.Time
 	LastPingReceived time.Time
 	stopping         sync.WaitGroup // routines pending stop
 
-	ID config.Vertex
+	ID               config.Vertex
+	AskedForNeighbor bool
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -102,8 +103,6 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
-	peer.endpoint_trylist = make(map[string]time.Time)
-
 	// map public key
 	_, ok := device.peers.keyMap[pk]
 	if ok {

@@ -47,14 +47,17 @@ func (device *Device) BoardcastPacket(skip_list map[config.Vertex]bool, packet [
 	for node_id, _ := range skip_list {
 		send_list[node_id] = false
 	}
+	device.peers.RLock()
 	for node_id, should_send := range send_list {
 		if should_send {
 			device.SendPacket(device.peers.IDMap[node_id], packet, offset)
 		}
 	}
+	device.peers.RUnlock()
 }
 
 func (device *Device) SpreadPacket(skip_list map[config.Vertex]bool, packet []byte, offset int) { // Send packet to all peers no matter it is alive
+	device.peers.RLock()
 	for peer_id, peer_out := range device.peers.IDMap {
 		if _, ok := skip_list[peer_id]; ok {
 			if device.LogTransit {
@@ -64,10 +67,12 @@ func (device *Device) SpreadPacket(skip_list map[config.Vertex]bool, packet []by
 		}
 		device.SendPacket(peer_out, packet, MessageTransportOffsetContent)
 	}
+	device.peers.RUnlock()
 }
 
 func (device *Device) TransitBoardcastPacket(src_nodeID config.Vertex, in_id config.Vertex, packet []byte, offset int) {
 	node_boardcast_list := device.graph.GetBoardcastThroughList(device.ID, in_id, src_nodeID)
+	device.peers.RLock()
 	for peer_id := range node_boardcast_list {
 		peer_out := device.peers.IDMap[peer_id]
 		if device.LogTransit {
@@ -75,9 +80,11 @@ func (device *Device) TransitBoardcastPacket(src_nodeID config.Vertex, in_id con
 		}
 		device.SendPacket(peer_out, packet, offset)
 	}
+	device.peers.RUnlock()
 }
 
 func (device *Device) Send2Super(packet []byte, offset int) {
+	device.peers.RLock()
 	if device.DRoute.SuperNode.UseSuperNode {
 		for _, peer_out := range device.peers.SuperPeer {
 			if device.LogTransit {
@@ -86,6 +93,7 @@ func (device *Device) Send2Super(packet []byte, offset int) {
 			device.SendPacket(peer_out, packet, offset)
 		}
 	}
+	device.peers.RUnlock()
 }
 
 func (device *Device) CheckNoDup(packet []byte) bool {
@@ -97,7 +105,7 @@ func (device *Device) CheckNoDup(packet []byte) bool {
 	return !ok
 }
 
-func (device *Device) process_received(msg_type path.Usage, body []byte) (err error) {
+func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []byte) (err error) {
 	if device.IsSuperNode {
 		switch msg_type {
 		case path.Register:
@@ -127,10 +135,10 @@ func (device *Device) process_received(msg_type path.Usage, body []byte) (err er
 			}
 		case path.PongPacket:
 			if content, err := path.ParsePongMsg(body); err == nil {
-				return device.process_pong(content)
+				return device.process_pong(peer, content)
 			}
-		case path.RequestPeer:
-			if content, err := path.ParseRequestPeerMsg(body); err == nil {
+		case path.QueryPeer:
+			if content, err := path.ParseQueryPeerMsg(body); err == nil {
 				return device.process_RequestPeerMsg(content)
 			}
 		case path.BoardcastPeer:
@@ -166,8 +174,8 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret str
 		if content, err := path.ParsePongMsg(body); err == nil {
 			ret = content.ToString()
 		}
-	case path.RequestPeer:
-		if content, err := path.ParseRequestPeerMsg(body); err == nil {
+	case path.QueryPeer:
+		if content, err := path.ParseQueryPeerMsg(body); err == nil {
 			ret = content.ToString()
 		}
 	case path.BoardcastPeer:
@@ -196,6 +204,7 @@ func (device *Device) process_ping(content path.PingMsg) error {
 		Dst_nodeID: device.ID,
 		Timediff:   device.graph.GetCurrentTime().Sub(content.Time),
 	}
+	device.graph.UpdateLentancy(content.Src_nodeID, device.ID, PongMSG.Timediff, false)
 	body, err := path.GetByte(&PongMSG)
 	if err != nil {
 		return err
@@ -218,9 +227,27 @@ func (device *Device) process_ping(content path.PingMsg) error {
 	return nil
 }
 
-func (device *Device) process_pong(content path.PongMsg) error {
+func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 	if device.DRoute.P2P.UseP2P {
 		device.graph.UpdateLentancy(content.Src_nodeID, content.Dst_nodeID, content.Timediff, false)
+		if !peer.AskedForNeighbor {
+			QueryPeerMsg := path.QueryPeerMsg{
+				Request_ID: uint32(device.ID),
+			}
+			body, err := path.GetByte(&QueryPeerMsg)
+			if err != nil {
+				return err
+			}
+			buf := make([]byte, path.EgHeaderLen+len(body))
+			header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
+			header.SetSrc(device.ID)
+			header.SetTTL(200)
+			header.SetUsage(path.QueryPeer)
+			header.SetPacketLength(uint16(len(body)))
+			copy(buf[path.EgHeaderLen:], body)
+			device.SendPacket(peer, buf, MessageTransportOffsetContent)
+			peer.AskedForNeighbor = true
+		}
 	}
 	return nil
 }
@@ -277,7 +304,7 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).Before(time.Now()) {
 				//Peer died, try to switch to this new endpoint
 				for url, _ := range peerinfo.Connurl {
-					thepeer.endpoint_trylist[url] = time.Time{} //another gorouting will process it
+					thepeer.endpoint_trylist.Store(url, time.Time{}) //another gorouting will process it
 					send_signal = true
 				}
 			}
@@ -300,32 +327,36 @@ func (device *Device) RoutineSetEndpoint() {
 		for _, thepeer := range device.peers.IDMap {
 			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) {
 				//Peer alives
-				for url := range thepeer.endpoint_trylist {
-					delete(thepeer.endpoint_trylist, url)
-				}
+				thepeer.endpoint_trylist.Range(func(key, value interface{}) bool {
+					thepeer.endpoint_trylist.Delete(key)
+					return true
+				})
 			} else {
-				//Peer died, try to switch to this new endpoint
-				for url, trytime := range thepeer.endpoint_trylist {
+				thepeer.endpoint_trylist.Range(func(key interface{}, value interface{}) bool {
+					url := key.(string)
+					trytime := value.(time.Time)
 					if trytime.Sub(time.Time{}) != time.Duration(0) && time.Now().Sub(trytime) > path.S2TD(device.DRoute.ConnTimeOut) {
-						delete(thepeer.endpoint_trylist, url)
+						thepeer.endpoint_trylist.Delete(key)
 					} else {
 						endpoint, err := device.Bind().ParseEndpoint(url) //trying to bind first url in the list and wait device.DRoute.P2P.PeerAliveTimeout seconds
 						if err != nil {
 							device.log.Errorf("Can't bind " + url)
-							delete(thepeer.endpoint_trylist, url)
+							thepeer.endpoint_trylist.Delete(url)
+							return true
 						}
 						if device.LogControl {
 							fmt.Println("Set endpoint to " + endpoint.DstToString() + " for NodeID:" + strconv.Itoa(int(thepeer.ID)))
 						}
 						thepeer.SetEndpointFromPacket(endpoint)
 						NextRun = true
-						thepeer.endpoint_trylist[url] = time.Now()
+						thepeer.endpoint_trylist.Store(key, time.Now())
 						//Send Ping message to it
 						packet, err := device.GeneratePingPacket(device.ID)
 						device.SendPacket(thepeer, packet, MessageTransportOffsetContent)
-						break
+						return false
 					}
-				}
+					return true
+				})
 			}
 		}
 	ClearChanLoop:
@@ -404,7 +435,18 @@ func (device *Device) RoutineRecalculateNhTable() {
 			time.Sleep(device.graph.NodeReportTimeout)
 		}
 	}
+}
 
+func (device *Device) RoutineSpreadAllMyNeighbor() {
+	if !device.DRoute.P2P.UseP2P {
+		return
+	}
+	for {
+		device.process_RequestPeerMsg(path.QueryPeerMsg{
+			Request_ID: 0,
+		})
+		time.Sleep(path.S2TD(device.DRoute.P2P.SendPeerInterval))
+	}
 }
 
 func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, error) {
@@ -459,12 +501,17 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 	return nil
 }
 
-func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error {
+func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { //Send all my peers to all my peers
 	if device.DRoute.P2P.UseP2P {
+		device.peers.RLock()
 		for pubkey, peer := range device.peers.keyMap {
 			if peer.ID >= path.Special_NodeID {
 				continue
 			}
+			if peer.endpoint == nil {
+				continue
+			}
+			peer.handshake.mutex.RLock()
 			response := path.BoardcastPeerMsg{
 				Request_ID: content.Request_ID,
 				NodeID:     peer.ID,
@@ -472,6 +519,7 @@ func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error 
 				PSKey:      peer.handshake.presharedKey,
 				ConnURL:    peer.endpoint.DstToString(),
 			}
+			peer.handshake.mutex.RUnlock()
 			body, err := path.GetByte(response)
 			if err != nil {
 				device.log.Errorf("Error at receivesendproc.go line221: ", err)
@@ -487,6 +535,7 @@ func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error 
 			copy(buf[path.EgHeaderLen:], body)
 			device.SpreadPacket(make(map[config.Vertex]bool), buf, MessageTransportOffsetContent)
 		}
+		device.peers.RUnlock()
 	}
 	return nil
 }
@@ -494,6 +543,9 @@ func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error 
 func (device *Device) process_BoardcastPeerMsg(content path.BoardcastPeerMsg) error {
 	if device.DRoute.P2P.UseP2P {
 		var sk NoisePublicKey
+		if bytes.Equal(content.PubKey[:], device.staticIdentity.publicKey[:]) {
+			return nil
+		}
 		copy(sk[:], content.PubKey[:])
 		thepeer := device.LookupPeer(sk)
 		if thepeer == nil { //not exist in local
@@ -511,7 +563,8 @@ func (device *Device) process_BoardcastPeerMsg(content path.BoardcastPeerMsg) er
 		}
 		if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).Before(time.Now()) {
 			//Peer died, try to switch to this new endpoint
-			thepeer.endpoint_trylist[content.ConnURL] = time.Time{} //another gorouting will process it
+			thepeer.endpoint_trylist.Store(content.ConnURL, time.Time{}) //another gorouting will process it
+			device.event_tryendpoint <- struct{}{}
 		}
 
 	}

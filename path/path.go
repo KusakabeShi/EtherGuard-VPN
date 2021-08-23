@@ -46,7 +46,7 @@ type Fullroute struct {
 type IG struct {
 	Vert                      map[config.Vertex]bool
 	edges                     map[config.Vertex]map[config.Vertex]Latency
-	edgelock                  sync.RWMutex
+	edgelock                  *sync.RWMutex
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
 	NodeReportTimeout         time.Duration
@@ -66,6 +66,7 @@ func S2TD(secs float64) time.Duration {
 
 func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting) *IG {
 	g := IG{
+		edgelock:                  &sync.RWMutex{},
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
 		NodeReportTimeout:         S2TD(theconfig.NodeReportTimeout),
@@ -126,13 +127,11 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bo
 	g.edgelock.Lock()
 	g.Vert[u] = true
 	g.Vert[v] = true
-	g.edgelock.Unlock()
 	w := float64(dt) / float64(time.Second)
 	if _, ok := g.edges[u]; !ok {
-		g.edgelock.Lock()
 		g.edges[u] = make(map[config.Vertex]Latency)
-		g.edgelock.Unlock()
 	}
+	g.edgelock.Unlock()
 	if g.ShouldUpdate(u, v, w) {
 		changed = g.RecalculateNhTable(checkchange)
 	}
@@ -145,10 +144,16 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bo
 	return
 }
 func (g IG) Vertices() map[config.Vertex]bool {
-	return g.Vert
+	vr := make(map[config.Vertex]bool)
+	for k, v := range g.Vert { //copy a new list
+		vr[k] = v
+	}
+	return vr
 }
 func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
-	for k := range g.edges[v] {
+	g.edgelock.RLock()
+	defer g.edgelock.RUnlock()
+	for k := range g.edges[v] { //copy a new list
 		vs = append(vs, k)
 	}
 	return vs
@@ -165,10 +170,14 @@ func (g IG) Next(u, v config.Vertex) *config.Vertex {
 }
 
 func (g IG) Weight(u, v config.Vertex) float64 {
+	g.edgelock.RLock()
+	defer g.edgelock.RUnlock()
 	if _, ok := g.edges[u]; !ok {
+		g.edgelock.RUnlock()
 		g.edgelock.Lock()
 		g.edges[u] = make(map[config.Vertex]Latency)
 		g.edgelock.Unlock()
+		g.edgelock.RLock()
 		return Infinity
 	}
 	if _, ok := g.edges[u][v]; !ok {

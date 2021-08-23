@@ -338,7 +338,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.EdgeConfigPath = theconfigpath
 		device.EdgeConfig = econfig
 		device.DRoute = econfig.DynamicRoute
-		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout))
+		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, path.S2TD(60))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Event_save_config = make(chan struct{}, 1<<5)
 		device.LogTransit = econfig.LogLevel.LogTransit
@@ -347,6 +347,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
 		go device.RoutineRecalculateNhTable()
+		go device.RoutineSpreadAllMyNeighbor()
 	}
 	// create queues
 

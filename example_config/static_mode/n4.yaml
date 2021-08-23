@@ -14,7 +14,7 @@ listenport: 3004
 loglevel:
   loglevel: normal
   logtransit: true
-  logcontrol: false
+  logcontrol: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40

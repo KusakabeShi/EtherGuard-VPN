@@ -105,15 +105,15 @@ func ParsePongMsg(bin []byte) (StructPlace PongMsg, err error) {
 	return
 }
 
-type RequestPeerMsg struct {
+type QueryPeerMsg struct {
 	Request_ID uint32 `struc:"uint32"`
 }
 
-func (c *RequestPeerMsg) ToString() string {
-	return "RequestPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID))
+func (c *QueryPeerMsg) ToString() string {
+	return "QueryPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID))
 }
 
-func ParseRequestPeerMsg(bin []byte) (StructPlace RequestPeerMsg, err error) {
+func ParseQueryPeerMsg(bin []byte) (StructPlace QueryPeerMsg, err error) {
 	var b bytes.Buffer
 	b.Write(bin)
 	d := gob.NewDecoder(&b)

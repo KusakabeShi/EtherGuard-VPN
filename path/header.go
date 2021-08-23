@@ -24,7 +24,7 @@ const (
 
 	PingPacket //Comes from other peer
 	PongPacket //Send to everyone, include server
-	RequestPeer
+	QueryPeer
 	BoardcastPeer
 )
 
