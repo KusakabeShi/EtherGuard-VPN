@@ -1,0 +1,111 @@
+interface:
+  itype: stdio
+  ifaceid: 3
+  name: tap3
+  macaddr: AA:BB:CC:DD:EE:03
+  mtu: 1400
+  recvaddr: 127.0.0.1:4003
+  sendaddr: 127.0.0.1:5003
+  humanfriendly: true
+nodeid: 3
+nodename: Node03
+privkey: gJy35nbsd8FuuxyWHjsefN+U+oM7RkuIB1EanNLSVHg=
+listenport: 3003
+loglevel:
+  loglevel: normal
+  logtransit: true
+  logcontrol: false
+dynamicroute:
+  sendpinginterval: 20
+  dupchecktimeout: 40
+  conntimeout: 30
+  savenewpeers: true
+  supernode:
+    usesupernode: false
+    connurlv4: 127.0.0.1:3000
+    pubkeyv4: j8i4dY1i7CUqd/ftaCSfCWosnURiztM+ExI7QRezU2Y=
+    connurlv6: '[::1]:3000'
+    pubkeyv6: cCcPlZw0hVkPSi15G+jpJpKE3TdCVEtO1nSiaedukGw=
+    apiurl: http://127.0.0.1:3000/api
+    supernodeinfotimeout: 40
+  p2p:
+    usep2p: false
+    sendpeerinterval: 20
+    peeralivetimeout: 30
+    graphrecalculatesetting:
+      jittertolerance: 20
+      jittertolerancemultiplier: 1.1
+      nodereporttimeout: 40
+      recalculatecooldown: 5
+  ntpconfig:
+    usentp: true
+    maxserveruse: 5
+    servers:
+    - time.google.com
+    - time1.google.com
+    - time2.google.com
+    - time3.google.com
+    - time4.google.com
+    - time1.facebook.com
+    - time2.facebook.com
+    - time3.facebook.com
+    - time4.facebook.com
+    - time5.facebook.com
+    - time.cloudflare.com
+    - time.apple.com
+    - time.asia.apple.com
+    - time.euro.apple.com
+    - time.windows.com
+nexthoptable:
+  1:
+    2: 2
+    3: 2
+    4: 2
+    5: 2
+    6: 2
+  2:
+    1: 1
+    3: 3
+    4: 4
+    5: 3
+    6: 4
+  3:
+    1: 2
+    2: 2
+    4: 4
+    5: 5
+    6: 4
+  4:
+    1: 2
+    2: 2
+    3: 3
+    5: 3
+    6: 6
+  5:
+    1: 3
+    2: 3
+    3: 3
+    4: 3
+    6: 3
+  6:
+    1: 4
+    2: 4
+    3: 4
+    4: 4
+    5: 4
+peers:
+- nodeid: 2
+  pubkey: csT+hco4Jpa7btMeC9subHk2ZqzxcljcBk/57V0cSEk=
+  pskey: ""
+  endpoint: 127.0.0.1:3002
+  static: true
+- nodeid: 4
+  pubkey: 2EfY85KF1S+3dZ3A55eZcyi0QU+sOzOyuADtJs2U2Ww=
+  pskey: ""
+  endpoint: 127.0.0.1:3004
+  static: true
+- nodeid: 5
+  pubkey: yS7a/e0l0qF7z9MO/P79yYVfLI6UAli2iKjEZa6XmgY=
+  pskey: ""
+  endpoint: 127.0.0.1:3005
+  static: true

@@ -62,9 +62,6 @@ func (device *Device) SpreadPacket(skip_list map[config.Vertex]bool, packet []by
 			}
 			continue
 		}
-		if device.LogTransit {
-			fmt.Printf("Spread Packet packet through %d to %d\n", device.ID, peer_out.ID)
-		}
 		device.SendPacket(peer_out, packet, MessageTransportOffsetContent)
 	}
 }
@@ -468,7 +465,6 @@ func (device *Device) process_RequestPeerMsg(content path.RequestPeerMsg) error 
 			if peer.ID >= path.Special_NodeID {
 				continue
 			}
-
 			response := path.BoardcastPeerMsg{
 				Request_ID: content.Request_ID,
 				NodeID:     peer.ID,

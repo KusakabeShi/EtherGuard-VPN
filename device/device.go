@@ -85,7 +85,7 @@ type Device struct {
 	IsSuperNode bool
 	ID          config.Vertex
 	graph       *path.IG
-	l2fib       map[tap.MacAddress]config.Vertex
+	l2fib       sync.Map
 	LogTransit  bool
 	LogControl  bool
 	DRoute      config.DynamicRouteInfo
@@ -323,7 +323,6 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	device.IsSuperNode = IsSuperNode
 	device.ID = id
 	device.graph = graph
-	device.l2fib = make(map[tap.MacAddress]config.Vertex)
 
 	device.rate.limiter.Init()
 	device.indexTable.Init()

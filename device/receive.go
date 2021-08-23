@@ -540,7 +540,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if should_receive { // Write message to tap device
 			if packet_type == path.NornalPacket {
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
-				device.l2fib[src_macaddr] = src_nodeID // Write to l2fib table
+				if !tap.IsBoardCast(src_macaddr) {
+					device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table
+				}
 				_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)
 				if err != nil && !device.isClosed() {
 					device.log.Errorf("Failed to write packet to TUN device: %v", err)

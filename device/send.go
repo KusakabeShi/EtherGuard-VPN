@@ -252,14 +252,14 @@ func (device *Device) RoutineReadFromTUN() {
 		// lookup peer
 		if tap.IsBoardCast(dstMacAddr) {
 			dst_nodeID = path.Boardcast
-		} else if val, ok := device.l2fib[dstMacAddr]; !ok { //Lookup failed
+		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
 			dst_nodeID = path.Boardcast
 		} else {
-			dst_nodeID = val
+			dst_nodeID = val.(config.Vertex)
 		}
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
-		EgBody.SetPacketLength(uint16(len(elem.packet)))
+		EgBody.SetPacketLength(uint16(len(elem.packet) - path.EgHeaderLen))
 		EgBody.SetTTL(200)
 		EgBody.SetUsage(path.NornalPacket)
 

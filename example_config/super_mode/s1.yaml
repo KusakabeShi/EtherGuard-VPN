@@ -1,0 +1,23 @@
+nodename: NodeSuper
+privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
+privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
+listenport: 3000
+repushconfiginterval: 10
+loglevel:
+  loglevel: normal
+  logtransit: true
+  logcontrol: true
+graphrecalculatesetting:
+  jittertolerance: 20
+  jittertolerancemultiplier: 1.1
+  nodereporttimeout: 40
+  recalculatecooldown: 5
+peers:
+- nodeid: 1
+  pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
+  endpoint: 127.0.0.1:3001
+  static: true
+- nodeid: 2
+  pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
+  endpoint: 127.0.0.1:3002
+  static: true

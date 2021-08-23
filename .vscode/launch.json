@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args":["-config","example_config/n1.yaml","-mode","super", "--example"],
+            "args":["-config","example_config/static_mode/n1.yaml","-mode","edge"],
         }
     ]
 }
