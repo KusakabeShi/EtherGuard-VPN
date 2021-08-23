@@ -304,6 +304,7 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 		return
 	}
 	peer.Lock()
+	peer.device.SaveToConfig(peer, endpoint.DstToString())
 	peer.endpoint = endpoint
 	peer.Unlock()
 }

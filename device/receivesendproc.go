@@ -353,6 +353,7 @@ func (device *Device) RoutineSetEndpoint() {
 						//Send Ping message to it
 						packet, err := device.GeneratePingPacket(device.ID)
 						device.SendPacket(thepeer, packet, MessageTransportOffsetContent)
+
 						return false
 					}
 					return true
@@ -369,10 +370,42 @@ func (device *Device) RoutineSetEndpoint() {
 		}
 		time.Sleep(path.S2TD(device.DRoute.P2P.PeerAliveTimeout))
 		if NextRun {
-			go device.SaveConfig()
 			device.event_tryendpoint <- struct{}{}
 		}
 	}
+}
+
+func (device *Device) SaveToConfig(thepeer *Peer, url string) {
+	if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) {
+		//Peer alives
+		return
+	}
+	foundInFile := false
+	pubkeystr := PubKey2Str(thepeer.handshake.remoteStatic)
+	pskstr := PSKeyStr(thepeer.handshake.presharedKey)
+	if bytes.Equal(thepeer.handshake.presharedKey[:], make([]byte, 32)) {
+		pskstr = ""
+	}
+	for _, peerfile := range device.EdgeConfig.Peers {
+		if peerfile.NodeID == thepeer.ID && peerfile.PubKey == pubkeystr {
+			foundInFile = true
+			if peerfile.Static == false {
+				peerfile.EndPoint = url
+			}
+		} else if peerfile.NodeID == thepeer.ID || peerfile.PubKey == pubkeystr {
+			panic("Found NodeID match " + strconv.Itoa(int(thepeer.ID)) + ", but PubKey Not match %s enrties in config file" + pubkeystr)
+		}
+	}
+	if !foundInFile {
+		device.EdgeConfig.Peers = append(device.EdgeConfig.Peers, config.PeerInfo{
+			NodeID:   thepeer.ID,
+			PubKey:   pubkeystr,
+			PSKey:    pskstr,
+			EndPoint: url,
+			Static:   false,
+		})
+	}
+	go device.SaveConfig()
 }
 
 func (device *Device) SaveConfig() {

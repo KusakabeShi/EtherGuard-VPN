@@ -12,7 +12,7 @@ nodename: Node01
 privkey: aABzjKhWdkFfQ29ZuijtMp1h1TNJe66SDCwvfmvQznw=
 listenport: 3001
 loglevel:
-  loglevel: normal` 
+  loglevel: normal`
   logtransit: true
   logcontrol: true
 dynamicroute:

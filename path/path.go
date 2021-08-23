@@ -145,6 +145,8 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bo
 }
 func (g IG) Vertices() map[config.Vertex]bool {
 	vr := make(map[config.Vertex]bool)
+	g.edgelock.RLock()
+	defer g.edgelock.RUnlock()
 	for k, v := range g.Vert { //copy a new list
 		vr[k] = v
 	}
