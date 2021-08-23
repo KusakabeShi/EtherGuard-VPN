@@ -97,6 +97,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	http_PeerState = make(map[string]*PeerState)
 	http_PeerID2Map = make(map[config.Vertex]string)
 	http_PeerInfos.Peers = make(map[string]config.HTTP_Peerinfo)
+	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
 
 	super_chains := path.SUPER_Events{
 		Event_server_pong:            make(chan path.PongMsg, 1<<5),
@@ -193,10 +194,8 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 	for {
 		select {
 		case reg_msg := <-events.Event_server_register:
-			if reg_msg.Init == true {
-				copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].NhTableState[:], make([]byte, 32))
-				copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].PeerInfoState[:], make([]byte, 32))
-			}
+			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
+			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
 			PubKey := http_PeerID2Map[reg_msg.Node_id]
 			if peer := http_device4.LookupPeerByStr(PubKey); peer != nil {
 				if connstr := peer.GetEndpointDstStr(); connstr != "" {
@@ -209,7 +208,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 				}
 			}
 			http_PeerInfoStr, _ = json.Marshal(&http_PeerInfos)
-			PeerInfo_hash_raw := md5.Sum(http_PeerInfoStr)
+			PeerInfo_hash_raw := md5.Sum(append(http_PeerInfoStr, http_HashSalt...))
 			PeerInfo_hash_str := hex.EncodeToString(PeerInfo_hash_raw[:])
 			PeerInfo_hash_str_byte := []byte(PeerInfo_hash_str)
 			if bytes.Equal(http_PeerInfo_hash[:], PeerInfo_hash_str_byte) == false {
@@ -230,7 +229,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			if changed {
 				NhTable := graph.GetNHTable(false)
 				NhTablestr, _ := json.Marshal(NhTable)
-				md5_hash_raw := md5.Sum(http_NhTableStr)
+				md5_hash_raw := md5.Sum(append(http_NhTableStr, http_HashSalt...))
 				new_hash_str := hex.EncodeToString(md5_hash_raw[:])
 				new_hash_str_byte := []byte(new_hash_str)
 				copy(http_NhTable_Hash[:], new_hash_str_byte)

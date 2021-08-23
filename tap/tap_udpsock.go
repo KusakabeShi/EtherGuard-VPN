@@ -3,7 +3,6 @@ package tap
 import (
 	"fmt"
 	"net"
-	"os"
 )
 
 type UdpSockTap struct {
@@ -38,11 +37,6 @@ func CreateUDPSockTAP(interfaceName string, listenAddr *net.UDPAddr, sendAddr *n
 // SetMTU sets the Maximum Tansmission Unit Size for a
 // Packet on the interface.
 
-
-func (tap *UdpSockTap) File() *os.File {
-	var tapFile *os.File
-	return tapFile
-} // returns the file descriptor of the device
 func (tap *UdpSockTap) Read(buf []byte, offset int) (int, error) {
 	if tap.HumanFriendly {
 		size, _, err := tap.recv.ReadFromUDP(buf[offset+10:])

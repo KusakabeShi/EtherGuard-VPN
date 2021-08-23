@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"net"
 	"strconv"
 
@@ -15,6 +16,7 @@ var (
 	http_graph         *path.IG
 	http_device4       *device.Device
 	http_device6       *device.Device
+	http_HashSalt      []byte
 	http_NhTable_Hash  [32]byte
 	http_PeerInfo_hash [32]byte
 	http_NhTableStr    []byte
@@ -40,24 +42,58 @@ type client struct {
 
 func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	PubKey, _ := params["PubKey"]
-	State, _ := params["State"]
-	if state := http_PeerState[PubKey[0]]; state != nil {
-		copy(http_PeerState[PubKey[0]].PeerInfoState[:], State[0])
+	PubKeyA, has := params["PubKey"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http_PeerInfoStr))
+	StateA, has := params["State"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+	PubKey := PubKeyA[0]
+	State := StateA[0]
+	if bytes.Equal(http_PeerInfo_hash[:], []byte(State)) {
+		if state := http_PeerState[PubKey]; state != nil {
+			copy(http_PeerState[PubKey].PeerInfoState[:], State)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(http_PeerInfoStr))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte("Not found"))
 }
 
 func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	PubKey, _ := params["PubKey"]
-	State, _ := params["State"]
-	if state := http_PeerState[PubKey[0]]; state != nil {
-		copy(http_PeerState[PubKey[0]].NhTableState[:], State[0])
+	PubKeyA, has := params["PubKey"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
 	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http_NhTableStr))
+	StateA, has := params["State"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+	PubKey := PubKeyA[0]
+	State := StateA[0]
+	if bytes.Equal(http_NhTable_Hash[:], []byte(State)) {
+		if state := http_PeerState[PubKey]; state != nil {
+			copy(http_PeerState[PubKey].NhTableState[:], State)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(http_NhTableStr))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte("Not found"))
 }
 
 func HttpServer(http_port int, apiprefix string) {

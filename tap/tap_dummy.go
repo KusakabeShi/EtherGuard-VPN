@@ -1,9 +1,5 @@
 package tap
 
-import (
-	"os"
-)
-
 type DummyTap struct {
 	stopRead chan struct{}
 	events   chan Event
@@ -23,10 +19,6 @@ func CreateDummyTAP() (tapdev Device, err error) {
 // SetMTU sets the Maximum Tansmission Unit Size for a
 // Packet on the interface.
 
-func (tap *DummyTap) File() *os.File {
-	var tapFile *os.File
-	return tapFile
-} // returns the file descriptor of the device
 func (tap *DummyTap) Read([]byte, int) (int, error) {
 	_ = <-tap.stopRead
 	return 0, nil

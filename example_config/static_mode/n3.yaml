@@ -6,7 +6,7 @@ interface:
   mtu: 1400
   recvaddr: 127.0.0.1:4003
   sendaddr: 127.0.0.1:5003
-  humanfriendly: true
+  devfriendly: true
 nodeid: 3
 nodename: Node03
 privkey: gJy35nbsd8FuuxyWHjsefN+U+oM7RkuIB1EanNLSVHg=

@@ -6,10 +6,12 @@
 package device
 
 import (
+	"bytes"
 	"container/list"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -18,6 +20,7 @@ import (
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"gopkg.in/yaml.v2"
 )
 
 type Peer struct {
@@ -304,7 +307,7 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 		return
 	}
 	peer.Lock()
-	peer.device.SaveToConfig(peer, endpoint.DstToString())
+	peer.device.SaveToConfig(peer, endpoint)
 	peer.endpoint = endpoint
 	peer.Unlock()
 }
@@ -321,4 +324,53 @@ func (peer *Peer) GetEndpointDstStr() string {
 		return ""
 	}
 	return peer.endpoint.DstToString()
+}
+
+func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
+	if device.IsSuperNode { //Can't in super mode
+		return
+	}
+	if !device.DRoute.P2P.UseP2P { //Must in p2p mode
+		return
+	}
+	if peer.endpoint != nil && peer.endpoint.DstIP().Equal(endpoint.DstIP()) { //endpoint changed
+		return
+	}
+	if peer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) { //Peer alives
+		return
+	}
+	url := endpoint.DstToString()
+	foundInFile := false
+	pubkeystr := PubKey2Str(peer.handshake.remoteStatic)
+	pskstr := PSKeyStr(peer.handshake.presharedKey)
+	if bytes.Equal(peer.handshake.presharedKey[:], make([]byte, 32)) {
+		pskstr = ""
+	}
+	for _, peerfile := range device.EdgeConfig.Peers {
+		if peerfile.NodeID == peer.ID && peerfile.PubKey == pubkeystr {
+			foundInFile = true
+			if peerfile.Static == false {
+				peerfile.EndPoint = url
+			}
+		} else if peerfile.NodeID == peer.ID || peerfile.PubKey == pubkeystr {
+			panic("Found NodeID match " + strconv.Itoa(int(peer.ID)) + ", but PubKey Not match %s enrties in config file" + pubkeystr)
+		}
+	}
+	if !foundInFile {
+		device.EdgeConfig.Peers = append(device.EdgeConfig.Peers, config.PeerInfo{
+			NodeID:   peer.ID,
+			PubKey:   pubkeystr,
+			PSKey:    pskstr,
+			EndPoint: url,
+			Static:   false,
+		})
+	}
+	go device.SaveConfig()
+}
+
+func (device *Device) SaveConfig() {
+	if device.DRoute.SaveNewPeers {
+		configbytes, _ := yaml.Marshal(device.EdgeConfig)
+		ioutil.WriteFile(device.EdgeConfigPath, configbytes, 0666)
+	}
 }

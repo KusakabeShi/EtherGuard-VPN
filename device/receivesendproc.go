@@ -14,7 +14,6 @@ import (
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"gopkg.in/yaml.v2"
 )
 
 func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
@@ -375,46 +374,6 @@ func (device *Device) RoutineSetEndpoint() {
 	}
 }
 
-func (device *Device) SaveToConfig(thepeer *Peer, url string) {
-	if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) {
-		//Peer alives
-		return
-	}
-	foundInFile := false
-	pubkeystr := PubKey2Str(thepeer.handshake.remoteStatic)
-	pskstr := PSKeyStr(thepeer.handshake.presharedKey)
-	if bytes.Equal(thepeer.handshake.presharedKey[:], make([]byte, 32)) {
-		pskstr = ""
-	}
-	for _, peerfile := range device.EdgeConfig.Peers {
-		if peerfile.NodeID == thepeer.ID && peerfile.PubKey == pubkeystr {
-			foundInFile = true
-			if peerfile.Static == false {
-				peerfile.EndPoint = url
-			}
-		} else if peerfile.NodeID == thepeer.ID || peerfile.PubKey == pubkeystr {
-			panic("Found NodeID match " + strconv.Itoa(int(thepeer.ID)) + ", but PubKey Not match %s enrties in config file" + pubkeystr)
-		}
-	}
-	if !foundInFile {
-		device.EdgeConfig.Peers = append(device.EdgeConfig.Peers, config.PeerInfo{
-			NodeID:   thepeer.ID,
-			PubKey:   pubkeystr,
-			PSKey:    pskstr,
-			EndPoint: url,
-			Static:   false,
-		})
-	}
-	go device.SaveConfig()
-}
-
-func (device *Device) SaveConfig() {
-	if device.DRoute.SaveNewPeers {
-		configbytes, _ := yaml.Marshal(device.EdgeConfig)
-		ioutil.WriteFile(device.EdgeConfigPath, configbytes, 0666)
-	}
-}
-
 func (device *Device) RoutineSendPing() {
 	if !(device.DRoute.P2P.UseP2P || device.DRoute.SuperNode.UseSuperNode) {
 		return
@@ -430,11 +389,11 @@ func (device *Device) RoutineRegister() {
 	if !(device.DRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	first := true
 	for {
 		body, _ := path.GetByte(path.RegisterMsg{
-			Node_id: device.ID,
-			Init:    first,
+			Node_id:       device.ID,
+			PeerStateHash: device.peers.Peer_state,
+			NhStateHash:   device.graph.NhTableHash,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
@@ -446,7 +405,6 @@ func (device *Device) RoutineRegister() {
 		copy(buf[path.EgHeaderLen:], body)
 		device.Send2Super(buf, MessageTransportOffsetContent)
 		time.Sleep(path.S2TD(device.DRoute.SendPingInterval))
-		first = false
 	}
 }
 

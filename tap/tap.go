@@ -7,7 +7,6 @@ package tap
 
 import (
 	"bytes"
-	"os"
 )
 
 type Event int
@@ -39,7 +38,6 @@ const (
 )
 
 type Device interface {
-	File() *os.File                 // returns the file descriptor of the device
 	Read([]byte, int) (int, error)  // read a packet from the device (without any additional headers)
 	Write([]byte, int) (int, error) // writes a packet to the device (without any additional headers)
 	Flush() error                   // flush all previous writes to the device

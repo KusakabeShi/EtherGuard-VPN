@@ -29,13 +29,13 @@ func printExampleEdgeConf() {
 	tconfig := config.EdgeConfig{
 		Interface: config.InterfaceConf{
 			Itype:         "stdio",
-			IfaceID:       5,
+			VPPIfaceID:       5,
 			Name:          "tap1",
 			MacAddr:       "AA:BB:CC:DD:EE:FF",
 			MTU:           1400,
 			RecvAddr:      "127.0.0.1:4001",
 			SendAddr:      "127.0.0.1:5001",
-			HumanFriendly: true,
+			DevFriendly: true,
 		},
 		NodeID:     1,
 		NodeName:   "Node01",
@@ -165,12 +165,12 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
-		thetap, err = tap.CreateStdIOTAP(tconfig.Interface.Name, tconfig.Interface.HumanFriendly)
+		thetap, err = tap.CreateStdIOTAP(tconfig.Interface.Name, tconfig.Interface.DevFriendly)
 	case "udpsock":
 		{
 			lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
 			sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
-			thetap, err = tap.CreateUDPSockTAP(tconfig.Interface.Name, lis, sen, tconfig.Interface.HumanFriendly)
+			thetap, err = tap.CreateUDPSockTAP(tconfig.Interface.Name, lis, sen, tconfig.Interface.DevFriendly)
 		}
 	}
 	if err != nil {

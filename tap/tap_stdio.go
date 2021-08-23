@@ -47,10 +47,6 @@ func CreateStdIOTAP(interfaceName string, HumanFriendly bool) (tapdev Device, er
 // SetMTU sets the Maximum Tansmission Unit Size for a
 // Packet on the interface.
 
-func (tap *StdIOTap) File() *os.File {
-	var tapFile *os.File
-	return tapFile
-} // returns the file descriptor of the device
 func (tap *StdIOTap) Read(buf []byte, offset int) (int, error) {
 	if tap.HumanFriendly {
 		size, err := os.Stdin.Read(buf[offset+10:])

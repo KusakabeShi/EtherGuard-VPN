@@ -1,5 +1,9 @@
 package config
 
+import (
+	"crypto/rand"
+)
+
 type EdgeConfig struct {
 	Interface    InterfaceConf
 	NodeID       Vertex
@@ -24,14 +28,15 @@ type SuperConfig struct {
 }
 
 type InterfaceConf struct {
-	Itype         string
-	IfaceID       int
-	Name          string
-	MacAddr       string
-	MTU           int
-	RecvAddr      string
-	SendAddr      string
-	HumanFriendly bool
+	Itype       string
+	Name        string
+	VPPIfaceID  uint32
+	VPPBridgeID uint32
+	MacAddr     string
+	MTU         int
+	RecvAddr    string
+	SendAddr    string
+	DevFriendly bool
 }
 
 type PeerInfo struct {
@@ -102,4 +107,20 @@ type HTTP_Peerinfo struct {
 }
 type HTTP_Peers struct {
 	Peers map[string]HTTP_Peerinfo
+}
+
+const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandomStr(length int, defaults string) string {
+	bytes := make([]byte, length)
+
+	if _, err := rand.Read(bytes); err != nil {
+		return defaults
+	}
+
+	for i, b := range bytes {
+		bytes[i] = chars[b%byte(len(chars))]
+	}
+
+	return string(bytes)
 }
