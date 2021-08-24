@@ -262,20 +262,26 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 		if device.LogControl {
 			fmt.Println("Download peerinfo from :" + downloadurl)
 		}
-		resp, err := http.Get(downloadurl)
+		client := http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Get(downloadurl)
 		if err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 		defer resp.Body.Close()
 		allbytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 		if err := json.Unmarshal(allbytes, &peer_infos); err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 
-		for pubkey, peerinfo := range peer_infos.Peers {
+		for pubkey, peerinfo := range peer_infos {
 			if len(peerinfo.Connurl) == 0 {
 				return nil
 			}
@@ -421,7 +427,9 @@ func (device *Device) RoutineRecalculateNhTable() {
 			return
 		}
 		for {
-			device.graph.RecalculateNhTable(false)
+			if time.Now().After(device.graph.NhTableExpire) {
+				device.graph.RecalculateNhTable(false)
+			}
 			time.Sleep(device.graph.NodeReportTimeout)
 		}
 	}
@@ -497,16 +505,22 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 		if device.LogControl {
 			fmt.Println("Download NhTable from :" + downloadurl)
 		}
-		resp, err := http.Get(downloadurl)
+		client := http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Get(downloadurl)
 		if err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 		defer resp.Body.Close()
 		allbytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
+			device.log.Errorf(err.Error())
 			return err
 		}
 		device.graph.SetNHTable(NhTable, content.State_hash)

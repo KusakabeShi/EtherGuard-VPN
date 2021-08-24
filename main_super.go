@@ -97,7 +97,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	http_PeerState = make(map[string]*PeerState)
 	http_PeerID2Map = make(map[config.Vertex]string)
-	http_PeerInfos.Peers = make(map[string]config.HTTP_Peerinfo)
+	http_PeerInfos = make(map[string]config.HTTP_Peerinfo)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
 
 	super_chains := path.SUPER_Events{
@@ -146,7 +146,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
 		}
 		http_PeerID2Map[peerconf.NodeID] = peerconf.PubKey
-		http_PeerInfos.Peers[peerconf.PubKey] = config.HTTP_Peerinfo{
+		http_PeerInfos[peerconf.PubKey] = config.HTTP_Peerinfo{
 			NodeID:  peerconf.NodeID,
 			PubKey:  peerconf.PubKey,
 			PSKey:   peerconf.PSKey,
@@ -217,15 +217,16 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 		case reg_msg := <-events.Event_server_register:
 			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
 			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
+			http_peerinfos.Store(reg_msg.Node_id, reg_msg.Name)
 			PubKey := http_PeerID2Map[reg_msg.Node_id]
 			if peer := http_device4.LookupPeerByStr(PubKey); peer != nil {
 				if connstr := peer.GetEndpointDstStr(); connstr != "" {
-					http_PeerInfos.Peers[PubKey].Connurl[connstr] = true
+					http_PeerInfos[PubKey].Connurl[connstr] = true
 				}
 			}
 			if peer := http_device6.LookupPeerByStr(PubKey); peer != nil {
 				if connstr := peer.GetEndpointDstStr(); connstr != "" {
-					http_PeerInfos.Peers[PubKey].Connurl[connstr] = true
+					http_PeerInfos[PubKey].Connurl[connstr] = true
 				}
 			}
 			http_PeerInfoStr, _ = json.Marshal(&http_PeerInfos)

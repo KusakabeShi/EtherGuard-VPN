@@ -8,8 +8,6 @@ all: generate-version-and-build
 MAKEFLAGS += --no-print-directory
 
 generate-version-and-build:
-	go mod download && \
-	go mod tidy && \
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
 	tag="$$(git describe --dirty 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
@@ -19,6 +17,8 @@ generate-version-and-build:
 	@$(MAKE) etherguard-go
 
 etherguard-go: $(wildcard *.go) $(wildcard */*.go)
+	go mod download && \
+	go mod tidy && \
 	go mod vendor && \
 	patch -p0 -i govpp_remove_crcstring_check.patch && \
 	go build -v -o "$@"
