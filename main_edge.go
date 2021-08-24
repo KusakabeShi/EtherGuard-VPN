@@ -29,13 +29,13 @@ func printExampleEdgeConf() {
 	tconfig := config.EdgeConfig{
 		Interface: config.InterfaceConf{
 			Itype:         "stdio",
-			VPPIfaceID:       5,
+			VPPIfaceID:    5,
 			Name:          "tap1",
-			MacAddr:       "AA:BB:CC:DD:EE:FF",
+			MacAddrPrefix: "AA:BB:CC:DD:EE:FF",
 			MTU:           1400,
 			RecvAddr:      "127.0.0.1:4001",
 			SendAddr:      "127.0.0.1:5001",
-			DevFriendly: true,
+			L2HeaderMode:  "nochg",
 		},
 		NodeID:     1,
 		NodeName:   "Node01",
@@ -44,6 +44,7 @@ func printExampleEdgeConf() {
 		LogLevel: config.LoggerInfo{
 			LogLevel:   "normal",
 			LogTransit: true,
+			LogControl: true,
 		},
 		DynamicRoute: config.DynamicRouteInfo{
 			SendPingInterval: 20,
@@ -53,9 +54,9 @@ func printExampleEdgeConf() {
 			SuperNode: config.SuperInfo{
 				UseSuperNode:         true,
 				ConnURLV4:            "127.0.0.1:3000",
-				PubKeyV4:             "j8i4dY1i7CUqd/ftaCSfCWosnURiztM+ExI7QRezU2Y=",
+				PubKeyV4:             "LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=",
 				ConnURLV6:            "[::1]:3000",
-				PubKeyV6:             "cCcPlZw0hVkPSi15G+jpJpKE3TdCVEtO1nSiaedukGw=",
+				PubKeyV6:             "HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=",
 				APIUrl:               "http://127.0.0.1:3000/api",
 				SuperNodeInfoTimeout: 40,
 			},
@@ -90,7 +91,8 @@ func printExampleEdgeConf() {
 					"time.windows.com"},
 			},
 		},
-		NextHopTable: config.NextHopTable{},
+		NextHopTable:      config.NextHopTable{},
+		ResetConnInterval: 86400,
 		Peers: []config.PeerInfo{
 			{
 				NodeID:   2,
@@ -165,13 +167,17 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
-		thetap, err = tap.CreateStdIOTAP(tconfig.Interface.Name, tconfig.Interface.DevFriendly)
+		tconfig.Interface.VPPIfaceID = uint32(tconfig.NodeID)
+		thetap, err = tap.CreateStdIOTAP(tconfig.Interface)
 	case "udpsock":
-		{
-			lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
-			sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
-			thetap, err = tap.CreateUDPSockTAP(tconfig.Interface.Name, lis, sen, tconfig.Interface.DevFriendly)
-		}
+		tconfig.Interface.VPPIfaceID = uint32(tconfig.NodeID)
+		lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
+		sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
+		thetap, err = tap.CreateUDPSockTAP(tconfig.Interface, lis, sen)
+	case "vpp":
+		thetap, err = tap.CreateVppTAP(tconfig.Interface, tconfig.LogLevel.LogLevel)
+	default:
+		return errors.New("Unknow interface type:" + tconfig.Interface.Itype)
 	}
 	if err != nil {
 		logger.Errorf("Failed to create TAP device: %v", err)
@@ -206,6 +212,8 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 				logger.Errorf("Failed to set endpoint %v: %w", peerconf.EndPoint, err)
 				return err
 			}
+			peer.StaticConn = peerconf.Static
+			peer.ConnURL = peerconf.EndPoint
 			peer.SetEndpointFromPacket(endpoint)
 		}
 	}
@@ -222,6 +230,8 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
+			peer.StaticConn = false
+			peer.ConnURL = tconfig.DynamicRoute.SuperNode.ConnURLV4
 			peer.SetEndpointFromPacket(endpoint)
 		}
 		if tconfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
@@ -235,6 +245,8 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
+			peer.StaticConn = false
+			peer.ConnURL = tconfig.DynamicRoute.SuperNode.ConnURLV6
 			peer.SetEndpointFromPacket(endpoint)
 		}
 	}

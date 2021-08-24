@@ -7,6 +7,7 @@ package device
 
 import (
 	"encoding/base64"
+	"errors"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -69,9 +70,12 @@ type Device struct {
 		Peer_state   [32]byte
 	}
 	event_tryendpoint chan struct{}
+	ResetConnInterval float64
 
-	EdgeConfigPath string
-	EdgeConfig     *config.EdgeConfig
+	EdgeConfigPath  string
+	EdgeConfig      *config.EdgeConfig
+	SuperConfigPath string
+	SuperConfig     *config.SuperConfig
 
 	Event_server_register        chan path.RegisterMsg
 	Event_server_pong            chan path.PongMsg
@@ -304,7 +308,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, theconfigpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events) *Device {
+func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, configpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
 	device.closed = make(chan struct{})
@@ -333,9 +337,11 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.Event_server_NhTable_changed = superevents.Event_server_NhTable_changed
 		device.LogTransit = sconfig.LogLevel.LogTransit
 		device.LogControl = sconfig.LogLevel.LogControl
+		device.SuperConfig = sconfig
+		device.SuperConfigPath = configpath
 		go device.RoutineRecalculateNhTable()
 	} else {
-		device.EdgeConfigPath = theconfigpath
+		device.EdgeConfigPath = configpath
 		device.EdgeConfig = econfig
 		device.DRoute = econfig.DynamicRoute
 		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, path.S2TD(60))
@@ -343,11 +349,13 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.Event_save_config = make(chan struct{}, 1<<5)
 		device.LogTransit = econfig.LogLevel.LogTransit
 		device.LogControl = econfig.LogLevel.LogControl
+		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
 		go device.RoutineRecalculateNhTable()
 		go device.RoutineSpreadAllMyNeighbor()
+		go device.RoutineResetConn()
 	}
 	// create queues
 
@@ -372,6 +380,29 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	go device.RoutineTUNEventReader()
 
 	return device
+}
+
+func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex, err error) {
+	var peerlist []config.PeerInfo
+	if device.IsSuperNode {
+		if device.SuperConfig == nil {
+			return 0, errors.New("Superconfig is nil")
+		}
+		peerlist = device.SuperConfig.Peers
+	} else {
+		if device.EdgeConfig == nil {
+			return 0, errors.New("EdgeConfig is nil")
+		}
+		peerlist = device.EdgeConfig.Peers
+	}
+
+	pkstr := PubKey2Str(pk)
+	for _, peerinfo := range peerlist {
+		if peerinfo.PubKey == pkstr {
+			return peerinfo.NodeID, nil
+		}
+	}
+	return 0, errors.New("Peer not found in the config file.")
 }
 
 func (device *Device) LookupPeer(pk NoisePublicKey) *Peer {

@@ -2,14 +2,14 @@ nodename: NodeSuper
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000
-repushconfiginterval: 10
 loglevel:
   loglevel: normal
   logtransit: true
   logcontrol: true
+repushconfiginterval: 30
 graphrecalculatesetting:
-  jittertolerance: 20
-  jittertolerancemultiplier: 1.1
+  jittertolerance: 5
+  jittertolerancemultiplier: 1.01
   nodereporttimeout: 40
   recalculatecooldown: 5
 peers:

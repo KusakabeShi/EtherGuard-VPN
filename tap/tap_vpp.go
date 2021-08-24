@@ -2,6 +2,7 @@ package tap
 
 import (
 	"context"
+	"path"
 
 	"errors"
 	"fmt"
@@ -58,7 +59,7 @@ type VppTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateVppTAP(interfaceName string, iconfig config.InterfaceConf, loglevel string) (tapdev Device, err error) {
+func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device, err error) {
 	// Setup TUN Config
 	// Set logger
 	log := logger.New()
@@ -75,10 +76,20 @@ func CreateVppTAP(interfaceName string, iconfig config.InterfaceConf, loglevel s
 		return logger.ErrorLevel
 	}()
 	libmemif.SetLogger(log)
+	if os.Getenv(ENV_VPP_MEMIF_SOCKET_DIR) != "" {
+		vppMemifSocketDir = os.Getenv(ENV_VPP_MEMIF_SOCKET_DIR)
+	}
+	if os.Getenv(ENV_VPP_SOCKET_PATH) != "" {
+		vppApiSocketPath = os.Getenv(ENV_VPP_SOCKET_PATH)
+	}
+	if err := os.MkdirAll(vppMemifSocketDir, 0755); err != nil {
+		log.Fatalln("ERROR: Failed to create VPP memif socket folder " + vppMemifSocketDir)
+		return nil, err
+	}
 	// connect to VPP
 	conn, err := govpp.Connect(vppApiSocketPath)
 	if err != nil {
-		log.Fatalln("ERROR: connecting to VPP failed:", err)
+		log.Fatalln("ERROR: Connecting to VPP failed:", err)
 		return nil, err
 	}
 	defer conn.Disconnect()
@@ -105,18 +116,19 @@ func CreateVppTAP(interfaceName string, iconfig config.InterfaceConf, loglevel s
 	l2service := l2.NewServiceClient(conn)
 	interfacservice := interfaces.NewServiceClient(conn)
 
-	vppIfMacAddr, err := ethernet_types.ParseMacAddress(iconfig.MacAddr)
+	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, iconfig.VPPIfaceID)
 	if err != nil {
-		log.Fatalln("ERROR: Failed parse mac address:", iconfig.MacAddr)
+		log.Fatalln("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err
 	}
+	vppIfMacAddr := ethernet_types.MacAddress(IfMacAddr)
 
 	tap := &VppTap{
 		name:          iconfig.Name,
 		mtu:           iconfig.MTU,
 		ifuid:         iconfig.VPPIfaceID,
 		SwIfIndex:     0,
-		memifSockPath: vppMemifSocketDir + "/" + iconfig.Name,
+		memifSockPath: path.Join(vppMemifSocketDir, iconfig.Name+".sock"),
 		secret:        config.RandomStr(16, iconfig.Name),
 		logger:        log,
 		errors:        make(chan error, 1<<5),

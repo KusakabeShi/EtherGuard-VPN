@@ -25,8 +25,8 @@ const (
 )
 
 const (
-	ENV_WP_UAPI_FD  = "WP_UAPI_FD"
-	ENV_WP_UAPI_DIR = "WP_UAPI_DIR"
+	ENV_EG_UAPI_FD  = "EG_UAPI_FD"
+	ENV_EG_UAPI_DIR = "EG_UAPI_DIR"
 )
 
 func printUsage() {
@@ -62,20 +62,25 @@ func main() {
 		return
 	}
 
-	uapiDir := os.Getenv(ENV_WP_UAPI_DIR)
+	uapiDir := os.Getenv(ENV_EG_UAPI_DIR)
 	if uapiDir != "" {
 		ipc.SetsocketDirectory(uapiDir)
 	}
 
+	var err error
 	switch *mode {
 	case "edge":
-		Edge(*tconfig, !*nouapi, *printExample)
+		err = Edge(*tconfig, !*nouapi, *printExample)
 	case "super":
-		Super(*tconfig, !*nouapi, *printExample)
+		err = Super(*tconfig, !*nouapi, *printExample)
 	case "path":
 		path.Solve()
 	default:
 		flag.Usage()
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error :%v\n", err)
+		os.Exit(1)
 	}
 	return
 }

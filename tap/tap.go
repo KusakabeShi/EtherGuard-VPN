@@ -6,7 +6,10 @@
 package tap
 
 import (
-	"bytes"
+	"encoding/binary"
+	"errors"
+	"strconv"
+	"strings"
 )
 
 type Event int
@@ -22,13 +25,44 @@ func GetSrcMacAddr(packet []byte) (srcMacAddr MacAddress) {
 	return
 }
 
-func IsBoardCast(mac_in MacAddress) bool {
-	if bytes.Equal(mac_in[:], []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}) {
-		return true
-	} else if bytes.Equal(mac_in[0:2], []byte{0x33, 0x33}) {
-		return true
+func GetMacAddr(prefix string, uid uint32) (mac MacAddress, err error) {
+	macprefix, _, err := prefixStr2prefix(prefix)
+	if err != nil {
+		return
 	}
-	return false
+	idbuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(idbuf, uid)
+	copy(mac[2:], idbuf)
+	copy(mac[:], macprefix)
+	if IsNotUnicast(mac) {
+		err = errors.New("ERROR: MAC address can only set to unicast address")
+		return
+	}
+	return
+}
+
+func prefixStr2prefix(prefix string) ([]uint8, uint32, error) {
+	hexStrs := strings.Split(strings.ToLower(prefix), ":")
+	retprefix := make([]uint8, len(hexStrs))
+	maxID := uint32(1)<<((6-len(hexStrs))*8) - 1
+	if len(hexStrs) < 2 || len(hexStrs) > 6 {
+		return []uint8{}, 0, errors.New("Macaddr prefix length must between 2 and 6, " + prefix + " is " + strconv.Itoa(len(hexStrs)))
+	}
+	for index, hexstr := range hexStrs {
+		value, err := strconv.ParseInt(hexstr, 16, 16)
+		if err != nil {
+			return []uint8{}, 0, err
+		}
+		retprefix[index] = uint8(value)
+	}
+	return retprefix, maxID, nil
+}
+
+func IsNotUnicast(mac_in MacAddress) bool {
+	if mac_in[0]&1 == 0 { // Is unicast
+		return false
+	}
+	return true
 }
 
 const (

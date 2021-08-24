@@ -142,7 +142,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 			}
 		case path.BoardcastPeer:
 			if content, err := path.ParseBoardcastPeerMsg(body); err == nil {
-				return device.process_BoardcastPeerMsg(content)
+				return device.process_BoardcastPeerMsg(peer, content)
 			}
 		default:
 			err = errors.New("Not a valid msg_type")
@@ -245,7 +245,6 @@ func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 			header.SetPacketLength(uint16(len(body)))
 			copy(buf[path.EgHeaderLen:], body)
 			device.SendPacket(peer, buf, MessageTransportOffsetContent)
-			peer.AskedForNeighbor = true
 		}
 	}
 	return nil
@@ -434,9 +433,32 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	}
 	for {
 		device.process_RequestPeerMsg(path.QueryPeerMsg{
-			Request_ID: 0,
+			Request_ID: uint32(path.Boardcast),
 		})
 		time.Sleep(path.S2TD(device.DRoute.P2P.SendPeerInterval))
+	}
+}
+
+func (device *Device) RoutineResetConn() {
+	if device.ResetConnInterval <= 0.01 {
+		return
+	}
+	for {
+		for _, peer := range device.peers.keyMap {
+			if peer.StaticConn {
+				continue
+			}
+			if peer.ConnURL == "" {
+				continue
+			}
+			endpoint, err := device.Bind().ParseEndpoint(peer.ConnURL)
+			if err != nil {
+				device.log.Errorf("Failed to bind "+peer.ConnURL, err)
+				continue
+			}
+			peer.SetEndpointFromPacket(endpoint)
+		}
+		time.Sleep(time.Duration(device.ResetConnInterval))
 	}
 }
 
@@ -531,9 +553,12 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 	return nil
 }
 
-func (device *Device) process_BoardcastPeerMsg(content path.BoardcastPeerMsg) error {
+func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.BoardcastPeerMsg) error {
 	if device.DRoute.P2P.UseP2P {
 		var sk NoisePublicKey
+		if content.Request_ID == uint32(device.ID) {
+			peer.AskedForNeighbor = true
+		}
 		if bytes.Equal(content.PubKey[:], device.staticIdentity.publicKey[:]) {
 			return nil
 		}

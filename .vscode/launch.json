@@ -10,7 +10,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args":["-config","example_config/p2p_mode/n1.yaml","-mode","edge"/*,"-example"*/],
+            "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
+            "args":["-config","example_config/static_mode/n1.yaml","-mode","edge"/*,"-example"*/],
         }
     ]
 }

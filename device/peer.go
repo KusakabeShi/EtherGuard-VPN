@@ -36,6 +36,8 @@ type Peer struct {
 
 	ID               config.Vertex
 	AskedForNeighbor bool
+	StaticConn       bool //if true, this peer will not write to config file when roaming, and the endpoint will be reset periodically
+	ConnURL          string
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -330,15 +332,16 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 	if device.IsSuperNode { //Can't in super mode
 		return
 	}
+	if peer.StaticConn == true { //static conn do not write new endpoint to config
+		return
+	}
 	if !device.DRoute.P2P.UseP2P { //Must in p2p mode
 		return
 	}
 	if peer.endpoint != nil && peer.endpoint.DstIP().Equal(endpoint.DstIP()) { //endpoint changed
 		return
 	}
-	if peer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) { //Peer alives
-		return
-	}
+
 	url := endpoint.DstToString()
 	foundInFile := false
 	pubkeystr := PubKey2Str(peer.handshake.remoteStatic)

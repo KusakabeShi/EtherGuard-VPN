@@ -1,12 +1,13 @@
 interface:
   itype: stdio
-  ifaceid: 2
   name: tap2
-  macaddr: AA:BB:CC:DD:EE:02
+  vppifaceid: 2
+  vppbridgeid: 0
+  macaddrprefix: AA:BB:CC:DD:EE
   mtu: 1400
   recvaddr: 127.0.0.1:4002
   sendaddr: 127.0.0.1:5002
-  devfriendly: true
+  l2headermode: kbdbg
 nodeid: 2
 nodename: Node02
 privkey: UNZMzPX5fG/8yGC8edVj/ksF9N6ARRqdq7fqE/PD7ls=
@@ -19,13 +20,13 @@ dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40
   conntimeout: 30
-  savenewpeers: true
+  savenewpeers: false
   supernode:
     usesupernode: false
     connurlv4: 127.0.0.1:3000
-    pubkeyv4: j8i4dY1i7CUqd/ftaCSfCWosnURiztM+ExI7QRezU2Y=
+    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
     connurlv6: '[::1]:3000'
-    pubkeyv6: cCcPlZw0hVkPSi15G+jpJpKE3TdCVEtO1nSiaedukGw=
+    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 40
   p2p:
@@ -93,6 +94,7 @@ nexthoptable:
     3: 4
     4: 4
     5: 4
+resetconninterval: 86400
 peers:
 - nodeid: 1
   pubkey: CooSkIP7/wiC7Rh83UYnB2yPkJijkNFmhtorHtyYlzY=

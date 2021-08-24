@@ -79,22 +79,29 @@ func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateS
 	return &g
 }
 
-func (g *IG) GetWeightType(x float64) float64 {
+func (g *IG) GetWeightType(x float64) (y float64) {
 	x = math.Abs(x)
-	y := x
-	if g.JitterTolerance > 1 && g.JitterToleranceMultiplier > 0.001 {
-		r := g.JitterTolerance
-		m := g.JitterToleranceMultiplier
-		y = math.Pow(math.Ceil(math.Pow(x/m, 1/r)), r) * m
+	y = x
+	if g.JitterTolerance > 0.001 && g.JitterToleranceMultiplier > 1 {
+		t := g.JitterTolerance
+		r := g.JitterToleranceMultiplier
+		y = math.Pow(math.Ceil(math.Pow(x/t, 1/r)), r) * t
 	}
 	return y
 }
 
 func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool {
-	oldval := g.Weight(u, v) * 1000
-	newval *= 1000
+	oldval := math.Abs(g.Weight(u, v) * 1000)
+	newval = math.Abs(newval * 1000)
 	if g.IsSuperMode {
-		return (oldval-newval)*(oldval*g.JitterToleranceMultiplier) >= g.JitterTolerance
+		if g.JitterTolerance > 0.001 && g.JitterToleranceMultiplier >= 1 {
+			diff := math.Abs(newval - oldval)
+			x := math.Max(oldval, newval)
+			t := g.JitterTolerance
+			r := g.JitterToleranceMultiplier
+			return diff > t+x*(r-1) // https://www.desmos.com/calculator/raoti16r5n
+		}
+		return oldval == newval
 	} else {
 		return g.GetWeightType(oldval) == g.GetWeightType(newval)
 	}

@@ -1,12 +1,13 @@
 interface:
   itype: stdio
-  ifaceid: 1
   name: tap1
-  macaddr: AA:BB:CC:DD:EE:FF
+  vppifaceid: 1
+  vppbridgeid: 0
+  macaddrprefix: AA:BB:CC:DD:EE
   mtu: 1400
   recvaddr: 127.0.0.1:4001
   sendaddr: 127.0.0.1:5001
-  devfriendly: true
+  l2headermode: kbdbg
 nodeid: 1
 nodename: Node01
 privkey: 6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=
@@ -24,7 +25,7 @@ dynamicroute:
     usesupernode: true
     connurlv4: 127.0.0.1:3000
     pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: '[::1]:2999'
+    connurlv6: '[::1]:3000'
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 40
@@ -57,4 +58,5 @@ dynamicroute:
     - time.euro.apple.com
     - time.windows.com
 nexthoptable: {}
+resetconninterval: 86400
 peers: []

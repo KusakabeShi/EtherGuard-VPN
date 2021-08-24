@@ -34,13 +34,15 @@ import (
 func printExampleSuperConf() {
 	sconfig := config.SuperConfig{
 		NodeName:   "NodeSuper",
-		PrivKeyV4:  "SM8pGjT0r8njy1/7ffN4wMwF7nnJ8UYSjGRWpCqo3ng=",
-		PrivKeyV6:  "SM8pGjT0r8njy1/7ffN4wMwF7nnJ8UYSjGRWpCqo3ng=",
+		PrivKeyV4:  "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
+		PrivKeyV6:  "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
 		ListenPort: 3000,
 		LogLevel: config.LoggerInfo{
 			LogLevel:   "normal",
 			LogTransit: true,
+			LogControl: true,
 		},
+		RePushConfigInterval: 30,
 		Peers: []config.PeerInfo{
 			{
 				NodeID:   2,
@@ -50,8 +52,8 @@ func printExampleSuperConf() {
 			},
 		},
 		GraphRecalculateSetting: config.GraphRecalculateSetting{
-			JitterTolerance:           20,
-			JitterToleranceMultiplier: 1.1,
+			JitterTolerance:           5,
+			JitterToleranceMultiplier: 1.01,
 			NodeReportTimeout:         40,
 			RecalculateCoolDown:       5,
 		},
@@ -70,8 +72,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	var sconfig config.SuperConfig
 	err = readYaml(configPath, &sconfig)
 	if err != nil {
-		fmt.Printf("Error read config: %s :", configPath)
-		fmt.Print(err)
+		fmt.Printf("Error read config: %v\n", configPath)
 		return err
 	}
 	interfaceName := sconfig.NodeName
@@ -107,21 +108,29 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	thetap, _ := tap.CreateDummyTAP()
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting)
-	http_device4 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, "", nil, &sconfig, &super_chains)
-	http_device6 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, "", nil, &sconfig, &super_chains)
+	http_device4 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device6 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
 	defer http_device4.Close()
 	defer http_device6.Close()
 	var sk [32]byte
-	sk_slice, _ := base64.StdEncoding.DecodeString(sconfig.PrivKeyV4)
+	sk_slice, err := base64.StdEncoding.DecodeString(sconfig.PrivKeyV4)
+	if err != nil {
+		fmt.Printf("Can't decode base64:%v\n", sconfig.PrivKeyV4)
+		return err
+	}
 	copy(sk[:], sk_slice)
 	http_device4.SetPrivateKey(sk)
-	sk_slice, _ = base64.StdEncoding.DecodeString(sconfig.PrivKeyV6)
+	sk_slice, err = base64.StdEncoding.DecodeString(sconfig.PrivKeyV6)
+	if err != nil {
+		fmt.Printf("Can't decode base64:%v\n", sconfig.PrivKeyV6)
+		return err
+	}
 	copy(sk[:], sk_slice)
 	http_device6.SetPrivateKey(sk)
 	http_device4.IpcSet("fwmark=0\n")
 	http_device6.IpcSet("fwmark=0\n")
 	http_device4.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
-	http_device6.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort-1) + "\n")
+	http_device6.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
 	http_device4.IpcSet("replace_peers=true\n")
 	http_device6.IpcSet("replace_peers=true\n")
 
@@ -143,8 +152,20 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 			PSKey:   peerconf.PSKey,
 			Connurl: make(map[string]bool),
 		}
-		peer4, _ := http_device4.NewPeer(pk, peerconf.NodeID)
-		peer6, _ := http_device6.NewPeer(pk, peerconf.NodeID)
+		peer4, err := http_device4.NewPeer(pk, peerconf.NodeID)
+		if err != nil {
+			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+			return err
+		}
+		peer4.StaticConn = true
+		peer4.ConnURL = peerconf.EndPoint
+		peer6, err := http_device6.NewPeer(pk, peerconf.NodeID)
+		if err != nil {
+			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+			return err
+		}
+		peer6.StaticConn = true
+		peer6.ConnURL = peerconf.EndPoint
 		if peerconf.PSKey != "" {
 			var psk device.NoisePresharedKey
 			psk_slice, err := base64.StdEncoding.DecodeString(peerconf.PSKey)
@@ -306,7 +327,7 @@ func PushUpdate() {
 
 func startUAPI(interfaceName string, logger *device.Logger, the_device *device.Device, errs chan error) (net.Listener, error) {
 	fileUAPI, err := func() (*os.File, error) {
-		uapiFdStr := os.Getenv(ENV_WP_UAPI_FD)
+		uapiFdStr := os.Getenv(ENV_EG_UAPI_FD)
 		if uapiFdStr == "" {
 			return ipc.UAPIOpen(interfaceName)
 		}
@@ -317,10 +338,14 @@ func startUAPI(interfaceName string, logger *device.Logger, the_device *device.D
 		}
 		return os.NewFile(uintptr(fd), ""), nil
 	}()
+	if err != nil {
+		fmt.Printf("Error create UAPI socket \n")
+		return nil, err
+	}
 	uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
 	if err != nil {
 		logger.Errorf("Failed to listen on uapi socket: %v", err)
-		os.Exit(ExitSetupFailed)
+		return nil, err
 	}
 
 	go func() {

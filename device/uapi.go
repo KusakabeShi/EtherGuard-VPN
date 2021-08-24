@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"net"
 	"strconv"
@@ -19,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/ipc"
 )
 
@@ -268,8 +266,6 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 	if err != nil {
 		return ipcErrorf(ipc.IpcErrorInvalid, "failed to get peer by public key: %w", err)
 	}
-	h := crc32.NewIEEE()
-	h.Write(publicKey[:])
 
 	// Ignore peer with the same public key as this device.
 	device.staticIdentity.RLock()
@@ -284,7 +280,11 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 
 	peer.created = peer.Peer == nil
 	if peer.created {
-		peer.Peer, err = device.NewPeer(publicKey, config.Vertex(h.Sum32()))
+		id, err := device.LookupPeerIDAtConfig(publicKey)
+		if err != nil {
+			return errors.New("Create new peer by UAPI is not implemented")
+		}
+		peer.Peer, err = device.NewPeer(publicKey, id)
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)
 		}

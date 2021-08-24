@@ -548,7 +548,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					goto skip
 				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
-				if !tap.IsBoardCast(src_macaddr) {
+				if !tap.IsNotUnicast(src_macaddr) {
 					device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table
 				}
 				_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)

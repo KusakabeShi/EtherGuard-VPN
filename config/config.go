@@ -5,15 +5,16 @@ import (
 )
 
 type EdgeConfig struct {
-	Interface    InterfaceConf
-	NodeID       Vertex
-	NodeName     string
-	PrivKey      string
-	ListenPort   int
-	LogLevel     LoggerInfo
-	DynamicRoute DynamicRouteInfo
-	NextHopTable NextHopTable
-	Peers        []PeerInfo
+	Interface         InterfaceConf
+	NodeID            Vertex
+	NodeName          string
+	PrivKey           string
+	ListenPort        int
+	LogLevel          LoggerInfo
+	DynamicRoute      DynamicRouteInfo
+	NextHopTable      NextHopTable
+	ResetConnInterval float64
+	Peers             []PeerInfo
 }
 
 type SuperConfig struct {
@@ -28,15 +29,15 @@ type SuperConfig struct {
 }
 
 type InterfaceConf struct {
-	Itype       string
-	Name        string
-	VPPIfaceID  uint32
-	VPPBridgeID uint32
-	MacAddr     string
-	MTU         int
-	RecvAddr    string
-	SendAddr    string
-	DevFriendly bool
+	Itype         string
+	Name          string
+	VPPIfaceID    uint32
+	VPPBridgeID   uint32
+	MacAddrPrefix string
+	MTU           int
+	RecvAddr      string
+	SendAddr      string
+	L2HeaderMode  string
 }
 
 type PeerInfo struct {
