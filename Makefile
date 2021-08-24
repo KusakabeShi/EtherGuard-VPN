@@ -19,6 +19,8 @@ generate-version-and-build:
 	@$(MAKE) etherguard-go
 
 etherguard-go: $(wildcard *.go) $(wildcard */*.go)
+	go mod vendor && \
+	patch -p0 -i govpp_remove_crcstring_check.patch && \
 	go build -v -o "$@"
 
 install: etherguard-go

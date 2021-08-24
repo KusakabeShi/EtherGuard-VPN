@@ -1,0 +1,20 @@
+--- vendor/git.fd.io/govpp.git/adapter/socketclient/socketclient.go	2021-07-29 22:21:35.560204223 +0800
++++ vendor/git.fd.io/govpp.git/adapter/socketclient/socketclient.go	2021-07-30 04:53:13.528822544 +0800
+@@ -314,6 +314,8 @@
+ 	for _, x := range reply.MessageTable {
+ 		msgName := strings.Split(x.Name, "\x00")[0]
+ 		name := strings.TrimSuffix(msgName, "\x13")
++		nameslice := strings.Split(name, "_")
++		name = strings.Join(nameslice[:len(nameslice)-1], "_")
+ 		c.msgTable[name] = x.Index
+ 		if strings.HasPrefix(name, "sockclnt_delete_") {
+ 			c.sockDelMsgId = x.Index
+@@ -327,7 +329,7 @@
+ }
+ 
+ func (c *Client) GetMsgID(msgName string, msgCrc string) (uint16, error) {
+-	if msgID, ok := c.msgTable[msgName+"_"+msgCrc]; ok {
++	if msgID, ok := c.msgTable[msgName]; ok {
+ 		return msgID, nil
+ 	}
+ 	return 0, &adapter.UnknownMsgError{
