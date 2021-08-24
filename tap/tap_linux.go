@@ -212,16 +212,53 @@ func (tap *NativeTap) setMacAddr(mac MacAddress) (err error) {
 		ifreq = struct.pack('16sH6B8x', self.name, AF_UNIX, *macbytes)
 		fcntl.ioctl(sockfd, SIOCSIFHWADDR, ifreq)
 	*/
-	copy(ifr[:16], name)
-	binary.BigEndian.PutUint16(ifr[16:18], unix.AF_UNIX)
-	copy(ifr[18:24], mac[:])
-	copy(ifr[24:32], make([]byte, 8))
+	copy(ifr[:unix.IFNAMSIZ], name)
+	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ:unix.IFNAMSIZ+2], unix.AF_UNIX)
+	copy(ifr[unix.IFNAMSIZ+2:unix.IFNAMSIZ+8], mac[:])
 	_, _, err = unix.Syscall(
 		unix.SYS_IOCTL,
 		uintptr(fd),
 		uintptr(unix.SIOCSIFHWADDR),
 		uintptr(unsafe.Pointer(&ifr[0])),
 	)
+	if err.(syscall.Errno) == syscall.Errno(0) {
+		err = nil
+	}
+	return
+}
+
+func (tap *NativeTap) setUp() (err error) {
+	fd, err := unix.Socket(
+		unix.AF_INET,
+		unix.SOCK_DGRAM,
+		0,
+	)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(fd)
+	var ifr [ifReqSize]byte
+	name, err := tap.Name()
+	if err != nil {
+		return err
+	}
+	/*
+		ifreq = struct.pack('16sH6B8x', self.name, AF_UNIX, *macbytes)
+		fcntl.ioctl(sockfd, SIOCSIFHWADDR, ifreq)
+	*/
+	flags := uint16(unix.IFF_UP)
+	copy(ifr[:unix.IFNAMSIZ], name)
+	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ:unix.IFNAMSIZ+2], unix.AF_UNIX)
+	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ+2:unix.IFNAMSIZ+4], flags)
+	_, _, err = unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFFLAGS),
+		uintptr(unsafe.Pointer(&ifr[0])),
+	)
+	if err.(syscall.Errno) == syscall.Errno(0) {
+		err = nil
+	}
 	return
 }
 
@@ -502,6 +539,11 @@ func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf) (Device, err
 		return nil, err
 	}
 	err = tap.setMacAddr(IfMacAddr)
+	if err != nil {
+		unix.Close(tap.netlinkSock)
+		return nil, err
+	}
+	err = tap.setUp()
 	if err != nil {
 		unix.Close(tap.netlinkSock)
 		return nil, err

@@ -176,6 +176,8 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 		thetap, err = tap.CreateUDPSockTAP(tconfig.Interface, lis, sen)
 	case "vpp":
 		thetap, err = tap.CreateVppTAP(tconfig.Interface, tconfig.LogLevel.LogLevel)
+	case "tap":
+		thetap, err = tap.CreateTAP(tconfig.Interface)
 	default:
 		return errors.New("Unknow interface type:" + tconfig.Interface.Itype)
 	}
