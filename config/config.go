@@ -24,6 +24,7 @@ type SuperConfig struct {
 	ListenPort              int
 	LogLevel                LoggerInfo
 	RePushConfigInterval    float64
+	statepasswordd          string
 	GraphRecalculateSetting GraphRecalculateSetting
 	Peers                   []PeerInfo
 }
@@ -106,9 +107,7 @@ type HTTP_Peerinfo struct {
 	PSKey   string
 	Connurl map[string]bool
 }
-type HTTP_Peers struct {
-	Peers map[string]HTTP_Peerinfo
-}
+type HTTP_Peers map[string]HTTP_Peerinfo
 
 const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 

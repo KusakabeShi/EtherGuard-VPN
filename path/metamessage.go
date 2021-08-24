@@ -20,9 +20,10 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 }
 
 type RegisterMsg struct {
-	Node_id config.Vertex `struc:"uint32"`
+	Node_id       config.Vertex `struc:"uint32"`
 	PeerStateHash [32]byte
-	NhStateHash [32]byte
+	NhStateHash   [32]byte
+	Name          string
 }
 
 func (c *RegisterMsg) ToString() string {

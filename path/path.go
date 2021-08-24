@@ -56,7 +56,7 @@ type IG struct {
 	dlTable                   config.DistTable
 	NhTable                   config.NextHopTable
 	NhTableHash               [32]byte
-	nhTableExpire             time.Time
+	NhTableExpire             time.Time
 	IsSuperMode               bool
 }
 
@@ -124,7 +124,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 			}
 		}
 		g.dlTable, g.NhTable = dist, next
-		g.nhTableExpire = time.Now().Add(g.NodeReportTimeout)
+		g.NhTableExpire = time.Now().Add(g.NodeReportTimeout)
 		g.RecalculateTime = time.Now()
 	}
 	return
@@ -248,14 +248,30 @@ func Path(u, v config.Vertex, next config.NextHopTable) (path []config.Vertex) {
 func (g *IG) SetNHTable(nh config.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
 	g.NhTable = nh
 	g.NhTableHash = table_hash
-	g.nhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
+	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
 }
 
 func (g *IG) GetNHTable(checkChange bool) config.NextHopTable {
-	if time.Now().After(g.nhTableExpire) {
+	if time.Now().After(g.NhTableExpire) {
 		g.RecalculateNhTable(checkChange)
 	}
 	return g.NhTable
+}
+
+func (g *IG) GetDtst() config.DistTable {
+	return g.dlTable
+}
+
+func (g *IG) GetEdges() (edges map[config.Vertex]map[config.Vertex]float64) {
+	vert := g.Vertices()
+	edges = make(map[config.Vertex]map[config.Vertex]float64, len(vert))
+	for src, _ := range vert {
+		edges[src] = make(map[config.Vertex]float64, len(vert))
+		for dst, _ := range vert {
+			edges[src][dst] = g.Weight(src, dst)
+		}
+	}
+	return
 }
 
 func (g *IG) GetBoardcastList(id config.Vertex) (tosend map[config.Vertex]bool) {
