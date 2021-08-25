@@ -25,7 +25,7 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
 		if EgHeader.GetUsage() == path.NornalPacket {
 			dst_nodeID := EgHeader.GetDst()
-			fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(packet)))
+			fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(packet)))
 		}
 	}
 	if device.LogLevel.LogControl {
@@ -34,7 +34,7 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 			device.MsgCount += 1
 			EgHeader.SetMessageID(device.MsgCount)
 			if peer.GetEndpointDstStr() != "" {
-				fmt.Println("Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]))
+				fmt.Println("Control: Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]))
 			}
 		}
 	}
@@ -69,7 +69,7 @@ func (device *Device) SpreadPacket(skip_list map[config.Vertex]bool, packet []by
 	for peer_id, peer_out := range device.peers.IDMap {
 		if _, ok := skip_list[peer_id]; ok {
 			if device.LogLevel.LogTransit {
-				fmt.Printf("Skipped Spread Packet packet through %d to %d\n", device.ID, peer_out.ID)
+				fmt.Printf("Transit: Skipped Spread Packet packet through %d to %d\n", device.ID, peer_out.ID)
 			}
 			continue
 		}
@@ -84,7 +84,7 @@ func (device *Device) TransitBoardcastPacket(src_nodeID config.Vertex, in_id con
 	for peer_id := range node_boardcast_list {
 		peer_out := device.peers.IDMap[peer_id]
 		if device.LogLevel.LogTransit {
-			fmt.Printf("Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
+			fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
 		}
 		device.SendPacket(peer_out, packet, offset)
 	}
@@ -268,12 +268,15 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 	if device.DRoute.SuperNode.UseSuperNode {
 		var peer_infos config.HTTP_Peers
 		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Same PeerState Hash, skip download nhTable")
+			}
 			return nil
 		}
 
 		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
 		if device.LogLevel.LogControl {
-			fmt.Println("Download peerinfo from :" + downloadurl)
+			fmt.Println("Control: Download peerinfo from :" + downloadurl)
 		}
 		client := http.Client{
 			Timeout: 30 * time.Second,
@@ -290,7 +293,7 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 			return err
 		}
 		if device.LogLevel.LogControl {
-			fmt.Println("Download result :" + string(allbytes))
+			fmt.Println("Control: Download peerinfo result :" + string(allbytes))
 		}
 		if err := json.Unmarshal(allbytes, &peer_infos); err != nil {
 			device.log.Errorf(err.Error())
@@ -308,7 +311,7 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 			thepeer := device.LookupPeer(sk)
 			if thepeer == nil { //not exist in local
 				if device.LogLevel.LogControl {
-					fmt.Println("Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + pubkey)
+					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + pubkey)
 				}
 				if device.graph.Weight(device.ID, peerinfo.NodeID) == path.Infinity { // add node to graph
 					device.graph.UpdateLentancy(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), false)
@@ -368,7 +371,7 @@ func (device *Device) RoutineSetEndpoint() {
 							return true
 						}
 						if device.LogLevel.LogControl {
-							fmt.Println("Set endpoint to " + endpoint.DstToString() + " for NodeID:" + thepeer.ID.ToString())
+							fmt.Println("Control: Set endpoint to " + endpoint.DstToString() + " for NodeID:" + thepeer.ID.ToString())
 						}
 						thepeer.SetEndpointFromPacket(endpoint)
 						NextRun = true
@@ -517,7 +520,7 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 	if device.DRoute.SuperNode.UseSuperNode {
 		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
 			if device.LogLevel.LogControl {
-				fmt.Println("Same State_hash, skip download nhTable")
+				fmt.Println("Control: Same nhTable Hash, skip download nhTable")
 			}
 			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
 			return nil
@@ -528,7 +531,7 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 		}
 		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
 		if device.LogLevel.LogControl {
-			fmt.Println("Download NhTable from :" + downloadurl)
+			fmt.Println("Control: Download NhTable from :" + downloadurl)
 		}
 		client := http.Client{
 			Timeout: 30 * time.Second,
@@ -545,7 +548,7 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 			return err
 		}
 		if device.LogLevel.LogControl {
-			fmt.Println("Download result :" + string(allbytes))
+			fmt.Println("Control: Download NhTable result :" + string(allbytes))
 		}
 		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
 			device.log.Errorf(err.Error())
@@ -608,7 +611,7 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 		thepeer := device.LookupPeer(sk)
 		if thepeer == nil { //not exist in local
 			if device.LogLevel.LogControl {
-				fmt.Println("Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + base64.StdEncoding.EncodeToString(content.PubKey[:]))
+				fmt.Println("Control: Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + base64.StdEncoding.EncodeToString(content.PubKey[:]))
 			}
 			if device.graph.Weight(device.ID, content.NodeID) == path.Infinity { // add node to graph
 				device.graph.UpdateLentancy(device.ID, content.NodeID, path.S2TD(path.Infinity), false)

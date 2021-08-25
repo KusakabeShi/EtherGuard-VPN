@@ -75,7 +75,11 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 		fmt.Printf("Error read config: %v\n", configPath)
 		return err
 	}
-	interfaceName := sconfig.NodeName
+	NodeName := sconfig.NodeName
+	if len(NodeName) > 32 {
+		return errors.New("Node name can't longer than 32 :" + NodeName)
+	}
+
 	var logLevel int
 	switch sconfig.LogLevel.LogLevel {
 	case "verbose", "debug":
@@ -88,11 +92,11 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	logger4 := device.NewLogger(
 		logLevel,
-		fmt.Sprintf("(%s) ", interfaceName+"_v4"),
+		fmt.Sprintf("(%s) ", NodeName+"_v4"),
 	)
 	logger6 := device.NewLogger(
 		logLevel,
-		fmt.Sprintf("(%s) ", interfaceName+"_v6"),
+		fmt.Sprintf("(%s) ", NodeName+"_v6"),
 	)
 
 	http_PeerState = make(map[string]*PeerState)
@@ -108,7 +112,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	}
 
 	thetap, _ := tap.CreateDummyTAP()
-	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting)
+	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
 	http_device4 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
 	http_device6 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
 	defer http_device4.Close()
@@ -184,12 +188,12 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	errs := make(chan error, 1<<3)
 	term := make(chan os.Signal, 1)
 	if useUAPI {
-		uapi4, err := startUAPI(interfaceName+"_v4", logger4, http_device4, errs)
+		uapi4, err := startUAPI(NodeName+"_v4", logger4, http_device4, errs)
 		if err != nil {
 			return err
 		}
 		defer uapi4.Close()
-		uapi6, err := startUAPI(interfaceName+"_v6", logger6, http_device6, errs)
+		uapi6, err := startUAPI(NodeName+"_v6", logger6, http_device6, errs)
 		if err != nil {
 			return err
 		}

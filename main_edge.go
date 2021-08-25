@@ -45,6 +45,8 @@ func printExampleEdgeConf() {
 			LogLevel:   "normal",
 			LogTransit: true,
 			LogControl: true,
+			LogNormal:  true,
+			LogNTP:     false,
 		},
 		DynamicRoute: config.DynamicRouteInfo{
 			SendPingInterval: 20,
@@ -72,8 +74,10 @@ func printExampleEdgeConf() {
 				},
 			},
 			NTPconfig: config.NTPinfo{
-				UseNTP:       true,
-				MaxServerUse: 5,
+				UseNTP:           true,
+				MaxServerUse:     5,
+				SyncTimeInterval: 3600,
+				NTPTimeout:       10,
 				Servers: []string{"time.google.com",
 					"time1.google.com",
 					"time2.google.com",
@@ -102,7 +106,7 @@ func printExampleEdgeConf() {
 			},
 		},
 	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting)
+	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, false)
 
 	g.UpdateLentancy(1, 2, path.S2TD(0.5), false)
 	g.UpdateLentancy(2, 1, path.S2TD(0.5), false)
@@ -139,8 +143,10 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 		return err
 	}
 
-	interfaceName := tconfig.NodeName
-
+	NodeName := tconfig.NodeName
+	if len(NodeName) > 32 {
+		return errors.New("Node name can't longer than 32 :" + NodeName)
+	}
 	var logLevel int
 	switch tconfig.LogLevel.LogLevel {
 	case "verbose", "debug":
@@ -152,7 +158,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	}
 	logger := device.NewLogger(
 		logLevel,
-		fmt.Sprintf("(%s) ", interfaceName),
+		fmt.Sprintf("(%s) ", NodeName),
 	)
 
 	if err != nil {
@@ -188,7 +194,10 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	////////////////////////////////////////////////////
 	// Config
-	graph := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting)
+	if tconfig.DynamicRoute.P2P.UseP2P == false && tconfig.DynamicRoute.SuperNode.UseSuperNode == false {
+		tconfig.LogLevel.LogNTP = false // NTP in static mode is useless
+	}
+	graph := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel.LogNTP)
 	graph.SetNHTable(tconfig.NextHopTable, [32]byte{})
 
 	the_device := device.NewDevice(thetap, tconfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &tconfig, nil, nil)
@@ -260,7 +269,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	term := make(chan os.Signal, 1)
 
 	if useUAPI {
-		startUAPI(interfaceName, logger, the_device, errs)
+		startUAPI(NodeName, logger, the_device, errs)
 	}
 
 	// wait for program to terminate
