@@ -287,15 +287,14 @@ func PushNhTable() {
 	header.SetTTL(0)
 	header.SetUsage(path.UpdateNhTable)
 	copy(buf[path.EgHeaderLen:], body)
-	for pkstr, peerstate := range http_PeerState {
-		if peerstate.NhTableState != http_NhTable_Hash {
-			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil {
-				http_device4.SendPacket(peer, buf, device.MessageTransportOffsetContent)
-			}
-			if peer := http_device6.LookupPeerByStr(pkstr); peer != nil {
-				http_device6.SendPacket(peer, buf, device.MessageTransportOffsetContent)
-			}
+	for pkstr, _ := range http_PeerState {
+		if peer := http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
+			http_device4.SendPacket(peer, buf, device.MessageTransportOffsetContent)
 		}
+		if peer := http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
+			http_device6.SendPacket(peer, buf, device.MessageTransportOffsetContent)
+		}
+
 	}
 }
 

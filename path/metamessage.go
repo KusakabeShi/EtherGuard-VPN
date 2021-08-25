@@ -2,6 +2,7 @@ package path
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/gob"
 	"strconv"
 	"time"
@@ -27,7 +28,7 @@ type RegisterMsg struct {
 }
 
 func (c *RegisterMsg) ToString() string {
-	return "RegisterMsg Node_id:" + c.Node_id.ToString()
+	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Name:" + c.Name + " PeerHash" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {

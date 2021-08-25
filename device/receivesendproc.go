@@ -2,6 +2,7 @@ package device
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 			device.MsgCount += 1
 			EgHeader.SetMessageID(device.MsgCount)
 			if peer.GetEndpointDstStr() != "" {
-				fmt.Printf("Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]) + "\n")
+				fmt.Println("Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]))
 			}
 		}
 	}
@@ -211,7 +212,9 @@ func (device *Device) process_ping(content path.PingMsg) error {
 		Dst_nodeID: device.ID,
 		Timediff:   device.graph.GetCurrentTime().Sub(content.Time),
 	}
-	device.graph.UpdateLentancy(content.Src_nodeID, device.ID, PongMSG.Timediff, false)
+	if device.DRoute.P2P.UseP2P && time.Now().After(device.graph.NhTableExpire) {
+		device.graph.UpdateLentancy(content.Src_nodeID, device.ID, PongMSG.Timediff, false)
+	}
 	body, err := path.GetByte(&PongMSG)
 	if err != nil {
 		return err
@@ -236,7 +239,9 @@ func (device *Device) process_ping(content path.PingMsg) error {
 
 func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 	if device.DRoute.P2P.UseP2P {
-		device.graph.UpdateLentancy(content.Src_nodeID, content.Dst_nodeID, content.Timediff, false)
+		if time.Now().After(device.graph.NhTableExpire) {
+			device.graph.UpdateLentancy(content.Src_nodeID, content.Dst_nodeID, content.Timediff, false)
+		}
 		if !peer.AskedForNeighbor {
 			QueryPeerMsg := path.QueryPeerMsg{
 				Request_ID: uint32(device.ID),
@@ -302,6 +307,9 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 			}
 			thepeer := device.LookupPeer(sk)
 			if thepeer == nil { //not exist in local
+				if device.LogLevel.LogControl {
+					fmt.Println("Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + pubkey)
+				}
 				if device.graph.Weight(device.ID, peerinfo.NodeID) == path.Infinity { // add node to graph
 					device.graph.UpdateLentancy(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), false)
 				}
@@ -508,6 +516,10 @@ func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, erro
 func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) error {
 	if device.DRoute.SuperNode.UseSuperNode {
 		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
+			if device.LogLevel.LogControl {
+				fmt.Println("Same State_hash, skip download nhTable")
+			}
+			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
 			return nil
 		}
 		var NhTable config.NextHopTable
@@ -595,6 +607,9 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 		copy(sk[:], content.PubKey[:])
 		thepeer := device.LookupPeer(sk)
 		if thepeer == nil { //not exist in local
+			if device.LogLevel.LogControl {
+				fmt.Println("Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + base64.StdEncoding.EncodeToString(content.PubKey[:]))
+			}
 			if device.graph.Weight(device.ID, content.NodeID) == path.Infinity { // add node to graph
 				device.graph.UpdateLentancy(device.ID, content.NodeID, path.S2TD(path.Infinity), false)
 			}

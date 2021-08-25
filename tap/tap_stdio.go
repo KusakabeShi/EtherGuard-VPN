@@ -134,5 +134,5 @@ func (tap *StdIOTap) Close() error {
 	os.Stdin.Close()
 	os.Stdin.WriteString("end\n")
 	close(tap.events)
-	return nil
+	panic("No solution for this issue: https://stackoverflow.com/questions/44270803/is-there-a-good-way-to-cancel-a-blocking-read , I'm panic!")
 } // stops the device and closes the event channel
