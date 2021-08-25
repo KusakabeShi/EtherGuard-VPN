@@ -12,14 +12,6 @@ import (
 
 const Infinity = float64(99999)
 
-const (
-	Boardcast        config.Vertex = math.MaxUint32 - iota // Normal boardcast, boardcast with route table
-	ControlMessage   config.Vertex = math.MaxUint32 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
-	PingMessage      config.Vertex = math.MaxUint32 - iota // boardsact to every know peer but don't transit
-	SuperNodeMessage config.Vertex = math.MaxUint32 - iota
-	Special_NodeID   config.Vertex = SuperNodeMessage
-)
-
 func (g *IG) GetCurrentTime() time.Time {
 	return time.Now().Round(0)
 }
@@ -268,7 +260,9 @@ func (g *IG) GetEdges() (edges map[config.Vertex]map[config.Vertex]float64) {
 	for src, _ := range vert {
 		edges[src] = make(map[config.Vertex]float64, len(vert))
 		for dst, _ := range vert {
-			edges[src][dst] = g.Weight(src, dst)
+			if src != dst {
+				edges[src][dst] = g.Weight(src, dst)
+			}
 		}
 	}
 	return

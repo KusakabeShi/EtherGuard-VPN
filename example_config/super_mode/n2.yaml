@@ -8,14 +8,15 @@ interface:
   recvaddr: 127.0.0.1:4002
   sendaddr: 127.0.0.1:5002
   l2headermode: kbdbg
-nodeid: 1
-nodename: Node01
+nodeid: 2
+nodename: Node02
 privkey: OH8BsVUU2Rqzeu9B2J5GPG8PUmxWfX8uVvNFZKhVF3o=
 listenport: 3002
 loglevel:
   loglevel: normal
   logtransit: true
-  logcontrol: true
+  logcontrol: false
+  lognormal: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40

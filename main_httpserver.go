@@ -152,5 +152,6 @@ func HttpServer(http_port int, apiprefix string) {
 	}
 	mux.HandleFunc(apiprefix+"/peerinfo", get_peerinfo)
 	mux.HandleFunc(apiprefix+"/nhtable", get_nhtable)
+	mux.HandleFunc(apiprefix+"/peerstate", get_info)
 	http.ListenAndServe(":"+strconv.Itoa(http_port), mux)
 }

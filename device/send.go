@@ -9,7 +9,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -251,9 +253,9 @@ func (device *Device) RoutineReadFromTUN() {
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
 		if tap.IsNotUnicast(dstMacAddr) {
-			dst_nodeID = path.Boardcast
+			dst_nodeID = config.Boardcast
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
-			dst_nodeID = path.Boardcast
+			dst_nodeID = config.Boardcast
 		} else {
 			dst_nodeID = val.(config.Vertex)
 		}
@@ -263,17 +265,22 @@ func (device *Device) RoutineReadFromTUN() {
 		EgBody.SetTTL(200)
 		EgBody.SetUsage(path.NornalPacket)
 
-		if dst_nodeID != path.Boardcast {
-			var peer_out *Peer
+		if dst_nodeID != config.Boardcast {
+			var peer *Peer
 			next_id := *device.graph.NhTable[device.ID][dst_nodeID]
-			peer_out = device.peers.IDMap[next_id]
-			if peer_out == nil {
+			peer = device.peers.IDMap[next_id]
+			if peer == nil {
 				continue
 			}
-			if peer_out.isRunning.Get() {
-				peer_out.StagePacket(elem)
+			if device.LogLevel.LogNormal {
+				if device.LogLevel.LogNormal {
+					fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+				}
+			}
+			if peer.isRunning.Get() {
+				peer.StagePacket(elem)
 				elem = nil
-				peer_out.SendStagedPackets()
+				peer.SendStagedPackets()
 			}
 		} else {
 			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.packet, offset)

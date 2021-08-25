@@ -20,7 +20,14 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 	if peer == nil {
 		return
 	}
-	if device.LogControl {
+	if device.LogLevel.LogNormal {
+		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
+		if EgHeader.GetUsage() == path.NornalPacket {
+			dst_nodeID := EgHeader.GetDst()
+			fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(packet)))
+		}
+	}
+	if device.LogLevel.LogControl {
 		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
 		if EgHeader.GetUsage() != path.NornalPacket {
 			device.MsgCount += 1
@@ -30,6 +37,7 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 			}
 		}
 	}
+
 	var elem *QueueOutboundElement
 	elem = device.NewOutboundElement()
 	copy(elem.buffer[offset:offset+len(packet)], packet)
@@ -59,7 +67,7 @@ func (device *Device) SpreadPacket(skip_list map[config.Vertex]bool, packet []by
 	device.peers.RLock()
 	for peer_id, peer_out := range device.peers.IDMap {
 		if _, ok := skip_list[peer_id]; ok {
-			if device.LogTransit {
+			if device.LogLevel.LogTransit {
 				fmt.Printf("Skipped Spread Packet packet through %d to %d\n", device.ID, peer_out.ID)
 			}
 			continue
@@ -74,7 +82,7 @@ func (device *Device) TransitBoardcastPacket(src_nodeID config.Vertex, in_id con
 	device.peers.RLock()
 	for peer_id := range node_boardcast_list {
 		peer_out := device.peers.IDMap[peer_id]
-		if device.LogTransit {
+		if device.LogLevel.LogTransit {
 			fmt.Printf("Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
 		}
 		device.SendPacket(peer_out, packet, offset)
@@ -86,9 +94,9 @@ func (device *Device) Send2Super(packet []byte, offset int) {
 	device.peers.RLock()
 	if device.DRoute.SuperNode.UseSuperNode {
 		for _, peer_out := range device.peers.SuperPeer {
-			if device.LogTransit {
+			/*if device.LogTransit {
 				fmt.Printf("Send to supernode %s\n", peer_out.endpoint.DstToString())
-			}
+			}*/
 			device.SendPacket(peer_out, packet, offset)
 		}
 	}
@@ -216,11 +224,11 @@ func (device *Device) process_ping(content path.PingMsg) error {
 	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
 	if device.DRoute.SuperNode.UseSuperNode {
-		header.SetDst(path.SuperNodeMessage)
+		header.SetDst(config.SuperNodeMessage)
 		device.Send2Super(buf, MessageTransportOffsetContent)
 	}
 	if device.DRoute.P2P.UseP2P {
-		header.SetDst(path.ControlMessage)
+		header.SetDst(config.ControlMessage)
 		device.SpreadPacket(make(map[config.Vertex]bool), buf, MessageTransportOffsetContent)
 	}
 	return nil
@@ -259,7 +267,7 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 		}
 
 		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
-		if device.LogControl {
+		if device.LogLevel.LogControl {
 			fmt.Println("Download peerinfo from :" + downloadurl)
 		}
 		client := http.Client{
@@ -275,6 +283,9 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 		if err != nil {
 			device.log.Errorf(err.Error())
 			return err
+		}
+		if device.LogLevel.LogControl {
+			fmt.Println("Download result :" + string(allbytes))
 		}
 		if err := json.Unmarshal(allbytes, &peer_infos); err != nil {
 			device.log.Errorf(err.Error())
@@ -348,8 +359,8 @@ func (device *Device) RoutineSetEndpoint() {
 							thepeer.endpoint_trylist.Delete(url)
 							return true
 						}
-						if device.LogControl {
-							fmt.Println("Set endpoint to " + endpoint.DstToString() + " for NodeID:" + strconv.Itoa(int(thepeer.ID)))
+						if device.LogLevel.LogControl {
+							fmt.Println("Set endpoint to " + endpoint.DstToString() + " for NodeID:" + thepeer.ID.ToString())
 						}
 						thepeer.SetEndpointFromPacket(endpoint)
 						NextRun = true
@@ -394,15 +405,17 @@ func (device *Device) RoutineRegister() {
 	if !(device.DRoute.SuperNode.UseSuperNode) {
 		return
 	}
+	_ = <-device.Event_Supernode_OK
 	for {
 		body, _ := path.GetByte(path.RegisterMsg{
 			Node_id:       device.ID,
 			PeerStateHash: device.peers.Peer_state,
 			NhStateHash:   device.graph.NhTableHash,
+			Name:          device.EdgeConfig.NodeName,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
-		header.SetDst(path.SuperNodeMessage)
+		header.SetDst(config.SuperNodeMessage)
 		header.SetTTL(0)
 		header.SetSrc(device.ID)
 		header.SetUsage(path.Register)
@@ -441,7 +454,7 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	}
 	for {
 		device.process_RequestPeerMsg(path.QueryPeerMsg{
-			Request_ID: uint32(path.Boardcast),
+			Request_ID: uint32(config.Boardcast),
 		})
 		time.Sleep(path.S2TD(device.DRoute.P2P.SendPeerInterval))
 	}
@@ -483,7 +496,7 @@ func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	header.SetDst(path.PingMessage)
+	header.SetDst(config.PingMessage)
 	header.SetTTL(0)
 	header.SetSrc(device.ID)
 	header.SetUsage(path.PingPacket)
@@ -502,7 +515,7 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 			return nil
 		}
 		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
-		if device.LogControl {
+		if device.LogLevel.LogControl {
 			fmt.Println("Download NhTable from :" + downloadurl)
 		}
 		client := http.Client{
@@ -519,6 +532,9 @@ func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) er
 			device.log.Errorf(err.Error())
 			return err
 		}
+		if device.LogLevel.LogControl {
+			fmt.Println("Download result :" + string(allbytes))
+		}
 		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
 			device.log.Errorf(err.Error())
 			return err
@@ -532,7 +548,7 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 	if device.DRoute.P2P.UseP2P {
 		device.peers.RLock()
 		for pubkey, peer := range device.peers.keyMap {
-			if peer.ID >= path.Special_NodeID {
+			if peer.ID >= config.Special_NodeID {
 				continue
 			}
 			if peer.endpoint == nil {
@@ -554,7 +570,7 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
-			header.SetDst(path.ControlMessage)
+			header.SetDst(config.ControlMessage)
 			header.SetTTL(200)
 			header.SetSrc(device.ID)
 			header.SetUsage(path.BoardcastPeer)

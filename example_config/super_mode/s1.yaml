@@ -2,10 +2,12 @@ nodename: NodeSuper
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000
+statepassword: passwd
 loglevel:
   loglevel: normal
   logtransit: true
   logcontrol: true
+  lognormal: true
 repushconfiginterval: 30
 graphrecalculatesetting:
   jittertolerance: 5

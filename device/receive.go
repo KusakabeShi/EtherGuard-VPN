@@ -459,24 +459,24 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if device.IsSuperNode {
 			peer.LastPingReceived = time.Now()
 			switch dst_nodeID {
-			case path.ControlMessage:
+			case config.ControlMessage:
 				should_process = true
-			case path.SuperNodeMessage:
+			case config.SuperNodeMessage:
 				should_process = true
 			default:
 				device.log.Errorf("Invalid dst_nodeID received. Check your code for bug")
 			}
 		} else {
 			switch dst_nodeID {
-			case path.Boardcast:
+			case config.Boardcast:
 				should_receive = true
 				should_transfer = true
-			case path.PingMessage:
+			case config.PingMessage:
 				peer.LastPingReceived = time.Now()
 				should_process = true
-			case path.SuperNodeMessage:
+			case config.SuperNodeMessage:
 				should_process = true
-			case path.ControlMessage:
+			case config.ControlMessage:
 				packet := elem.packet[path.EgHeaderLen:] //true packet
 				if device.CheckNoDup(packet) {
 					should_process = true
@@ -484,7 +484,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				} else {
 					should_process = false
 					should_transfer = false
-					if device.LogTransit {
+					if device.LogLevel.LogTransit {
 						fmt.Printf("Duplicate packet received from %d through %d , src_nodeID = %d . Dropeed.\n", peer.ID, device.ID, src_nodeID)
 					}
 				}
@@ -508,9 +508,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
 				EgHeader.SetTTL(l2ttl - 1)
-				if dst_nodeID == path.Boardcast { //Regular transfer algorithm
+				if dst_nodeID == config.Boardcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.packet, MessageTransportOffsetContent)
-				} else if dst_nodeID == path.ControlMessage { // Control Message will try send to every know node regardless the connectivity
+				} else if dst_nodeID == config.ControlMessage { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[config.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
@@ -519,7 +519,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				} else {
 					next_id := *device.graph.NhTable[device.ID][dst_nodeID]
 					peer_out = device.peers.IDMap[next_id]
-					if device.LogTransit {
+					if device.LogLevel.LogTransit {
 						fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 					}
 					device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
@@ -529,7 +529,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 
 		if should_process {
 			if packet_type != path.NornalPacket {
-				if device.LogControl {
+				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
 						fmt.Printf("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]) + "\n")
 					}
@@ -543,6 +543,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 
 		if should_receive { // Write message to tap device
 			if packet_type == path.NornalPacket {
+				if device.LogLevel.LogNormal {
+					fmt.Println("Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+				}
 				if len(elem.packet) <= path.EgHeaderLen+12 {
 					device.log.Errorf("Invalid normal packet from peer %v", peer)
 					goto skip

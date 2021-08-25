@@ -203,7 +203,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	for _, peerconf := range tconfig.Peers {
 		sk_slice, _ = base64.StdEncoding.DecodeString(peerconf.PubKey)
 		copy(sk[:], sk_slice)
-		if peerconf.NodeID >= path.SuperNodeMessage {
+		if peerconf.NodeID >= config.SuperNodeMessage {
 			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
 		}
 		the_device.NewPeer(sk, peerconf.NodeID)
@@ -228,7 +228,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(sk, path.SuperNodeMessage)
+			peer, err := the_device.NewPeer(sk, config.SuperNodeMessage)
 			if err != nil {
 				return err
 			}
@@ -243,7 +243,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(sk, path.SuperNodeMessage)
+			peer, err := the_device.NewPeer(sk, config.SuperNodeMessage)
 			if err != nil {
 				return err
 			}
@@ -251,6 +251,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			peer.ConnURL = tconfig.DynamicRoute.SuperNode.ConnURLV6
 			peer.SetEndpointFromPacket(endpoint)
 		}
+		the_device.Event_Supernode_OK <- struct{}{}
 	}
 
 	logger.Verbosef("Device started")

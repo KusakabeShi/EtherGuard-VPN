@@ -82,6 +82,8 @@ type Device struct {
 	Event_server_NhTable_changed chan struct{}
 	Event_save_config            chan struct{}
 
+	Event_Supernode_OK chan struct{}
+
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
@@ -90,8 +92,7 @@ type Device struct {
 	ID          config.Vertex
 	graph       *path.IG
 	l2fib       sync.Map
-	LogTransit  bool
-	LogControl  bool
+	LogLevel    config.LoggerInfo
 	DRoute      config.DynamicRouteInfo
 	DupData     fixed_time_cache.Cache
 
@@ -160,7 +161,7 @@ func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	// remove from peer map
 	id := peer.ID
 	delete(device.peers.keyMap, key)
-	if id == path.SuperNodeMessage {
+	if id == config.SuperNodeMessage {
 		delete(device.peers.SuperPeer, key)
 	} else {
 		delete(device.peers.IDMap, id)
@@ -335,8 +336,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.Event_server_pong = superevents.Event_server_pong
 		device.Event_server_register = superevents.Event_server_register
 		device.Event_server_NhTable_changed = superevents.Event_server_NhTable_changed
-		device.LogTransit = sconfig.LogLevel.LogTransit
-		device.LogControl = sconfig.LogLevel.LogControl
+		device.LogLevel = sconfig.LogLevel
 		device.SuperConfig = sconfig
 		device.SuperConfigPath = configpath
 		go device.RoutineRecalculateNhTable()
@@ -347,8 +347,8 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, path.S2TD(60))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Event_save_config = make(chan struct{}, 1<<5)
-		device.LogTransit = econfig.LogLevel.LogTransit
-		device.LogControl = econfig.LogLevel.LogControl
+		device.Event_Supernode_OK = make(chan struct{}, 4)
+		device.LogLevel = econfig.LogLevel
 		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
