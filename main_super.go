@@ -252,7 +252,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			http_NhTableStr = NhTablestr
 			PushUpdate()
 		case pong_msg := <-events.Event_server_pong:
-			changed := graph.UpdateLentancy(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true)
+			changed := graph.UpdateLentancy(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
 			if changed {
 				NhTable := graph.GetNHTable(false)
 				NhTablestr, _ := json.Marshal(NhTable)

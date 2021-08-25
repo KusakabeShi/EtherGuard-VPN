@@ -213,7 +213,7 @@ func (device *Device) process_ping(content path.PingMsg) error {
 		Timediff:   device.graph.GetCurrentTime().Sub(content.Time),
 	}
 	if device.DRoute.P2P.UseP2P && time.Now().After(device.graph.NhTableExpire) {
-		device.graph.UpdateLentancy(content.Src_nodeID, device.ID, PongMSG.Timediff, false)
+		device.graph.UpdateLentancy(content.Src_nodeID, device.ID, PongMSG.Timediff, true, false)
 	}
 	body, err := path.GetByte(&PongMSG)
 	if err != nil {
@@ -240,7 +240,7 @@ func (device *Device) process_ping(content path.PingMsg) error {
 func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 	if device.DRoute.P2P.UseP2P {
 		if time.Now().After(device.graph.NhTableExpire) {
-			device.graph.UpdateLentancy(content.Src_nodeID, content.Dst_nodeID, content.Timediff, false)
+			device.graph.UpdateLentancy(content.Src_nodeID, content.Dst_nodeID, content.Timediff, true, false)
 		}
 		if !peer.AskedForNeighbor {
 			QueryPeerMsg := path.QueryPeerMsg{
@@ -314,10 +314,10 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + pubkey)
 				}
 				if device.graph.Weight(device.ID, peerinfo.NodeID) == path.Infinity { // add node to graph
-					device.graph.UpdateLentancy(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), false)
+					device.graph.UpdateLentancy(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), true, false)
 				}
 				if device.graph.Weight(peerinfo.NodeID, device.ID) == path.Infinity { // add node to graph
-					device.graph.UpdateLentancy(peerinfo.NodeID, device.ID, path.S2TD(path.Infinity), false)
+					device.graph.UpdateLentancy(peerinfo.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
 				}
 				device.NewPeer(sk, peerinfo.NodeID)
 				thepeer = device.LookupPeer(sk)
@@ -614,10 +614,10 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 				fmt.Println("Control: Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + base64.StdEncoding.EncodeToString(content.PubKey[:]))
 			}
 			if device.graph.Weight(device.ID, content.NodeID) == path.Infinity { // add node to graph
-				device.graph.UpdateLentancy(device.ID, content.NodeID, path.S2TD(path.Infinity), false)
+				device.graph.UpdateLentancy(device.ID, content.NodeID, path.S2TD(path.Infinity), true, false)
 			}
 			if device.graph.Weight(content.NodeID, device.ID) == path.Infinity { // add node to graph
-				device.graph.UpdateLentancy(content.NodeID, device.ID, path.S2TD(path.Infinity), false)
+				device.graph.UpdateLentancy(content.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
 			}
 			device.NewPeer(sk, content.NodeID)
 			thepeer = device.LookupPeer(sk)
