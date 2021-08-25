@@ -18,6 +18,7 @@ import (
 	"git.fd.io/govpp.git/binapi/l2"
 	"git.fd.io/govpp.git/binapi/memif"
 	"git.fd.io/govpp.git/extras/libmemif"
+	"golang.org/x/sys/unix"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	logger "github.com/sirupsen/logrus"
@@ -61,6 +62,9 @@ type VppTap struct {
 // New creates and returns a new TUN interface for the application.
 func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device, err error) {
 	// Setup TUN Config
+	if len(iconfig.Name) >= unix.IFNAMSIZ {
+		return nil, fmt.Errorf("interface name too long: %w", unix.ENAMETOOLONG)
+	}
 	// Set logger
 	log := logger.New()
 	log.Out = os.Stdout

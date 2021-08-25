@@ -2,8 +2,8 @@ package config
 
 import (
 	"crypto/rand"
-	"strconv"
 	"math"
+	"strconv"
 )
 
 const (
@@ -64,13 +64,14 @@ type LoggerInfo struct {
 	LogTransit bool
 	LogControl bool
 	LogNormal  bool
+	LogNTP     bool
 }
 
 // Nonnegative integer ID of vertex
 type Vertex uint32
 
 func (v *Vertex) ToString() string {
-	switch *v{
+	switch *v {
 	case Boardcast:
 		return "B"
 	case ControlMessage:
@@ -95,9 +96,11 @@ type DynamicRouteInfo struct {
 }
 
 type NTPinfo struct {
-	UseNTP       bool
-	MaxServerUse int
-	Servers      []string
+	UseNTP           bool
+	MaxServerUse     int
+	SyncTimeInterval float64
+	NTPTimeout       float64
+	Servers          []string
 }
 
 type SuperInfo struct {

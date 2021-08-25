@@ -17,6 +17,7 @@ loglevel:
   logtransit: true
   logcontrol: true
   lognormal: true
+  logntp: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40
@@ -40,8 +41,10 @@ dynamicroute:
       nodereporttimeout: 40
       recalculatecooldown: 5
   ntpconfig:
-    usentp: true
-    maxserveruse: 5
+    usentp: false
+    maxserveruse: 8
+    synctimeinterval: 3600
+    ntptimeout: 10
     servers:
     - time.google.com
     - time1.google.com

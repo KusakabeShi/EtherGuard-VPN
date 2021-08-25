@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
+	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
 	yaml "gopkg.in/yaml.v2"
 )
 
 const Infinity = float64(99999)
 
 func (g *IG) GetCurrentTime() time.Time {
-	return time.Now().Round(0)
+	return time.Now().Add(g.ntp_offset).Round(0)
 }
 
 // A Graph is the interface implemented by graphs that
@@ -50,24 +51,32 @@ type IG struct {
 	NhTableHash               [32]byte
 	NhTableExpire             time.Time
 	IsSuperMode               bool
+
+	ntp_wg      sync.WaitGroup
+	ntp_log     bool
+	ntp_info    config.NTPinfo
+	ntp_offset  time.Duration
+	ntp_servers orderedmap.OrderedMap // serverurl:lentancy
 }
 
 func S2TD(secs float64) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting) *IG {
+func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting, ntpinfo config.NTPinfo, logntp bool) *IG {
 	g := IG{
 		edgelock:                  &sync.RWMutex{},
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
 		NodeReportTimeout:         S2TD(theconfig.NodeReportTimeout),
 		RecalculateCoolDown:       S2TD(theconfig.RecalculateCoolDown),
+		ntp_info:                  ntpinfo,
 	}
 	g.Vert = make(map[config.Vertex]bool, num_node)
 	g.edges = make(map[config.Vertex]map[config.Vertex]Latency, num_node)
 	g.IsSuperMode = IsSuperMode
-
+	g.ntp_log = logntp
+	g.InitNTP()
 	return &g
 }
 

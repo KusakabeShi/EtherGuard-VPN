@@ -274,9 +274,7 @@ func (device *Device) RoutineReadFromTUN() {
 					continue
 				}
 				if device.LogLevel.LogNormal {
-					if device.LogLevel.LogNormal {
-						fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
-					}
+					fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
 				}
 				if peer.isRunning.Get() {
 					peer.StagePacket(elem)

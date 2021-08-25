@@ -485,7 +485,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_process = false
 					should_transfer = false
 					if device.LogLevel.LogTransit {
-						fmt.Printf("Duplicate packet received from %d through %d , src_nodeID = %d . Dropeed.\n", peer.ID, device.ID, src_nodeID)
+						fmt.Printf("Transit: Duplicate packet received from %d through %d , src_nodeID = %d . Dropeed.\n", peer.ID, device.ID, src_nodeID)
 					}
 				}
 			case device.ID:
@@ -521,7 +521,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					if next_id != nil {
 						peer_out = device.peers.IDMap[*next_id]
 						if device.LogLevel.LogTransit {
-							fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+							fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 						}
 						device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
 					}
@@ -533,7 +533,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NornalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Println("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
+						fmt.Println("Control: Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])
@@ -546,7 +546,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if should_receive { // Write message to tap device
 			if packet_type == path.NornalPacket {
 				if device.LogLevel.LogNormal {
-					fmt.Println("Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
 				}
 				if len(elem.packet) <= path.EgHeaderLen+12 {
 					device.log.Errorf("Invalid normal packet from peer %v", peer)
