@@ -15,7 +15,7 @@ listenport: 3002
 loglevel:
   loglevel: normal
   logtransit: true
-  logcontrol: false
+  logcontrol: true
   lognormal: true
 dynamicroute:
   sendpinginterval: 20
@@ -26,7 +26,7 @@ dynamicroute:
     usesupernode: true
     connurlv4: 127.0.0.1:3000
     pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: '[::1]:3000'
+    connurlv6: ''
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 40

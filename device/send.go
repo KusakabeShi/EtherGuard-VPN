@@ -267,20 +267,22 @@ func (device *Device) RoutineReadFromTUN() {
 
 		if dst_nodeID != config.Boardcast {
 			var peer *Peer
-			next_id := *device.graph.NhTable[device.ID][dst_nodeID]
-			peer = device.peers.IDMap[next_id]
-			if peer == nil {
-				continue
-			}
-			if device.LogLevel.LogNormal {
-				if device.LogLevel.LogNormal {
-					fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+			next_id := device.graph.Next(device.ID, dst_nodeID)
+			if next_id != nil {
+				peer = device.peers.IDMap[*next_id]
+				if peer == nil {
+					continue
 				}
-			}
-			if peer.isRunning.Get() {
-				peer.StagePacket(elem)
-				elem = nil
-				peer.SendStagedPackets()
+				if device.LogLevel.LogNormal {
+					if device.LogLevel.LogNormal {
+						fmt.Println("Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					}
+				}
+				if peer.isRunning.Get() {
+					peer.StagePacket(elem)
+					elem = nil
+					peer.SendStagedPackets()
+				}
 			}
 		} else {
 			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.packet, offset)

@@ -46,7 +46,7 @@ type IG struct {
 	RecalculateCoolDown       time.Duration
 	RecalculateTime           time.Time
 	dlTable                   config.DistTable
-	NhTable                   config.NextHopTable
+	nhTable                   config.NextHopTable
 	NhTableHash               [32]byte
 	NhTableExpire             time.Time
 	IsSuperMode               bool
@@ -115,7 +115,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 				}
 			}
 		}
-		g.dlTable, g.NhTable = dist, next
+		g.dlTable, g.nhTable = dist, next
 		g.NhTableExpire = time.Now().Add(g.NodeReportTimeout)
 		g.RecalculateTime = time.Now()
 	}
@@ -130,16 +130,14 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bo
 	if _, ok := g.edges[u]; !ok {
 		g.edges[u] = make(map[config.Vertex]Latency)
 	}
-	g.edgelock.Unlock()
-	if g.ShouldUpdate(u, v, w) {
-		changed = g.RecalculateNhTable(checkchange)
-	}
-	g.edgelock.Lock()
 	g.edges[u][v] = Latency{
 		ping: w,
 		time: time.Now(),
 	}
 	g.edgelock.Unlock()
+	if g.ShouldUpdate(u, v, w) {
+		changed = g.RecalculateNhTable(checkchange)
+	}
 	return
 }
 func (g IG) Vertices() map[config.Vertex]bool {
@@ -161,13 +159,13 @@ func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
 }
 
 func (g IG) Next(u, v config.Vertex) *config.Vertex {
-	if _, ok := g.NhTable[u]; !ok {
+	if _, ok := g.nhTable[u]; !ok {
 		return nil
 	}
-	if _, ok := g.NhTable[u][v]; !ok {
+	if _, ok := g.nhTable[u][v]; !ok {
 		return nil
 	}
-	return g.NhTable[u][v]
+	return g.nhTable[u][v]
 }
 
 func (g IG) Weight(u, v config.Vertex) float64 {
@@ -238,7 +236,7 @@ func Path(u, v config.Vertex, next config.NextHopTable) (path []config.Vertex) {
 }
 
 func (g *IG) SetNHTable(nh config.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
-	g.NhTable = nh
+	g.nhTable = nh
 	g.NhTableHash = table_hash
 	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
 }
@@ -247,7 +245,7 @@ func (g *IG) GetNHTable(checkChange bool) config.NextHopTable {
 	if time.Now().After(g.NhTableExpire) {
 		g.RecalculateNhTable(checkChange)
 	}
-	return g.NhTable
+	return g.nhTable
 }
 
 func (g *IG) GetDtst() config.DistTable {
@@ -270,7 +268,7 @@ func (g *IG) GetEdges() (edges map[config.Vertex]map[config.Vertex]float64) {
 
 func (g *IG) GetBoardcastList(id config.Vertex) (tosend map[config.Vertex]bool) {
 	tosend = make(map[config.Vertex]bool)
-	for _, element := range g.NhTable[id] {
+	for _, element := range g.nhTable[id] {
 		tosend[*element] = true
 	}
 	return
@@ -279,7 +277,7 @@ func (g *IG) GetBoardcastList(id config.Vertex) (tosend map[config.Vertex]bool) 
 func (g *IG) GetBoardcastThroughList(self_id config.Vertex, in_id config.Vertex, src_id config.Vertex) (tosend map[config.Vertex]bool) {
 	tosend = make(map[config.Vertex]bool)
 	for check_id, _ := range g.GetBoardcastList(self_id) {
-		for _, path_node := range Path(src_id, check_id, g.NhTable) {
+		for _, path_node := range Path(src_id, check_id, g.nhTable) {
 			if path_node == self_id && check_id != in_id {
 				tosend[check_id] = true
 				continue

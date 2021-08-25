@@ -495,7 +495,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_process = true
 				}
 			default:
-				if _, ok := device.graph.NhTable[device.ID][dst_nodeID]; ok {
+				if device.graph.Next(device.ID, dst_nodeID) != nil {
 					should_transfer = true
 				} else {
 					device.log.Verbosef("No route to peer ID %v", dst_nodeID)
@@ -517,12 +517,14 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					device.SpreadPacket(skip_list, elem.packet, MessageTransportOffsetContent)
 
 				} else {
-					next_id := *device.graph.NhTable[device.ID][dst_nodeID]
-					peer_out = device.peers.IDMap[next_id]
-					if device.LogLevel.LogTransit {
-						fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+					next_id := device.graph.Next(device.ID, dst_nodeID)
+					if next_id != nil {
+						peer_out = device.peers.IDMap[*next_id]
+						if device.LogLevel.LogTransit {
+							fmt.Printf("Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+						}
+						device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
 					}
-					device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
 				}
 			}
 		}
@@ -531,7 +533,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NornalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Printf("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]) + "\n")
+						fmt.Println("Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])
