@@ -2,7 +2,10 @@ package path
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,8 +34,8 @@ type Latency struct {
 }
 
 type Fullroute struct {
-	Dist config.DistTable    `json:"total distance"`
-	Next config.NextHopTable `json:"next hop"`
+	Next config.NextHopTable `yaml:"NextHopTable"`
+	Dist config.DistTable    `yaml:"DistanceTable"`
 }
 
 // IG is a graph of integers that satisfies the Graph interface.
@@ -104,7 +107,7 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 		}
 		return oldval == newval
 	} else {
-		return g.GetWeightType(oldval) == g.GetWeightType(newval)
+		return g.GetWeightType(oldval) != g.GetWeightType(newval)
 	}
 }
 
@@ -131,7 +134,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 	return
 }
 
-func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bool) (changed bool) {
+func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, recalculate bool, checkchange bool) (changed bool) {
 	g.edgelock.Lock()
 	g.Vert[u] = true
 	g.Vert[v] = true
@@ -144,7 +147,7 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, checkchange bo
 		time: time.Now(),
 	}
 	g.edgelock.Unlock()
-	if g.ShouldUpdate(u, v, w) {
+	if g.ShouldUpdate(u, v, w) && recalculate {
 		changed = g.RecalculateNhTable(checkchange)
 	}
 	return
@@ -296,28 +299,81 @@ func (g *IG) GetBoardcastThroughList(self_id config.Vertex, in_id config.Vertex,
 	return
 }
 
-func Solve() {
-	var g IG
-	//g.Init()
-	g.UpdateLentancy(1, 2, S2TD(0.5), false)
-	g.UpdateLentancy(2, 1, S2TD(0.5), false)
-	g.UpdateLentancy(2, 3, S2TD(2), false)
-	g.UpdateLentancy(3, 2, S2TD(2), false)
-	g.UpdateLentancy(2, 4, S2TD(0.7), false)
-	g.UpdateLentancy(4, 2, S2TD(2), false)
-	dist, next := FloydWarshall(g)
-	fmt.Println("pair\tdist\tpath")
-	for u, m := range dist {
-		for v, d := range m {
-			if u != v {
-				fmt.Printf("%d -> %d\t%3f\t%s\n", u, v, d, fmt.Sprint(Path(u, v, next)))
+func printExample() {
+	fmt.Println(`X 1   2   3   4   5   6
+1 0   0.5 Inf Inf Inf Inf
+2 0.5 0   0.5 0.5 Inf Inf
+3 Inf 0.5 0   0.5 0.5 Inf
+4 Inf 0.5 0.5 0   Inf 0.5
+5 Inf Inf 0.5 Inf 0   Inf
+6 Inf Inf Inf 0.5 Inf 0`)
+}
+
+func a2n(s string) (ret float64) {
+	if s == "Inf" {
+		return Infinity
+	}
+	ret, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func a2v(s string) config.Vertex {
+	ret, err := strconv.Atoi(s)
+	if err != nil {
+		panic(err)
+	}
+	return config.Vertex(ret)
+}
+
+func Solve(filePath string, pe bool) error {
+	if pe {
+		printExample()
+		return nil
+	}
+
+	g := NewGraph(3, false, config.GraphRecalculateSetting{
+		NodeReportTimeout: 9999,
+	}, config.NTPinfo{}, false)
+	inputb, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	input := string(inputb)
+	lines := strings.Split(input, "\n")
+	verts := strings.Fields(lines[0])
+	for _, line := range lines[1:] {
+		element := strings.Fields(line)
+		src := a2v(element[0])
+		for index, sval := range element[1:] {
+			val := a2n(sval)
+			dst := a2v(verts[index+1])
+			if src != dst && val != Infinity {
+				g.UpdateLentancy(src, dst, S2TD(val), false, false)
 			}
 		}
 	}
-	fmt.Print("Finish")
+	dist, next := FloydWarshall(g)
+
 	rr, _ := yaml.Marshal(Fullroute{
 		Dist: dist,
 		Next: next,
 	})
 	fmt.Print(string(rr))
+
+	fmt.Println("\nHuman readable:")
+	fmt.Println("src\tdist\t\tpath")
+	for _, U := range verts[1:] {
+		u := a2v(U)
+		for _, V := range verts[1:] {
+			v := a2v(V)
+			if u != v {
+				fmt.Printf("%d -> %d\t%3f\t%s\n", u, v, dist[u][v], fmt.Sprint(Path(u, v, next)))
+			}
+		}
+	}
+	return nil
 }

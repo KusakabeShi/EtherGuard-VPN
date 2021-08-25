@@ -1,0 +1,7 @@
+X 1   2   3   4   5   6
+1 0   0.5 Inf Inf Inf Inf
+2 0.5 0   0.5 0.5 Inf Inf
+3 Inf 0.5 0   0.5 0.5 Inf
+4 Inf 0.5 0.5 0   Inf 0.5
+5 Inf Inf 0.5 Inf 0   Inf
+6 Inf Inf Inf 0.5 Inf 0

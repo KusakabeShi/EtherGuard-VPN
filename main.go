@@ -44,7 +44,7 @@ func readYaml(filePath string, out interface{}) (err error) {
 
 var (
 	tconfig      = flag.String("config", "", "Config path for the interface.")
-	mode         = flag.String("mode", "edge", "Running mode. [super|edge]")
+	mode         = flag.String("mode", "edge", "Running mode. [super|edge|solve]")
 	printExample = flag.Bool("example", false, "Print example config")
 	nouapi       = flag.Bool("no-uapi", false, "Do not use UAPI")
 	version      = flag.Bool("version", false, "Show version")
@@ -73,8 +73,8 @@ func main() {
 		err = Edge(*tconfig, !*nouapi, *printExample)
 	case "super":
 		err = Super(*tconfig, !*nouapi, *printExample)
-	case "path":
-		path.Solve()
+	case "solve":
+		err = path.Solve(*tconfig, *printExample)
 	default:
 		flag.Usage()
 	}
