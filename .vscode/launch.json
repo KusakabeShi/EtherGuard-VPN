@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
-            "args":["-config","example_config/static_mode/n1.yaml","-mode","edge"/*,"-example"*/],
+            "args":["-config","example_config/super_mode/n1.yaml","-mode","edge"/*,"-example"*/],
         }
     ]
 }

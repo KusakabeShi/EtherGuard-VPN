@@ -99,6 +99,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	http_PeerID2Map = make(map[config.Vertex]string)
 	http_PeerInfos = make(map[string]config.HTTP_Peerinfo)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
+	http_StatePWD = sconfig.StatePassword
 
 	super_chains := path.SUPER_Events{
 		Event_server_pong:            make(chan path.PongMsg, 1<<5),
@@ -108,8 +109,8 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	thetap, _ := tap.CreateDummyTAP()
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting)
-	http_device4 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
-	http_device6 = device.NewDevice(thetap, path.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device4 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device6 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
 	defer http_device4.Close()
 	defer http_device6.Close()
 	var sk [32]byte
@@ -142,7 +143,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 			fmt.Println("Error decode base64 ", err)
 		}
 		copy(pk[:], pk_slice)
-		if peerconf.NodeID >= path.SuperNodeMessage {
+		if peerconf.NodeID >= config.SuperNodeMessage {
 			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
 		}
 		http_PeerID2Map[peerconf.NodeID] = peerconf.PubKey
@@ -280,9 +281,9 @@ func PushNhTable() {
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
-	header.SetDst(path.SuperNodeMessage)
+	header.SetDst(config.SuperNodeMessage)
 	header.SetPacketLength(uint16(len(body)))
-	header.SetSrc(path.SuperNodeMessage)
+	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
 	header.SetUsage(path.UpdateNhTable)
 	copy(buf[path.EgHeaderLen:], body)
@@ -308,9 +309,9 @@ func PushUpdate() {
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
-	header.SetDst(path.SuperNodeMessage)
+	header.SetDst(config.SuperNodeMessage)
 	header.SetPacketLength(uint16(len(body)))
-	header.SetSrc(path.SuperNodeMessage)
+	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
 	header.SetUsage(path.UpdatePeer)
 	copy(buf[path.EgHeaderLen:], body)

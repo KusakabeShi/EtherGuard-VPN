@@ -2,6 +2,16 @@ package config
 
 import (
 	"crypto/rand"
+	"strconv"
+	"math"
+)
+
+const (
+	Boardcast        Vertex = math.MaxUint32 - iota // Normal boardcast, boardcast with route table
+	ControlMessage   Vertex = math.MaxUint32 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
+	PingMessage      Vertex = math.MaxUint32 - iota // boardsact to every know peer but don't transit
+	SuperNodeMessage Vertex = math.MaxUint32 - iota
+	Special_NodeID   Vertex = SuperNodeMessage
 )
 
 type EdgeConfig struct {
@@ -24,7 +34,7 @@ type SuperConfig struct {
 	ListenPort              int
 	LogLevel                LoggerInfo
 	RePushConfigInterval    float64
-	statepasswordd          string
+	StatePassword           string
 	GraphRecalculateSetting GraphRecalculateSetting
 	Peers                   []PeerInfo
 }
@@ -53,10 +63,26 @@ type LoggerInfo struct {
 	LogLevel   string
 	LogTransit bool
 	LogControl bool
+	LogNormal  bool
 }
 
 // Nonnegative integer ID of vertex
 type Vertex uint32
+
+func (v *Vertex) ToString() string {
+	switch *v{
+	case Boardcast:
+		return "B"
+	case ControlMessage:
+		return "C"
+	case PingMessage:
+		return "P"
+	case SuperNodeMessage:
+		return "S"
+	default:
+		return strconv.Itoa(int(*v))
+	}
+}
 
 type DynamicRouteInfo struct {
 	SendPingInterval float64

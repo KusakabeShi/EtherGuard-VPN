@@ -12,14 +12,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"gopkg.in/yaml.v2"
 )
 
@@ -96,8 +94,8 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	}
 
 	// create peer
-	if device.LogControl {
-		fmt.Println("Create peer with ID : " + strconv.Itoa(int(id)) + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
+	if device.LogLevel.LogControl {
+		fmt.Println("Create peer with ID : " + id.ToString() + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
 	}
 	peer := new(Peer)
 	peer.Lock()
@@ -130,7 +128,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 	peer.endpoint = nil
 
 	// add
-	if id == path.SuperNodeMessage { // To communicate with supernode
+	if id == config.SuperNodeMessage { // To communicate with supernode
 		device.peers.SuperPeer[pk] = peer
 		device.peers.keyMap[pk] = peer
 	} else { // Regular peer, other edgenodes
@@ -356,7 +354,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 				peerfile.EndPoint = url
 			}
 		} else if peerfile.NodeID == peer.ID || peerfile.PubKey == pubkeystr {
-			panic("Found NodeID match " + strconv.Itoa(int(peer.ID)) + ", but PubKey Not match %s enrties in config file" + pubkeystr)
+			panic("Found NodeID match " + peer.ID.ToString() + ", but PubKey Not match %s enrties in config file" + pubkeystr)
 		}
 	}
 	if !foundInFile {

@@ -1,5 +1,5 @@
 interface:
-  itype: stdio
+  itype: udpsock
   name: tap1
   vppifaceid: 1
   vppbridgeid: 0
@@ -15,7 +15,8 @@ listenport: 3001
 loglevel:
   loglevel: normal
   logtransit: true
-  logcontrol: true
+  logcontrol: false
+  lognormal: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40

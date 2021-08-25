@@ -1,5 +1,7 @@
 package tap
 
+import "errors"
+
 type DummyTap struct {
 	stopRead chan struct{}
 	events   chan Event
@@ -21,7 +23,7 @@ func CreateDummyTAP() (tapdev Device, err error) {
 
 func (tap *DummyTap) Read([]byte, int) (int, error) {
 	_ = <-tap.stopRead
-	return 0, nil
+	return 0, errors.New("Device stopped")
 } // read a packet from the device (without any additional headers)
 func (tap *DummyTap) Write(packet []byte, size int) (int, error) {
 	return size, nil
@@ -40,6 +42,8 @@ func (tap *DummyTap) Events() chan Event {
 } // returns a constant channel of events related to the device
 func (tap *DummyTap) Close() error {
 	tap.events <- EventDown
-	close(tap.events)
+	tap.stopRead <- struct{}{}
+	//close(tap.stopRead)
+	//close(tap.events)
 	return nil
 } // stops the device and closes the event channel

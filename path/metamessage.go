@@ -27,7 +27,7 @@ type RegisterMsg struct {
 }
 
 func (c *RegisterMsg) ToString() string {
-	return "RegisterMsg Node_id:" + strconv.Itoa(int(c.Node_id))
+	return "RegisterMsg Node_id:" + c.Node_id.ToString()
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -77,7 +77,7 @@ type PingMsg struct {
 }
 
 func (c *PingMsg) ToString() string {
-	return "PingMsg SID:" + strconv.Itoa(int(c.Src_nodeID)) + " Time:" + c.Time.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
+	return "PingMsg SID:" + c.Src_nodeID.ToString() + " Time:" + c.Time.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
 }
 
 func ParsePingMsg(bin []byte) (StructPlace PingMsg, err error) {
@@ -96,7 +96,7 @@ type PongMsg struct {
 }
 
 func (c *PongMsg) ToString() string {
-	return "PongMsg SID:" + strconv.Itoa(int(c.Src_nodeID)) + " DID:" + strconv.Itoa(int(c.Dst_nodeID)) + " Timediff:" + c.Timediff.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
+	return "PongMsg SID:" + c.Src_nodeID.ToString() + " DID:" + c.Dst_nodeID.ToString() + " Timediff:" + c.Timediff.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
 }
 
 func ParsePongMsg(bin []byte) (StructPlace PongMsg, err error) {
@@ -132,7 +132,7 @@ type BoardcastPeerMsg struct {
 }
 
 func (c *BoardcastPeerMsg) ToString() string {
-	return "BoardcastPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID)) + " NodeID:" + strconv.Itoa(int(c.NodeID)) + " ConnURL:" + c.ConnURL
+	return "BoardcastPeerMsg Request_ID:" + strconv.Itoa(int(c.Request_ID)) + " NodeID:" + c.NodeID.ToString() + " ConnURL:" + c.ConnURL
 }
 
 func ParseBoardcastPeerMsg(bin []byte) (StructPlace BoardcastPeerMsg, err error) {

@@ -16,6 +16,7 @@ loglevel:
   loglevel: normal
   logtransit: true
   logcontrol: true
+  lognormal: true
 dynamicroute:
   sendpinginterval: 20
   dupchecktimeout: 40
