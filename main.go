@@ -54,7 +54,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version == true {
-		fmt.Printf("wireguard-go v%s\n\nUserspace WireGuard daemon for %s-%s.\nInformation available at https://www.wireguard.com.\nCopyright (C) Jason A. Donenfeld <Jason@zx2c4.com>.\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("etherguard-go v%s\n\nA mesh VPN %s-%s.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH)
 		return
 	}
 	if *help == true {

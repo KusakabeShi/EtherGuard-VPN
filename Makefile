@@ -21,6 +21,22 @@ etherguard-go: $(wildcard *.go) $(wildcard */*.go)
 	go mod tidy && \
 	go mod vendor && \
 	patch -p0 -i govpp_remove_crcstring_check.patch && \
+	go build -v -tags novpp -o "$@"
+
+vpp:
+	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
+	tag="$$(git describe --dirty 2>/dev/null)" && \
+	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
+	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
+	echo "$$ver" > version.go && \
+	git update-index --assume-unchanged version.go || true
+	@$(MAKE) etherguard-go-vpp
+
+etherguard-go-vpp: $(wildcard *.go) $(wildcard */*.go)
+	go mod download && \
+	go mod tidy && \
+	go mod vendor && \
+	patch -p0 -i govpp_remove_crcstring_check.patch && \
 	go build -v -o "$@"
 
 install: etherguard-go

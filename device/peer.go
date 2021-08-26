@@ -95,7 +95,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 
 	// create peer
 	if device.LogLevel.LogControl {
-		fmt.Println("Create peer with ID : " + id.ToString() + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
+		fmt.Println("Control: Create peer with ID : " + id.ToString() + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
 	}
 	peer := new(Peer)
 	peer.Lock()

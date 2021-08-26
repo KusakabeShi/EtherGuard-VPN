@@ -1,3 +1,5 @@
+//+build !novpp
+
 package tap
 
 import (
@@ -135,6 +137,7 @@ func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device,
 		memifSockPath: path.Join(vppMemifSocketDir, iconfig.Name+".sock"),
 		secret:        config.RandomStr(16, iconfig.Name),
 		logger:        log,
+		RxintChNext:   make(chan uint8, 1<<6),
 		errors:        make(chan error, 1<<5),
 		events:        make(chan Event, 1<<4),
 	}
@@ -235,8 +238,8 @@ func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device,
 	tap.RxintCh = memif.GetInterruptChan()
 	tap.RxintErrCh = memif.GetInterruptErrorChan()
 	tap.TxQueues = len(details.TxQueues)
-	tapdev.Events() <- EventUp
-	return
+	tap.events <- EventUp
+	return tap, nil
 }
 
 // SetMTU sets the Maximum Tansmission Unit Size for a
@@ -323,8 +326,6 @@ func (tap *VppTap) Close() error {
 
 	memifservice := memif.NewServiceClient(conn)
 
-	tap.memif.Close()
-	libmemif.Cleanup()
 	// delete interface memif memif1/1
 	_, err = memifservice.MemifDelete(context.Background(), &memif.MemifDelete{
 		SwIfIndex: tap.SwIfIndex,
@@ -335,7 +336,10 @@ func (tap *VppTap) Close() error {
 		SocketID:       tap.ifuid,
 		SocketFilename: tap.memifSockPath,
 	})
+	go tap.memif.Close()
+	go libmemif.Cleanup()
 	tap.events <- EventDown
+	close(tap.errors)
 	close(tap.events)
 	return nil
 } // stops the device and closes the event channel

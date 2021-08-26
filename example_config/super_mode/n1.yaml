@@ -1,8 +1,8 @@
 interface:
-  itype: stdio
+  itype: vpp
   name: tap1
   vppifaceid: 1
-  vppbridgeid: 0
+  vppbridgeid: 4242
   macaddrprefix: AA:BB:CC:DD:EE
   mtu: 1400
   recvaddr: 127.0.0.1:4001

@@ -88,6 +88,8 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 		logLevel = device.LogLevelError
 	case "silent":
 		logLevel = device.LogLevelSilent
+	default:
+		logLevel = device.LogLevelError
 	}
 
 	logger4 := device.NewLogger(

@@ -10,8 +10,9 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
+            "buildFlags": "-tags=vpp",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
-            "args":["-config","example_config/static_mode/path.txt","-mode","solve"/*,"-example"*/],
+            "args":["-config","example_config/super_mode/n1.yaml","-mode","edge"/*,"-example"*/],
         }
     ]
 }
