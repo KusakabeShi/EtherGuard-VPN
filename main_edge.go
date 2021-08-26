@@ -100,7 +100,13 @@ func printExampleEdgeConf() {
 		Peers: []config.PeerInfo{
 			{
 				NodeID:   2,
-				PubKey:   "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
+				PubKey:   "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
+				EndPoint: "127.0.0.1:3001",
+				Static:   true,
+			},
+			{
+				NodeID:   2,
+				PubKey:   "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
 				EndPoint: "127.0.0.1:3002",
 				Static:   true,
 			},

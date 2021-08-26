@@ -1,0 +1,143 @@
+
+# Etherguard
+一個從wireguard-go改來的Full Mesh Layer2 VPN.  
+
+OSPF能夠根據cost自動選路  
+但是實際上，我們偶爾會遇到去程/回程不對等的問題  
+之前我就在想，能不能根據單向延遲選路呢?  
+例如我有2條線路，一條去程快，一條回程快。就自動過去回來各自走快的?  
+
+所以我就想弄一個這種的VPN了，任兩節點會測量單向延遲，並且使用[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)演算法找出任兩節點間的最佳路徑  
+來回都會是最佳的。有2條線路，一條去程快，一條回程快，就會自動各走各的
+
+擔心時鐘不同步，單向延遲測量不正確?  
+沒問題的，證明可以看這邊: [https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html](https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html)
+
+## Usage
+```
+Usage of ./etherguard-go-vpp:
+  -config string
+        設定檔路徑
+  -example
+        印一個範例設定檔
+  -help
+        Show this help
+  -mode string
+        運作模式，有兩種模式 super/edge
+        solve是用來解 Floyd Warshall的，Static模式會用到
+  -no-uapi
+        不使用UAPI。使用UAPI，你可以用wg命令看到一些連線資訊(畢竟是從wireguard-go改的)
+  -version
+        顯示版本
+```
+
+## Mode
+
+1. Static 模式: 類似於原本的wireguard。  
+    *  沒有自動選路，沒有握手伺服器  
+        一切都要提前配置好
+    * 參見: [example_config/static_mode/README_zh.md](example_config/static_mode/README_zh.md)
+2. Super 模式: 受到[n2n](https://github.com/ntop/n2n)的啟發，分為super node和edge node兩種節點  
+    * 全部節點會和supernode建立連線  
+      藉由supernode交換其他節點的資訊，以及udp打洞  
+      由supernode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給全部edge node
+    * 參見: [example_config/super_mode/README_zh.md](example_config/super_mode/README_zh.md)
+3. P2P 模式: 受到[tinc](https://github.com/gsliepen/tinc)的啟發
+    * 每個節點都類似super node  
+      會定期廣播自己所有已連線節點的連線ip:port，公鑰和preshared key  
+      每個節點都自己執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)  
+      並且廣播收到的單向延遲資訊讓其他節點也能計算
+    * 參見: [example_config/p2p_mode/README_zh.md](example_config/p2p_mode/README_zh.md)
+## Common Config Paramater
+有些設定檔對應某些運作模式，這邊針對共同部分的設定做說明
+### Edge config
+邊緣節點是實際執行VPN的節點
+
+1. `interface`
+    1. `itype`: 裝置類型，意味著收到的封包要丟去哪
+        1. `dummy`: 收到的封包直接丟棄，也不發出任何封包。作為中繼節點可以用
+        2. `stdio`: 收到的封包丟stdout，stdin進來的資料丟入vpn網路  
+           需要參數: `macaddrprefix`,`l2headermode`
+        2. `udpsock`: 收到的封包用udp丟到某個網路位置，監聽port進來的資料丟去vpn網路  
+           需要參數: `macaddrprefix`,`recvaddr`,`sendaddr`
+        2. `vpp`: 使用libmemif使vpp加入VPN網路  
+           需要參數: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
+        2. `tap`: Linux的tap設備。讓linux加入VPN網路  
+           需要參數: `name`,`macaddrprefix`,`mtu`
+    2. `name` : 裝置名稱
+    3. `vppifaceid`: VPP 的 interface ID。一個VPP runtime內不能重複
+    4. `vppbridgeid`: VPP 的網橋ID。不使用VPP網橋功能的話填0
+    5. `macaddrprefix`: MAC地址前綴。真正的MAC地址=[前綴]:[vppifaceid]。如果填了6格長度就忽略`vppifaceid`
+2. `nodeid`: 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
+3. `nodename`: 節點名稱
+4. `privkey`: 私鑰，和wireguard規格一樣
+5. `listenport`: 監聽的udp埠
+6. `loglevel`: 紀錄log
+    1. `loglevel`: wireguard原本的log紀錄器的loglevel。  
+       有`debug`,`error`,`slient`三種程度
+    2. `logtransit`: 轉送封包，也就是起點/終點都不是自己的封包的log
+    3. `logcontrol`: Control Message的log
+    4. `lognormal`: 收發普通封包，起點是自己or終點是自己的log
+    5. `logntp`: NTP 同步時鐘相關的log
+7. `dynamicroute`: 動態路由相關的設定。時間類設定單位都是秒
+    1. `sendpinginterval`: 發送Ping訊息的間隔
+    2. `dupchecktimeout`: 重複封包檢查的timeout。完全相同的封包收第二次會被丟棄
+    3. `conntimeout`: 鄰居應該要發Ping過來，超過就視為鄰居掛了
+    4. `savenewpeers`: 是否把下載來的鄰居資訊存到本地設定檔裡面
+    5. `supernode`: Super模式相關的設定，參見[example_config/super_mode/README_zh.md](example_config/super_mode/README_zh.md)
+    6. `p2p` P2P模式相關的設定，參見 [example_config/p2p_mode/README_zh.md](example_config/p2p_mode/README_zh.md)
+    7. `ntpconfig`: NTP 相關的設定
+        1. `usentp`: 是否使用ntp同步時鐘
+        2. `maxserveruse`: 一次對多連線幾個NTP伺服器  
+           第一次會全部連一遍測延遲，之後每次都取延遲前n低的來用
+        3. `synctimeinterval`: 多久同步一次
+        4. `ntptimeout`: 多久算是超時
+        5. `servers`: NTP伺服器列表
+8. `nexthoptable`: 轉發表。只有Static模式會用到，參見 [example_config/super_mode/README_zh.md](example_config/super_mode/README_zh.md)
+9. `resetconninterval`: 如果對方是動態ip就要用這個。每隔一段時間就會重新解析domain。
+10. `peers`: 和wireguard一樣的peer資訊
+    1. `nodeid`: 對方的節點ID
+    2. `pubkey`: 對方的公鑰
+    3. `pskey`: 對方的預共享金鑰。但是目前沒用(因為不能設定自己的)，之後會加
+    4. `endpoint`: 對方的連線地址。如果roaming會覆寫設定檔
+    5. `static`: 設定成true的話，每隔`resetconninterval`秒就會重新解析一次domain，與此同時也不會被roaming覆寫
+
+### Super config
+  參見 [example_config/super_mode/README_zh.md](example_config/super_mode/README_zh.md)
+
+
+## Build
+
+### No-vpp version
+編譯沒有VPP libmemif的版本。可以在一般linux電腦上使用
+
+#### Dependency
+安裝 Go 1.16
+```bash
+add-apt-repository ppa:longsleep/golang-backports
+apt-get -y update
+apt-install -y wireguard-tools golang-go build-essential
+```
+#### Build
+```bash
+make
+```
+
+### VPP version
+編譯有VPP libmemif的版本。
+
+用這個版本的話你的電腦要有libmemif.so才能run起來
+
+#### Dependency
+
+安裝 VPP 和 libemif
+```
+echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
+curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
+apt-get -y update
+apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev
+```
+#### Build
+```bash
+make vpp
+```

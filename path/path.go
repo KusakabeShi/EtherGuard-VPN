@@ -142,12 +142,15 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, recalculate bo
 	if _, ok := g.edges[u]; !ok {
 		g.edges[u] = make(map[config.Vertex]Latency)
 	}
+	g.edgelock.Unlock()
+	should_update := g.ShouldUpdate(u, v, w)
+	g.edgelock.Lock()
 	g.edges[u][v] = Latency{
 		ping: w,
 		time: time.Now(),
 	}
 	g.edgelock.Unlock()
-	if g.ShouldUpdate(u, v, w) && recalculate {
+	if should_update && recalculate {
 		changed = g.RecalculateNhTable(checkchange)
 	}
 	return

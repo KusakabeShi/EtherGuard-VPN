@@ -35,6 +35,7 @@ var (
 
 type HttpState struct {
 	PeerInfo map[config.Vertex]string
+	Infinity float64
 	Edges    map[config.Vertex]map[config.Vertex]float64
 	NhTable  config.NextHopTable
 	Dist     config.DistTable
@@ -130,6 +131,7 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 		hs := HttpState{
 			PeerInfo: make(map[config.Vertex]string),
 			NhTable:  http_graph.GetNHTable(false),
+			Infinity: path.Infinity,
 			Edges:    http_graph.GetEdges(),
 			Dist:     http_graph.GetDtst(),
 		}

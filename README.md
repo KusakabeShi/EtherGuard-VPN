@@ -1,16 +1,37 @@
-### Requirement
+# Etherguard
+[中文](README_zh.md)
 
-Install VPP and Go
+WIP
+
+## Build
+
+### No-vpp version
+
+#### Dependency
+Go 1.16
 ```bash
-echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
-curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
 add-apt-repository ppa:longsleep/golang-backports
 apt-get -y update
-apt-get install vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev wireguard-tools golang-go build-essential golang-go
+apt-install -y wireguard-tools golang-go build-essential
+```
+#### Build
+```bash
+make
 ```
 
-### Build
+### VPP version
+
+#### Dependency
+
+VPP and libemif is requires
+
+```
+echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
+curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
+apt-get -y update
+apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev
+```
+#### Build
 ```bash
-export CGO_CFLAGS="-I/usr/include/memif"
-make
+make vpp
 ```
