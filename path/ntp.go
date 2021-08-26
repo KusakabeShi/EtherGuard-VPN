@@ -42,8 +42,8 @@ func (g *IG) RoutineSyncTime() {
 		return
 	}
 	for {
-		time.Sleep(S2TD(g.ntp_info.SyncTimeInterval))
 		g.SyncTimeMultiple(g.ntp_info.MaxServerUse)
+		time.Sleep(S2TD(g.ntp_info.SyncTimeInterval))
 	}
 }
 

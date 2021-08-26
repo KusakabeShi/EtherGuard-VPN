@@ -1,5 +1,5 @@
 interface:
-  itype: vpp
+  itype: stdio
   name: tap1
   vppifaceid: 1
   vppbridgeid: 4242

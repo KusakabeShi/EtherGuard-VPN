@@ -16,6 +16,7 @@ import (
 
 	"github.com/KusakabeSi/EtherGuardVPN/ipc"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/KusakabeSi/EtherGuardVPN/tap"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -54,7 +55,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version == true {
-		fmt.Printf("etherguard-go v%s\n\nA mesh VPN %s-%s.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("etherguard-go v%s\n%s\n\nA full mesh VPN %s-%s.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, tap.VPP_SUPPORT, runtime.GOOS, runtime.GOARCH)
 		return
 	}
 	if *help == true {

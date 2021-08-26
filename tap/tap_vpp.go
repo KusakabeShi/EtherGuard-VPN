@@ -29,6 +29,7 @@ import (
 const (
 	ENV_VPP_MEMIF_SOCKET_DIR = "VPP_MEMIF_SOCKET_DIR"
 	ENV_VPP_SOCKET_PATH      = "VPP_API_SOCKET_PATH"
+	VPP_SUPPORT              = "VPP support enabled"
 )
 
 var (
@@ -183,16 +184,18 @@ func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device,
 		return nil, err
 	}
 
-	//set interface l2 bridge memif1/1 4242
-	_, err = l2service.SwInterfaceSetL2Bridge(context.Background(), &l2.SwInterfaceSetL2Bridge{
-		RxSwIfIndex: tap.SwIfIndex,
-		BdID:        iconfig.VPPBridgeID,
-		PortType:    l2.L2_API_PORT_TYPE_NORMAL,
-		Shg:         0,
-		Enable:      true,
-	})
-	if err != nil {
-		return nil, err
+	if iconfig.VPPBridgeID != 0 {
+		//set interface l2 bridge memif1/1 4242
+		_, err = l2service.SwInterfaceSetL2Bridge(context.Background(), &l2.SwInterfaceSetL2Bridge{
+			RxSwIfIndex: tap.SwIfIndex,
+			BdID:        iconfig.VPPBridgeID,
+			PortType:    l2.L2_API_PORT_TYPE_NORMAL,
+			Shg:         0,
+			Enable:      true,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	//init libmemif
 	libmemif.Init(tap.name)

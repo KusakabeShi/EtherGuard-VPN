@@ -8,6 +8,10 @@ import (
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 )
 
+const (
+	VPP_SUPPORT = "No VPP support"
+)
+
 type VppTap struct {
 	stopRead chan struct{}
 	events   chan Event
@@ -15,7 +19,7 @@ type VppTap struct {
 
 // New creates and returns a new TUN interface for the application.
 func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device, err error) {
-	return nil, errors.New("VPP tap not compiled.")
+	return nil, errors.New("VPP module not compiled.")
 }
 
 func (tap *VppTap) Read([]byte, int) (int, error) {

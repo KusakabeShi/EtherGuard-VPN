@@ -9,7 +9,7 @@ MAKEFLAGS += --no-print-directory
 
 generate-version-and-build:
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
-	tag="$$(git describe --dirty 2>/dev/null)" && \
+	tag="$$(git describe 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
 	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
 	echo "$$ver" > version.go && \
@@ -25,13 +25,14 @@ etherguard-go: $(wildcard *.go) $(wildcard */*.go)
 
 vpp:
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
-	tag="$$(git describe --dirty 2>/dev/null)" && \
+	tag="$$(git describe 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
 	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
 	echo "$$ver" > version.go && \
 	git update-index --assume-unchanged version.go || true
 	@$(MAKE) etherguard-go-vpp
 
+etherguard-go-vpp: export CGO_CFLAGS ?= -I/usr/include/memif
 etherguard-go-vpp: $(wildcard *.go) $(wildcard */*.go)
 	go mod download && \
 	go mod tidy && \
@@ -47,5 +48,6 @@ test:
 
 clean:
 	rm -f etherguard-go
+	rm -f etherguard-go-vpp
 
 .PHONY: all clean test install generate-version-and-build
