@@ -238,6 +238,7 @@ func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device,
 	tap.RxintCh = memif.GetInterruptChan()
 	tap.RxintErrCh = memif.GetInterruptErrorChan()
 	tap.TxQueues = len(details.TxQueues)
+	tunErrorChannel = tap.errors
 	tap.events <- EventUp
 	return tap, nil
 }
@@ -336,8 +337,8 @@ func (tap *VppTap) Close() error {
 		SocketID:       tap.ifuid,
 		SocketFilename: tap.memifSockPath,
 	})
-	go tap.memif.Close()
-	go libmemif.Cleanup()
+	tap.memif.Close()
+	libmemif.Cleanup()
 	tap.events <- EventDown
 	close(tap.errors)
 	close(tap.events)
