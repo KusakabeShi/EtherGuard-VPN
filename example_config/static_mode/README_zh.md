@@ -1,4 +1,6 @@
 # Etherguard
+[English](README.md)
+
 Static Mode的[範例配置檔](./)的說明文件
 
 ## Static Mode

@@ -1,4 +1,6 @@
 # Etherguard
+[English](README.md)
+
 Super Mode的[範例配置檔](./)的說明文件
 在了解Super Mode的運作之前，建議您先閱讀[Static Mode的運作](../static_mode/README_zh.md)方法，再閱讀本篇會比較好
 
