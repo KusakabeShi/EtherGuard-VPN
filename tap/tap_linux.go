@@ -450,7 +450,7 @@ func (tap *NativeTap) Close() error {
 	return err2
 }
 
-func CreateTAP(iconfig config.InterfaceConf) (Device, error) {
+func CreateTAP(iconfig config.InterfaceConf,NodeID config.Vertex) (Device, error) {
 	nfd, err := unix.Open(cloneDevicePath, os.O_RDWR, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -490,10 +490,10 @@ func CreateTAP(iconfig config.InterfaceConf) (Device, error) {
 		return nil, err
 	}
 
-	return CreateTAPFromFile(fd, iconfig)
+	return CreateTAPFromFile(fd, iconfig,NodeID)
 }
 
-func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf) (Device, error) {
+func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf,NodeID config.Vertex) (Device, error) {
 	tap := &NativeTap{
 		tapFile:                 file,
 		events:                  make(chan Event, 5),
@@ -533,7 +533,7 @@ func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf) (Device, err
 		unix.Close(tap.netlinkSock)
 		return nil, err
 	}
-	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, iconfig.VPPIfaceID)
+	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, uint32(NodeID))
 	if err != nil {
 		fmt.Println("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err

@@ -51,13 +51,13 @@ func Mac2charForm(m []byte) byte {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateStdIOTAP(iconfig config.InterfaceConf) (tapdev Device, err error) {
+func CreateStdIOTAP(iconfig config.InterfaceConf,NodeID config.Vertex) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix, iconfig.VPPIfaceID)
+	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix,uint32(NodeID))
 	if err != nil {
 		fmt.Println("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err

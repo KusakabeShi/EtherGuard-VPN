@@ -181,17 +181,15 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
-		tconfig.Interface.VPPIfaceID = uint32(tconfig.NodeID)
-		thetap, err = tap.CreateStdIOTAP(tconfig.Interface)
+		thetap, err = tap.CreateStdIOTAP(tconfig.Interface,tconfig.NodeID)
 	case "udpsock":
-		tconfig.Interface.VPPIfaceID = uint32(tconfig.NodeID)
 		lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
 		sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
-		thetap, err = tap.CreateUDPSockTAP(tconfig.Interface, lis, sen)
+		thetap, err = tap.CreateUDPSockTAP(tconfig.Interface,tconfig.NodeID, lis, sen)
 	case "vpp":
-		thetap, err = tap.CreateVppTAP(tconfig.Interface, tconfig.LogLevel.LogLevel)
+		thetap, err = tap.CreateVppTAP(tconfig.Interface,tconfig.NodeID,tconfig.LogLevel.LogLevel)
 	case "tap":
-		thetap, err = tap.CreateTAP(tconfig.Interface)
+		thetap, err = tap.CreateTAP(tconfig.Interface,tconfig.NodeID)
 	default:
 		return errors.New("Unknow interface type:" + tconfig.Interface.Itype)
 	}

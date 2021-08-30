@@ -63,8 +63,8 @@ Usage of ./etherguard-go-vpp:
     2. `name` : 裝置名稱
     3. `vppifaceid`: VPP 的 interface ID。一個VPP runtime內不能重複
     4. `vppbridgeid`: VPP 的網橋ID。不使用VPP網橋功能的話填0
-    5. `macaddrprefix`: MA C地址前綴。真正的 MAC 地址=[前綴]:[vppifaceid]。  
-        如果填了6格長度就忽略`vppifaceid`
+    5. `macaddrprefix`: MAC地址前綴。真正的 MAC 地址=[前綴]:[NodeID]。  
+                        如果這邊填了完整6格長度，就忽略`NodeID`
     6. `recvaddr`: 僅限`udpsock`生效。收到的東西丟去 VPN 網路
     7. `sendaddr`: 僅限`udpsock`生效。VPN網路收到的東西丟去這個 udp 地址
     8. `l2headermode`: 僅限 `stdio` 和 `udpsock` 生效。debug用途，有三種模式:

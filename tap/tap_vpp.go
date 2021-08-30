@@ -63,7 +63,7 @@ type VppTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device, err error) {
+func CreateVppTAP(iconfig config.InterfaceConf,NodeID config.Vertex, loglevel string) (tapdev Device, err error) {
 	// Setup TUN Config
 	if len(iconfig.Name) >= unix.IFNAMSIZ {
 		return nil, fmt.Errorf("interface name too long: %w", unix.ENAMETOOLONG)
@@ -123,7 +123,7 @@ func CreateVppTAP(iconfig config.InterfaceConf, loglevel string) (tapdev Device,
 	l2service := l2.NewServiceClient(conn)
 	interfacservice := interfaces.NewServiceClient(conn)
 
-	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, iconfig.VPPIfaceID)
+	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix,uint32(NodeID))
 	if err != nil {
 		log.Fatalln("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err

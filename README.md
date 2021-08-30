@@ -54,7 +54,9 @@ Usage of ./etherguard-go:
     2. `name` : Device name
     3. `vppifaceid`: Interface ID。Muse be unique in same VPP runtime
     4. `vppbridgeid`: VPP Bridge ID. Fill 0 if you don't use it.
-    5. `macaddrprefix`: Mac address Prefix。Real Mac address=[Prefix]:[vppifaceid]。  
+    5. `macaddrprefix`: Mac address Prefix.  
+                        Real Mac address=[Prefix]:[NodeID].  
+                        If you fill full mac address here, NodeID will be ignored.
     6. `recvaddr`: Listen address for `udpsock` mode
     7. `sendaddr`: Packet send address for `udpsock` mode
     8. `l2headermode`: For debug usage, `stdio` and `udpsock` mode only
@@ -68,8 +70,7 @@ Usage of ./etherguard-go:
 4. `privkey`: Private key. Same spec as wireguard.
 5. `listenport`: UDP lesten port
 6. `loglevel`: Log Level
-    1. `loglevel`: wireguard原本的log紀錄器的loglevel。  
-       有`debug`,`error`,`slient`三種程度
+    1. `loglevel`: `debug`,`error`,`slient` for wirefuard logger.
     2. `logtransit`: Log packets that neither the source or distenation is self.
     3. `logcontrol`: Log for all Control Message.
     4. `lognormal`: Log packets that either the source or distenation is self.

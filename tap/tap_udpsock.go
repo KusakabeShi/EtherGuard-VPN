@@ -18,14 +18,14 @@ type UdpSockTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateUDPSockTAP(iconfig config.InterfaceConf, listenAddr *net.UDPAddr, sendAddr *net.UDPAddr) (tapdev Device, err error) {
+func CreateUDPSockTAP(iconfig config.InterfaceConf,NodeID config.Vertex, listenAddr *net.UDPAddr, sendAddr *net.UDPAddr) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	listener, err := net.ListenUDP("udp", listenAddr)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix, iconfig.VPPIfaceID)
+	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix,uint32(NodeID))
 	if err != nil {
 		fmt.Println("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err
