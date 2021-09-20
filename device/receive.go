@@ -549,12 +549,17 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
 				}
 				if len(elem.packet) <= path.EgHeaderLen+12 {
-					device.log.Errorf("Invalid normal packet from peer %v", peer)
+					device.log.Errorf("Invalid normal packet from peer %v", peer.ID.ToString())
 					goto skip
 				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
 				if !tap.IsNotUnicast(src_macaddr) {
-					device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table
+					actual, loaded := device.l2fib.LoadOrStore(src_macaddr, src_nodeID)
+					if loaded {
+						if actual.(config.Vertex) != src_nodeID {
+							device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table
+						}
+					}
 				}
 				_, err = device.tap.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent+path.EgHeaderLen)
 				if err != nil && !device.isClosed() {

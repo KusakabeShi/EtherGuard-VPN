@@ -129,7 +129,13 @@ again:
 		// Attempt ipv6 bind, update port if successful.
 		sock6, newPort, err = create6(port)
 		if err != nil {
+			if originalPort == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+				unix.Close(sock4)
+				tries++
+				goto again
+			}
 			if !errors.Is(err, syscall.EAFNOSUPPORT) {
+				unix.Close(sock4)
 				return nil, 0, err
 			}
 		} else {

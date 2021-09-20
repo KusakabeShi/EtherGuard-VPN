@@ -26,6 +26,8 @@ const (
 	PongPacket //Send to everyone, include server
 	QueryPeer
 	BoardcastPeer
+
+	UpdateError
 )
 
 func NewEgHeader(pac []byte) (e EgHeader, err error) {

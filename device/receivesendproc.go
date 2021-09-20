@@ -20,6 +20,8 @@ import (
 func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 	if peer == nil {
 		return
+	} else if peer.endpoint == nil {
+		return
 	}
 	if device.LogLevel.LogNormal {
 		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
@@ -118,7 +120,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 		switch msg_type {
 		case path.Register:
 			if content, err := path.ParseRegisterMsg(body); err == nil {
-				return device.server_process_RegisterMsg(content)
+				return device.server_process_RegisterMsg(peer, content)
 			}
 		case path.PongPacket:
 			if content, err := path.ParsePongMsg(body); err == nil {
@@ -131,11 +133,15 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 		switch msg_type {
 		case path.UpdatePeer:
 			if content, err := path.ParseUpdatePeerMsg(body); err == nil {
-				go device.process_UpdatePeerMsg(content)
+				go device.process_UpdatePeerMsg(peer, content)
 			}
 		case path.UpdateNhTable:
 			if content, err := path.ParseUpdateNhTableMsg(body); err == nil {
-				go device.process_UpdateNhTableMsg(content)
+				go device.process_UpdateNhTableMsg(peer, content)
+			}
+		case path.UpdateError:
+			if content, err := path.ParseUpdateErrorMsg(body); err == nil {
+				device.process_UpdateErrorMsg(peer, content)
 			}
 		case path.PingPacket:
 			if content, err := path.ParsePingMsg(body); err == nil {
@@ -174,6 +180,10 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret str
 		if content, err := path.ParseUpdateNhTableMsg(body); err == nil {
 			ret = content.ToString()
 		}
+	case path.UpdateError:
+		if content, err := path.ParseUpdateErrorMsg(body); err == nil {
+			ret = content.ToString()
+		}
 	case path.PingPacket:
 		if content, err := path.ParsePingMsg(body); err == nil {
 			ret = content.ToString()
@@ -196,7 +206,29 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret str
 	return
 }
 
-func (device *Device) server_process_RegisterMsg(content path.RegisterMsg) error {
+func (device *Device) server_process_RegisterMsg(peer *Peer, content path.RegisterMsg) error {
+	if peer.ID != content.Node_id {
+		UpdateErrorMsg := path.UpdateErrorMsg{
+			Node_id:   peer.ID,
+			Action:    path.Shutdown,
+			ErrorCode: 401,
+			ErrorMsg:  "Your node ID is not match with our nodeID",
+		}
+		body, err := path.GetByte(&UpdateErrorMsg)
+		if err != nil {
+			return err
+		}
+		buf := make([]byte, path.EgHeaderLen+len(body))
+		header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
+		header.SetSrc(device.ID)
+		header.SetTTL(200)
+		header.SetUsage(path.UpdateError)
+		header.SetPacketLength(uint16(len(body)))
+		copy(buf[path.EgHeaderLen:], body)
+		header.SetDst(config.ControlMessage)
+		device.SendPacket(peer, buf, MessageTransportOffsetContent)
+		return nil
+	}
 	device.Event_server_register <- content
 	return nil
 }
@@ -263,9 +295,15 @@ func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 	return nil
 }
 
-func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
+func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerMsg) error {
 	var send_signal bool
 	if device.DRoute.SuperNode.UseSuperNode {
+		if peer.ID != config.SuperNodeMessage {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
+			}
+			return nil
+		}
 		var peer_infos config.HTTP_Peers
 		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
 			if device.LogLevel.LogControl {
@@ -339,6 +377,71 @@ func (device *Device) process_UpdatePeerMsg(content path.UpdatePeerMsg) error {
 		if send_signal {
 			device.event_tryendpoint <- struct{}{}
 		}
+	}
+	return nil
+}
+
+func (device *Device) process_UpdateNhTableMsg(peer *Peer, content path.UpdateNhTableMsg) error {
+	if device.DRoute.SuperNode.UseSuperNode {
+		if peer.ID != config.SuperNodeMessage {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
+			}
+			return nil
+		}
+		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Same nhTable Hash, skip download nhTable")
+			}
+			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
+			return nil
+		}
+		var NhTable config.NextHopTable
+		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
+			return nil
+		}
+		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Download NhTable from :" + downloadurl)
+		}
+		client := http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Get(downloadurl)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
+		defer resp.Body.Close()
+		allbytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Download NhTable result :" + string(allbytes))
+		}
+		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
+		device.graph.SetNHTable(NhTable, content.State_hash)
+	}
+	return nil
+}
+
+func (device *Device) process_UpdateErrorMsg(peer *Peer, content path.UpdateErrorMsg) error {
+	if peer.ID != config.SuperNodeMessage {
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
+		}
+		return nil
+	}
+	device.log.Errorf(content.ToString())
+	if content.Action == path.Shutdown {
+		device.closed <- struct{}{}
+	} else if content.Action == path.Panic {
+		panic(content.ToString())
 	}
 	return nil
 }
@@ -514,49 +617,6 @@ func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, erro
 	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
 	return buf, nil
-}
-
-func (device *Device) process_UpdateNhTableMsg(content path.UpdateNhTableMsg) error {
-	if device.DRoute.SuperNode.UseSuperNode {
-		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
-			if device.LogLevel.LogControl {
-				fmt.Println("Control: Same nhTable Hash, skip download nhTable")
-			}
-			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
-			return nil
-		}
-		var NhTable config.NextHopTable
-		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
-			return nil
-		}
-		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(PubKey2Str(device.staticIdentity.publicKey)) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
-		if device.LogLevel.LogControl {
-			fmt.Println("Control: Download NhTable from :" + downloadurl)
-		}
-		client := http.Client{
-			Timeout: 30 * time.Second,
-		}
-		resp, err := client.Get(downloadurl)
-		if err != nil {
-			device.log.Errorf(err.Error())
-			return err
-		}
-		defer resp.Body.Close()
-		allbytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			device.log.Errorf(err.Error())
-			return err
-		}
-		if device.LogLevel.LogControl {
-			fmt.Println("Control: Download NhTable result :" + string(allbytes))
-		}
-		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
-			device.log.Errorf(err.Error())
-			return err
-		}
-		device.graph.SetNHTable(NhTable, content.State_hash)
-	}
-	return nil
 }
 
 func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { //Send all my peers to all my peers

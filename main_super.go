@@ -113,10 +113,11 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 		Event_server_NhTable_changed: make(chan struct{}, 1<<4),
 	}
 
-	thetap, _ := tap.CreateDummyTAP()
+	thetap4, _ := tap.CreateDummyTAP()
+	thetap6, _ := tap.CreateDummyTAP()
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
-	http_device4 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
-	http_device6 = device.NewDevice(thetap, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
 	defer http_device4.Close()
 	defer http_device6.Close()
 	var sk [32]byte

@@ -21,14 +21,14 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 }
 
 type RegisterMsg struct {
-	Node_id       config.Vertex `struc:"uint32"`
+	Node_id       config.Vertex
 	PeerStateHash [32]byte
 	NhStateHash   [32]byte
 	Name          string
 }
 
 func (c *RegisterMsg) ToString() string {
-	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Name:" + c.Name + " PeerHash" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
+	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Name:" + c.Name + " PeerHash:" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -39,8 +39,43 @@ func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
 	return
 }
 
+type ErrorAction int
+
+const (
+	Shutdown ErrorAction = iota
+	Panic
+)
+
+func (a *ErrorAction) ToString() string {
+	if *a == Shutdown {
+		return "shutdown"
+	} else if *a == Panic {
+		return "panic"
+	}
+	return "unknow"
+}
+
+type UpdateErrorMsg struct {
+	Node_id   config.Vertex
+	Action    ErrorAction
+	ErrorCode int
+	ErrorMsg  string
+}
+
+func ParseUpdateErrorMsg(bin []byte) (StructPlace UpdateErrorMsg, err error) {
+	var b bytes.Buffer
+	b.Write(bin)
+	d := gob.NewDecoder(&b)
+	err = d.Decode(&StructPlace)
+	return
+}
+
+func (c *UpdateErrorMsg) ToString() string {
+	return "UpdateErrorMsg Node_id:" + c.Node_id.ToString() + " Action:" + c.Action.ToString() + " ErrorCode:" + strconv.Itoa(c.ErrorCode) + " ErrorMsg " + c.ErrorMsg
+}
+
 type UpdatePeerMsg struct {
-	State_hash [32]byte `struc:"[32]uint8"`
+	State_hash [32]byte
 }
 
 func (c *UpdatePeerMsg) ToString() string {
@@ -56,7 +91,7 @@ func ParseUpdatePeerMsg(bin []byte) (StructPlace UpdatePeerMsg, err error) {
 }
 
 type UpdateNhTableMsg struct {
-	State_hash [32]byte `struc:"[32]uint8"`
+	State_hash [32]byte
 }
 
 func (c *UpdateNhTableMsg) ToString() string {
@@ -72,9 +107,9 @@ func ParseUpdateNhTableMsg(bin []byte) (StructPlace UpdateNhTableMsg, err error)
 }
 
 type PingMsg struct {
-	RequestID  uint32        `struc:"uint32"`
-	Src_nodeID config.Vertex `struc:"uint32"`
-	Time       time.Time     `struc:"uint64"`
+	RequestID  uint32
+	Src_nodeID config.Vertex
+	Time       time.Time
 }
 
 func (c *PingMsg) ToString() string {
@@ -91,9 +126,9 @@ func ParsePingMsg(bin []byte) (StructPlace PingMsg, err error) {
 
 type PongMsg struct {
 	RequestID  uint32
-	Src_nodeID config.Vertex `struc:"uint32"`
-	Dst_nodeID config.Vertex `struc:"uint32"`
-	Timediff   time.Duration `struc:"int64"`
+	Src_nodeID config.Vertex
+	Dst_nodeID config.Vertex
+	Timediff   time.Duration
 }
 
 func (c *PongMsg) ToString() string {
@@ -109,7 +144,7 @@ func ParsePongMsg(bin []byte) (StructPlace PongMsg, err error) {
 }
 
 type QueryPeerMsg struct {
-	Request_ID uint32 `struc:"uint32"`
+	Request_ID uint32
 }
 
 func (c *QueryPeerMsg) ToString() string {
@@ -125,10 +160,10 @@ func ParseQueryPeerMsg(bin []byte) (StructPlace QueryPeerMsg, err error) {
 }
 
 type BoardcastPeerMsg struct {
-	Request_ID uint32        `struc:"uint32"`
-	NodeID     config.Vertex `struc:"uint32"`
-	PubKey     [32]byte      `struc:"[32]uint8"`
-	PSKey      [32]byte      `struc:"[32]uint8"`
+	Request_ID uint32
+	NodeID     config.Vertex
+	PubKey     [32]byte
+	PSKey      [32]byte
 	ConnURL    string
 }
 
