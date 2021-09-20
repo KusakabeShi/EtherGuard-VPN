@@ -87,14 +87,15 @@ type Device struct {
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
-	MsgCount    uint32
 	IsSuperNode bool
 	ID          config.Vertex
+	DefaultTTL  uint8
 	graph       *path.IG
 	l2fib       sync.Map
 	LogLevel    config.LoggerInfo
 	DRoute      config.DynamicRouteInfo
 	DupData     fixed_time_cache.Cache
+	Version     string
 
 	pool struct {
 		messageBuffers   *WaitPool
@@ -309,7 +310,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, configpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events) *Device {
+func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, configpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events, version string) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
 	device.closed = make(chan struct{})
@@ -328,6 +329,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	device.IsSuperNode = IsSuperNode
 	device.ID = id
 	device.graph = graph
+	device.Version = version
 
 	device.rate.limiter.Init()
 	device.indexTable.Init()
@@ -350,6 +352,7 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.Event_Supernode_OK = make(chan struct{}, 4)
 		device.LogLevel = econfig.LogLevel
 		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
+		device.DefaultTTL = econfig.DefaultTTL
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
@@ -383,25 +386,32 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 }
 
 func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex, err error) {
-	var peerlist []config.PeerInfo
 	if device.IsSuperNode {
+		var peerlist []config.SuperPeerInfo
 		if device.SuperConfig == nil {
 			return 0, errors.New("Superconfig is nil")
 		}
 		peerlist = device.SuperConfig.Peers
+		pkstr := PubKey2Str(pk)
+		for _, peerinfo := range peerlist {
+			if peerinfo.PubKey == pkstr {
+				return peerinfo.NodeID, nil
+			}
+		}
 	} else {
+		var peerlist []config.PeerInfo
 		if device.EdgeConfig == nil {
 			return 0, errors.New("EdgeConfig is nil")
 		}
 		peerlist = device.EdgeConfig.Peers
-	}
-
-	pkstr := PubKey2Str(pk)
-	for _, peerinfo := range peerlist {
-		if peerinfo.PubKey == pkstr {
-			return peerinfo.NodeID, nil
+		pkstr := PubKey2Str(pk)
+		for _, peerinfo := range peerlist {
+			if peerinfo.PubKey == pkstr {
+				return peerinfo.NodeID, nil
+			}
 		}
 	}
+
 	return 0, errors.New("Peer not found in the config file.")
 }
 

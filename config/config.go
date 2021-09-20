@@ -6,11 +6,13 @@ import (
 	"strconv"
 )
 
+// Nonnegative integer ID of vertex
+type Vertex uint16
+
 const (
-	Boardcast        Vertex = math.MaxUint32 - iota // Normal boardcast, boardcast with route table
-	ControlMessage   Vertex = math.MaxUint32 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
-	PingMessage      Vertex = math.MaxUint32 - iota // boardsact to every know peer but don't transit
-	SuperNodeMessage Vertex = math.MaxUint32 - iota
+	Boardcast        Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
+	ControlMessage   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
+	SuperNodeMessage Vertex = math.MaxUint16 - iota
 	Special_NodeID   Vertex = SuperNodeMessage
 )
 
@@ -18,6 +20,7 @@ type EdgeConfig struct {
 	Interface         InterfaceConf
 	NodeID            Vertex
 	NodeName          string
+	DefaultTTL        uint8
 	PrivKey           string
 	ListenPort        int
 	LogLevel          LoggerInfo
@@ -36,7 +39,7 @@ type SuperConfig struct {
 	RePushConfigInterval    float64
 	StatePassword           string
 	GraphRecalculateSetting GraphRecalculateSetting
-	Peers                   []PeerInfo
+	Peers                   []SuperPeerInfo
 }
 
 type InterfaceConf struct {
@@ -59,6 +62,13 @@ type PeerInfo struct {
 	Static   bool
 }
 
+type SuperPeerInfo struct {
+	NodeID Vertex
+	Name   string
+	PubKey string
+	PSKey  string
+}
+
 type LoggerInfo struct {
 	LogLevel   string
 	LogTransit bool
@@ -67,17 +77,12 @@ type LoggerInfo struct {
 	LogNTP     bool
 }
 
-// Nonnegative integer ID of vertex
-type Vertex uint32
-
 func (v *Vertex) ToString() string {
 	switch *v {
 	case Boardcast:
 		return "B"
 	case ControlMessage:
 		return "C"
-	case PingMessage:
-		return "P"
 	case SuperNodeMessage:
 		return "S"
 	default:
@@ -136,6 +141,7 @@ type HTTP_Peerinfo struct {
 	PSKey   string
 	Connurl map[string]bool
 }
+
 type HTTP_Peers map[string]HTTP_Peerinfo
 
 const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

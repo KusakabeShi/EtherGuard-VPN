@@ -262,7 +262,7 @@ func (device *Device) RoutineReadFromTUN() {
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
 		EgBody.SetPacketLength(uint16(len(elem.packet) - path.EgHeaderLen))
-		EgBody.SetTTL(200)
+		EgBody.SetTTL(device.DefaultTTL)
 		EgBody.SetUsage(path.NornalPacket)
 
 		if dst_nodeID != config.Boardcast {

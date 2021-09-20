@@ -24,11 +24,11 @@ type RegisterMsg struct {
 	Node_id       config.Vertex
 	PeerStateHash [32]byte
 	NhStateHash   [32]byte
-	Name          string
+	Version       string
 }
 
 func (c *RegisterMsg) ToString() string {
-	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Name:" + c.Name + " PeerHash:" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
+	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Version:" + c.Version + " PeerHash:" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -42,7 +42,8 @@ func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
 type ErrorAction int
 
 const (
-	Shutdown ErrorAction = iota
+	NoAction ErrorAction = iota
+	Shutdown
 	Panic
 )
 

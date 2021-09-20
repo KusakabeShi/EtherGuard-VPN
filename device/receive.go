@@ -471,9 +471,6 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			case config.Boardcast:
 				should_receive = true
 				should_transfer = true
-			case config.PingMessage:
-				peer.LastPingReceived = time.Now()
-				should_process = true
 			case config.SuperNodeMessage:
 				should_process = true
 			case config.ControlMessage:
@@ -533,7 +530,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NornalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Println("Control: Received MID:" + strconv.Itoa(int(EgHeader.GetMessageID())) + " From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
+						fmt.Println("Control: Received From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])

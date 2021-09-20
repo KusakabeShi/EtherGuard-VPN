@@ -7,7 +7,7 @@ import (
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 )
 
-const EgHeaderLen = 16
+const EgHeaderLen = 8
 
 type EgHeader struct {
 	buf []byte
@@ -21,13 +21,12 @@ const (
 
 	UpdatePeer //Comes from server
 	UpdateNhTable
+	UpdateError
 
 	PingPacket //Comes from other peer
 	PongPacket //Send to everyone, include server
 	QueryPeer
 	BoardcastPeer
-
-	UpdateError
 )
 
 func NewEgHeader(pac []byte) (e EgHeader, err error) {
@@ -40,44 +39,37 @@ func NewEgHeader(pac []byte) (e EgHeader, err error) {
 }
 
 func (e EgHeader) GetDst() config.Vertex {
-	return config.Vertex(binary.BigEndian.Uint32(e.buf[0:4]))
+	return config.Vertex(binary.BigEndian.Uint16(e.buf[0:2]))
 }
 func (e EgHeader) SetDst(node_ID config.Vertex) {
-	binary.BigEndian.PutUint32(e.buf[0:4], uint32(node_ID))
+	binary.BigEndian.PutUint16(e.buf[0:2], uint16(node_ID))
 }
 
 func (e EgHeader) GetSrc() config.Vertex {
-	return config.Vertex(binary.BigEndian.Uint32(e.buf[4:8]))
+	return config.Vertex(binary.BigEndian.Uint16(e.buf[2:4]))
 }
 func (e EgHeader) SetSrc(node_ID config.Vertex) {
-	binary.BigEndian.PutUint32(e.buf[4:8], uint32(node_ID))
+	binary.BigEndian.PutUint16(e.buf[2:4], uint16(node_ID))
 }
 
 func (e EgHeader) GetTTL() uint8 {
-	return e.buf[8]
+	return e.buf[4]
 }
 func (e EgHeader) SetTTL(ttl uint8) {
 
-	e.buf[8] = ttl
+	e.buf[4] = ttl
 }
 
 func (e EgHeader) GetUsage() Usage {
-	return Usage(e.buf[9])
+	return Usage(e.buf[5])
 }
 func (e EgHeader) SetUsage(usage Usage) {
-	e.buf[9] = uint8(usage)
+	e.buf[5] = uint8(usage)
 }
 
 func (e EgHeader) GetPacketLength() uint16 {
-	return binary.BigEndian.Uint16(e.buf[10:12])
+	return binary.BigEndian.Uint16(e.buf[6:8])
 }
 func (e EgHeader) SetPacketLength(length uint16) {
-	binary.BigEndian.PutUint16(e.buf[10:12], length)
-}
-
-func (e EgHeader) GetMessageID() uint32 {
-	return binary.BigEndian.Uint32(e.buf[12:16])
-}
-func (e EgHeader) SetMessageID(MessageID uint32) {
-	binary.BigEndian.PutUint32(e.buf[12:16], MessageID)
+	binary.BigEndian.PutUint16(e.buf[6:8], length)
 }

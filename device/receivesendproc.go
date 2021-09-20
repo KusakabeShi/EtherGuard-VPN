@@ -33,10 +33,8 @@ func (device *Device) SendPacket(peer *Peer, packet []byte, offset int) {
 	if device.LogLevel.LogControl {
 		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
 		if EgHeader.GetUsage() != path.NornalPacket {
-			device.MsgCount += 1
-			EgHeader.SetMessageID(device.MsgCount)
 			if peer.GetEndpointDstStr() != "" {
-				fmt.Println("Control: Send MID:" + strconv.Itoa(int(device.MsgCount)) + " To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]))
+				fmt.Println("Control: Send To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(EgHeader.GetUsage(), packet[path.EgHeaderLen:]))
 			}
 		}
 	}
@@ -145,7 +143,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 			}
 		case path.PingPacket:
 			if content, err := path.ParsePingMsg(body); err == nil {
-				return device.process_ping(content)
+				return device.process_ping(peer, content)
 			}
 		case path.PongPacket:
 			if content, err := path.ParsePongMsg(body); err == nil {
@@ -207,13 +205,29 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret str
 }
 
 func (device *Device) server_process_RegisterMsg(peer *Peer, content path.RegisterMsg) error {
+	UpdateErrorMsg := path.UpdateErrorMsg{
+		Node_id:   peer.ID,
+		Action:    path.NoAction,
+		ErrorCode: 0,
+		ErrorMsg:  "",
+	}
 	if peer.ID != content.Node_id {
-		UpdateErrorMsg := path.UpdateErrorMsg{
+		UpdateErrorMsg = path.UpdateErrorMsg{
 			Node_id:   peer.ID,
 			Action:    path.Shutdown,
 			ErrorCode: 401,
-			ErrorMsg:  "Your node ID is not match with our nodeID",
+			ErrorMsg:  "Your node ID is not match with our registered nodeID",
 		}
+	}
+	if content.Version != device.Version {
+		UpdateErrorMsg = path.UpdateErrorMsg{
+			Node_id:   peer.ID,
+			Action:    path.Shutdown,
+			ErrorCode: 400,
+			ErrorMsg:  "Your version is not match with our version: " + device.Version,
+		}
+	}
+	if UpdateErrorMsg.Action != path.NoAction {
 		body, err := path.GetByte(&UpdateErrorMsg)
 		if err != nil {
 			return err
@@ -221,11 +235,11 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content path.Regist
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
 		header.SetSrc(device.ID)
-		header.SetTTL(200)
+		header.SetTTL(device.DefaultTTL)
 		header.SetUsage(path.UpdateError)
 		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
-		header.SetDst(config.ControlMessage)
+		header.SetDst(peer.ID)
 		device.SendPacket(peer, buf, MessageTransportOffsetContent)
 		return nil
 	}
@@ -238,7 +252,8 @@ func (device *Device) server_process_Pong(content path.PongMsg) error {
 	return nil
 }
 
-func (device *Device) process_ping(content path.PingMsg) error {
+func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
+	peer.LastPingReceived = time.Now()
 	PongMSG := path.PongMsg{
 		Src_nodeID: content.Src_nodeID,
 		Dst_nodeID: device.ID,
@@ -254,7 +269,7 @@ func (device *Device) process_ping(content path.PingMsg) error {
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
 	header.SetSrc(device.ID)
-	header.SetTTL(200)
+	header.SetTTL(device.DefaultTTL)
 	header.SetUsage(path.PongPacket)
 	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
@@ -285,7 +300,7 @@ func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
 			header.SetSrc(device.ID)
-			header.SetTTL(200)
+			header.SetTTL(device.DefaultTTL)
 			header.SetUsage(path.QueryPeer)
 			header.SetPacketLength(uint16(len(body)))
 			copy(buf[path.EgHeaderLen:], body)
@@ -525,7 +540,7 @@ func (device *Device) RoutineRegister() {
 			Node_id:       device.ID,
 			PeerStateHash: device.peers.Peer_state,
 			NhStateHash:   device.graph.NhTableHash,
-			Name:          device.EdgeConfig.NodeName,
+			Version:       device.Version,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
@@ -610,7 +625,7 @@ func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	header.SetDst(config.PingMessage)
+	header.SetDst(config.ControlMessage)
 	header.SetTTL(0)
 	header.SetSrc(device.ID)
 	header.SetUsage(path.PingPacket)
@@ -646,7 +661,7 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
 			header.SetDst(config.ControlMessage)
-			header.SetTTL(200)
+			header.SetTTL(device.DefaultTTL)
 			header.SetSrc(device.ID)
 			header.SetUsage(path.BoardcastPeer)
 			header.SetPacketLength(uint16(len(body)))

@@ -16,10 +16,10 @@ graphrecalculatesetting:
   recalculatecooldown: 5
 peers:
 - nodeid: 1
+  name: "Node_01"
   pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
-  endpoint: 127.0.0.1:3001
-  static: true
+  pskey: ""
 - nodeid: 2
+  name: "Node_02"
   pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
-  endpoint: 127.0.0.1:3002
-  static: true
+  pskey: ""

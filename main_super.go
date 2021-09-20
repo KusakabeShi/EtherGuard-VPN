@@ -43,12 +43,12 @@ func printExampleSuperConf() {
 			LogControl: true,
 		},
 		RePushConfigInterval: 30,
-		Peers: []config.PeerInfo{
+		Peers: []config.SuperPeerInfo{
 			{
-				NodeID:   2,
-				PubKey:   "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
-				EndPoint: "127.0.0.1:3002",
-				Static:   true,
+				NodeID: 2,
+				Name:   "Node02",
+				PubKey: "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
+				PSKey:  "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
 			},
 		},
 		GraphRecalculateSetting: config.GraphRecalculateSetting{
@@ -116,8 +116,8 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	thetap4, _ := tap.CreateDummyTAP()
 	thetap6, _ := tap.CreateDummyTAP()
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
-	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains)
-	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains)
+	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
+	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device4.Close()
 	defer http_device6.Close()
 	var sk [32]byte
@@ -143,6 +143,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	http_device6.IpcSet("replace_peers=true\n")
 
 	for _, peerconf := range sconfig.Peers {
+		http_peerinfos.Store(peerconf.NodeID, peerconf.Name)
 		var pk device.NoisePublicKey
 
 		pk_slice, err := base64.StdEncoding.DecodeString(peerconf.PubKey)
@@ -166,14 +167,12 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 			return err
 		}
 		peer4.StaticConn = true
-		peer4.ConnURL = peerconf.EndPoint
 		peer6, err := http_device6.NewPeer(pk, peerconf.NodeID)
 		if err != nil {
 			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
 			return err
 		}
 		peer6.StaticConn = true
-		peer6.ConnURL = peerconf.EndPoint
 		if peerconf.PSKey != "" {
 			var psk device.NoisePresharedKey
 			psk_slice, err := base64.StdEncoding.DecodeString(peerconf.PSKey)
@@ -225,7 +224,6 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 		case reg_msg := <-events.Event_server_register:
 			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
 			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
-			http_peerinfos.Store(reg_msg.Node_id, reg_msg.Name)
 			PubKey := http_PeerID2Map[reg_msg.Node_id]
 			if peer := http_device4.LookupPeerByStr(PubKey); peer != nil {
 				if connstr := peer.GetEndpointDstStr(); connstr != "" {

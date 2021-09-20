@@ -138,23 +138,23 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 		printExampleEdgeConf()
 		return nil
 	}
-	var tconfig config.EdgeConfig
+	var econfig config.EdgeConfig
 	//printExampleConf()
 	//return
 
-	err = readYaml(configPath, &tconfig)
+	err = readYaml(configPath, &econfig)
 	if err != nil {
 		fmt.Printf("Error read config: %s :", configPath)
 		fmt.Print(err)
 		return err
 	}
 
-	NodeName := tconfig.NodeName
+	NodeName := econfig.NodeName
 	if len(NodeName) > 32 {
 		return errors.New("Node name can't longer than 32 :" + NodeName)
 	}
 	var logLevel int
-	switch tconfig.LogLevel.LogLevel {
+	switch econfig.LogLevel.LogLevel {
 	case "verbose", "debug":
 		logLevel = device.LogLevelVerbose
 	case "error":
@@ -177,45 +177,49 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	var thetap tap.Device
 	// open TUN device (or use supplied fd)
-	switch tconfig.Interface.Itype {
+	switch econfig.Interface.Itype {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
-		thetap, err = tap.CreateStdIOTAP(tconfig.Interface,tconfig.NodeID)
+		thetap, err = tap.CreateStdIOTAP(econfig.Interface, econfig.NodeID)
 	case "udpsock":
-		lis, _ := net.ResolveUDPAddr("udp", tconfig.Interface.RecvAddr)
-		sen, _ := net.ResolveUDPAddr("udp", tconfig.Interface.SendAddr)
-		thetap, err = tap.CreateUDPSockTAP(tconfig.Interface,tconfig.NodeID, lis, sen)
+		lis, _ := net.ResolveUDPAddr("udp", econfig.Interface.RecvAddr)
+		sen, _ := net.ResolveUDPAddr("udp", econfig.Interface.SendAddr)
+		thetap, err = tap.CreateUDPSockTAP(econfig.Interface, econfig.NodeID, lis, sen)
 	case "vpp":
-		thetap, err = tap.CreateVppTAP(tconfig.Interface,tconfig.NodeID,tconfig.LogLevel.LogLevel)
+		thetap, err = tap.CreateVppTAP(econfig.Interface, econfig.NodeID, econfig.LogLevel.LogLevel)
 	case "tap":
-		thetap, err = tap.CreateTAP(tconfig.Interface,tconfig.NodeID)
+		thetap, err = tap.CreateTAP(econfig.Interface, econfig.NodeID)
 	default:
-		return errors.New("Unknow interface type:" + tconfig.Interface.Itype)
+		return errors.New("Unknow interface type:" + econfig.Interface.Itype)
 	}
 	if err != nil {
 		logger.Errorf("Failed to create TAP device: %v", err)
 		os.Exit(ExitSetupFailed)
 	}
 
+	if econfig.DefaultTTL <= 0 {
+		return errors.New("DefaultTTL must > 0")
+	}
+
 	////////////////////////////////////////////////////
 	// Config
-	if tconfig.DynamicRoute.P2P.UseP2P == false && tconfig.DynamicRoute.SuperNode.UseSuperNode == false {
-		tconfig.LogLevel.LogNTP = false // NTP in static mode is useless
+	if econfig.DynamicRoute.P2P.UseP2P == false && econfig.DynamicRoute.SuperNode.UseSuperNode == false {
+		econfig.LogLevel.LogNTP = false // NTP in static mode is useless
 	}
-	graph := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel.LogNTP)
-	graph.SetNHTable(tconfig.NextHopTable, [32]byte{})
+	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel.LogNTP)
+	graph.SetNHTable(econfig.NextHopTable, [32]byte{})
 
-	the_device := device.NewDevice(thetap, tconfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &tconfig, nil, nil)
+	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &econfig, nil, nil,Version)
 	defer the_device.Close()
 	var sk [32]byte
-	sk_slice, _ := base64.StdEncoding.DecodeString(tconfig.PrivKey)
+	sk_slice, _ := base64.StdEncoding.DecodeString(econfig.PrivKey)
 	copy(sk[:], sk_slice)
 	the_device.SetPrivateKey(sk)
 	the_device.IpcSet("fwmark=0\n")
-	the_device.IpcSet("listen_port=" + strconv.Itoa(tconfig.ListenPort) + "\n")
+	the_device.IpcSet("listen_port=" + strconv.Itoa(econfig.ListenPort) + "\n")
 	the_device.IpcSet("replace_peers=true\n")
-	for _, peerconf := range tconfig.Peers {
+	for _, peerconf := range econfig.Peers {
 		sk_slice, _ = base64.StdEncoding.DecodeString(peerconf.PubKey)
 		copy(sk[:], sk_slice)
 		if peerconf.NodeID >= config.SuperNodeMessage {
@@ -235,11 +239,11 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 		}
 	}
 
-	if tconfig.DynamicRoute.SuperNode.UseSuperNode {
-		if tconfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
-			sk_slice, _ = base64.StdEncoding.DecodeString(tconfig.DynamicRoute.SuperNode.PubKeyV4)
+	if econfig.DynamicRoute.SuperNode.UseSuperNode {
+		if econfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
+			sk_slice, _ = base64.StdEncoding.DecodeString(econfig.DynamicRoute.SuperNode.PubKeyV4)
 			copy(sk[:], sk_slice)
-			endpoint, err := the_device.Bind().ParseEndpoint(tconfig.DynamicRoute.SuperNode.ConnURLV4)
+			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV4)
 			if err != nil {
 				return err
 			}
@@ -248,13 +252,13 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 				return err
 			}
 			peer.StaticConn = false
-			peer.ConnURL = tconfig.DynamicRoute.SuperNode.ConnURLV4
+			peer.ConnURL = econfig.DynamicRoute.SuperNode.ConnURLV4
 			peer.SetEndpointFromPacket(endpoint)
 		}
-		if tconfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
-			sk_slice, _ = base64.StdEncoding.DecodeString(tconfig.DynamicRoute.SuperNode.PubKeyV6)
+		if econfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
+			sk_slice, _ = base64.StdEncoding.DecodeString(econfig.DynamicRoute.SuperNode.PubKeyV6)
 			copy(sk[:], sk_slice)
-			endpoint, err := the_device.Bind().ParseEndpoint(tconfig.DynamicRoute.SuperNode.ConnURLV6)
+			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV6)
 			if err != nil {
 				return err
 			}
@@ -263,7 +267,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 				return err
 			}
 			peer.StaticConn = false
-			peer.ConnURL = tconfig.DynamicRoute.SuperNode.ConnURLV6
+			peer.ConnURL = econfig.DynamicRoute.SuperNode.ConnURLV6
 			peer.SetEndpointFromPacket(endpoint)
 		}
 		the_device.Event_Supernode_OK <- struct{}{}

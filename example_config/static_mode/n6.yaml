@@ -4,12 +4,13 @@ interface:
   vppifaceid: 6
   vppbridgeid: 4242
   macaddrprefix: AA:BB:CC:DD:EE
-  mtu: 1400
+  mtu: 1404
   recvaddr: 127.0.0.1:4006
   sendaddr: 127.0.0.1:5006
   l2headermode: kbdbg
 nodeid: 6
 nodename: Node06
+defaultttl: 200
 privkey: IIX5F6oWZUS2dlhxWFJ7TxdJtDCr5jzeuhxUB6YM7Us=
 listenport: 3006
 loglevel:
