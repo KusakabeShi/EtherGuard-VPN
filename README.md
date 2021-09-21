@@ -67,6 +67,7 @@ Usage of ./etherguard-go:
         3. `noL2`: Remove all Layer 2 header
 2. `nodeid`: NodeID. Must be unique in the whole Etherguard network.
 3. `nodename`: Node Name.
+4. `defaultttl`: Default TTL(etherguard layer. not affect ethernet layer)
 4. `privkey`: Private key. Same spec as wireguard.
 5. `listenport`: UDP lesten port
 6. `loglevel`: Log Level

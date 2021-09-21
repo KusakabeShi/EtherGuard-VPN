@@ -98,10 +98,10 @@ HTTP還有一個API
     1.   nodereporttimeout: 收到的`Pong`封包的有效期限。太久沒收到就變回Infinity
     1.   recalculatecooldown: Floyd-Warshal是O(n^3)時間複雜度，不能太常算。設個冷卻時間
 1. peers: Peer列表，參考 [README_zh.md](../README_zh.md)
-    1.   nodeid: 1
-    1.   pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
-    1.   endpoint: 127.0.0.1:3001
-    1.   static: true
+    1.   nodeid: Peer的節點ID
+    1.   name: Peer名稱(顯示在前端)
+    1.   pubkey: peer 公鑰
+    1.   pskey: preshared key
 
 ## V4 V6 兩個公鑰
 為什麼要分開IPv4和IPv6呢?  
