@@ -128,7 +128,6 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 			}
 		}
 		g.dlTable, g.nhTable = dist, next
-		g.NhTableExpire = time.Now().Add(g.NodeReportTimeout)
 		g.RecalculateTime = time.Now()
 	}
 	return
