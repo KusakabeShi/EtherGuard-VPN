@@ -37,9 +37,16 @@ type SuperConfig struct {
 	ListenPort              int
 	LogLevel                LoggerInfo
 	RePushConfigInterval    float64
-	StatePassword           string
+	Passwords               Passwords
 	GraphRecalculateSetting GraphRecalculateSetting
+	EdgeTemplate            string
 	Peers                   []SuperPeerInfo
+}
+
+type Passwords struct {
+	ShowState string
+	AddPeer   string
+	DelPeer   string
 }
 
 type InterfaceConf struct {

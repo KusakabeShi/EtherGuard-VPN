@@ -3,8 +3,8 @@ interface:
   name: tap2
   vppifaceid: 2
   vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD:EE
-  mtu: 1404
+  macaddrprefix: AA:BB:CC:DD
+  mtu: 1416
   recvaddr: 127.0.0.1:4002
   sendaddr: 127.0.0.1:5002
   l2headermode: kbdbg
@@ -20,7 +20,7 @@ loglevel:
   lognormal: true
   logntp: true
 dynamicroute:
-  sendpinginterval: 20
+  sendpinginterval: 16
   dupchecktimeout: 40
   conntimeout: 30
   savenewpeers: true
@@ -28,10 +28,10 @@ dynamicroute:
     usesupernode: true
     connurlv4: 127.0.0.1:3000
     pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: ''
+    connurlv6: '[::1]:3000'
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
-    supernodeinfotimeout: 40
+    supernodeinfotimeout: 50
   p2p:
     usep2p: false
     sendpeerinterval: 20

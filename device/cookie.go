@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/chacha20poly1305"
 )
@@ -154,7 +155,7 @@ func (st *CookieChecker) CreateReply(
 	smac1 := smac2 - blake2s.Size128
 
 	reply := new(MessageCookieReply)
-	reply.Type = MessageCookieReplyType
+	reply.Type = path.MessageCookieReplyType
 	reply.Receiver = recv
 
 	_, err := rand.Read(reply.Nonce[:])

@@ -47,6 +47,7 @@ import (
  */
 
 type QueueOutboundElement struct {
+	Type path.Usage
 	sync.Mutex
 	buffer  *[MaxMessageSize]byte // slice holding the packet data
 	packet  []byte                // slice of "buffer" (always!)
@@ -263,7 +264,7 @@ func (device *Device) RoutineReadFromTUN() {
 		EgBody.SetDst(dst_nodeID)
 		EgBody.SetPacketLength(uint16(len(elem.packet) - path.EgHeaderLen))
 		EgBody.SetTTL(device.DefaultTTL)
-		EgBody.SetUsage(path.NornalPacket)
+		elem.Type = path.NornalPacket
 
 		if dst_nodeID != config.Boardcast {
 			var peer *Peer
@@ -283,7 +284,7 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 			}
 		} else {
-			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.packet, offset)
+			device.BoardcastPacket(make(map[config.Vertex]bool, 0),elem.Type, elem.packet, offset)
 		}
 
 	}
@@ -388,11 +389,10 @@ func (device *Device) RoutineEncryption(id int) {
 		// populate header fields
 		header := elem.buffer[:MessageTransportHeaderSize]
 
-		fieldType := header[0:4]
-		fieldReceiver := header[4:8]
-		fieldNonce := header[8:16]
+		fieldReceiver := header[1:5]
+		fieldNonce := header[5:13]
 
-		binary.LittleEndian.PutUint32(fieldType, MessageTransportType)
+		header[0] = uint8(elem.Type)
 		binary.LittleEndian.PutUint32(fieldReceiver, elem.keypair.remoteIndex)
 		binary.LittleEndian.PutUint64(fieldNonce, elem.nonce)
 

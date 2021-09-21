@@ -3,8 +3,8 @@ interface:
   name: tap6
   vppifaceid: 6
   vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD:EE
-  mtu: 1404
+  macaddrprefix: AA:BB:CC:DD
+  mtu: 1416
   recvaddr: 127.0.0.1:4006
   sendaddr: 127.0.0.1:5006
   l2headermode: kbdbg

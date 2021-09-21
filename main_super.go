@@ -10,7 +10,6 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -105,52 +104,54 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	http_PeerID2Map = make(map[config.Vertex]string)
 	http_PeerInfos = make(map[string]config.HTTP_Peerinfo)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
-	http_StatePWD = sconfig.StatePassword
+	http_StatePWD = sconfig.Passwords.ShowState
 
 	super_chains := path.SUPER_Events{
 		Event_server_pong:            make(chan path.PongMsg, 1<<5),
 		Event_server_register:        make(chan path.RegisterMsg, 1<<5),
 		Event_server_NhTable_changed: make(chan struct{}, 1<<4),
 	}
+	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
 
 	thetap4, _ := tap.CreateDummyTAP()
-	thetap6, _ := tap.CreateDummyTAP()
-	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
 	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
-	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device4.Close()
+	thetap6, _ := tap.CreateDummyTAP()
+	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device6.Close()
-	var sk [32]byte
-	sk_slice, err := base64.StdEncoding.DecodeString(sconfig.PrivKeyV4)
-	if err != nil {
-		fmt.Printf("Can't decode base64:%v\n", sconfig.PrivKeyV4)
-		return err
+	if sconfig.PrivKeyV4 != "" {
+		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)
+		if err != nil {
+			fmt.Println("Error decode base64 ", err)
+			return err
+		}
+		http_device4.SetPrivateKey(pk4)
+		http_device4.IpcSet("fwmark=0\n")
+		http_device4.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
+		http_device4.IpcSet("replace_peers=true\n")
 	}
-	copy(sk[:], sk_slice)
-	http_device4.SetPrivateKey(sk)
-	sk_slice, err = base64.StdEncoding.DecodeString(sconfig.PrivKeyV6)
-	if err != nil {
-		fmt.Printf("Can't decode base64:%v\n", sconfig.PrivKeyV6)
-		return err
+
+	if sconfig.PrivKeyV6 != "" {
+
+		pk6, err := device.Str2PriKey(sconfig.PrivKeyV6)
+		if err != nil {
+			fmt.Println("Error decode base64 ", err)
+			return err
+		}
+		http_device6.SetPrivateKey(pk6)
+		http_device6.IpcSet("fwmark=0\n")
+		http_device6.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
+		http_device6.IpcSet("replace_peers=true\n")
 	}
-	copy(sk[:], sk_slice)
-	http_device6.SetPrivateKey(sk)
-	http_device4.IpcSet("fwmark=0\n")
-	http_device6.IpcSet("fwmark=0\n")
-	http_device4.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
-	http_device6.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
-	http_device4.IpcSet("replace_peers=true\n")
-	http_device6.IpcSet("replace_peers=true\n")
 
 	for _, peerconf := range sconfig.Peers {
 		http_peerinfos.Store(peerconf.NodeID, peerconf.Name)
-		var pk device.NoisePublicKey
-
-		pk_slice, err := base64.StdEncoding.DecodeString(peerconf.PubKey)
+		pk, err := device.Str2PubKey(peerconf.PubKey)
 		if err != nil {
 			fmt.Println("Error decode base64 ", err)
+			return err
 		}
-		copy(pk[:], pk_slice)
+
 		if peerconf.NodeID >= config.SuperNodeMessage {
 			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
 		}
@@ -161,31 +162,43 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 			PSKey:   peerconf.PSKey,
 			Connurl: make(map[string]bool),
 		}
-		peer4, err := http_device4.NewPeer(pk, peerconf.NodeID)
-		if err != nil {
-			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-			return err
-		}
-		peer4.StaticConn = true
-		peer6, err := http_device6.NewPeer(pk, peerconf.NodeID)
-		if err != nil {
-			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-			return err
-		}
-		peer6.StaticConn = true
-		if peerconf.PSKey != "" {
-			var psk device.NoisePresharedKey
-			psk_slice, err := base64.StdEncoding.DecodeString(peerconf.PSKey)
+		if sconfig.PrivKeyV4 != "" {
+			peer4, err := http_device4.NewPeer(pk, peerconf.NodeID)
 			if err != nil {
-				fmt.Println("Error decode base64 ", err)
+				fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+				return err
 			}
-			copy(psk[:], psk_slice)
-			peer4.SetPSK(psk)
-			peer6.SetPSK(psk)
+			peer4.StaticConn = true
+			if peerconf.PSKey != "" {
+				psk, err := device.Str2PSKey(peerconf.PSKey)
+				if err != nil {
+					fmt.Println("Error decode base64 ", err)
+					return err
+				}
+				peer4.SetPSK(psk)
+			}
 		}
+		if sconfig.PrivKeyV6 != "" {
+			peer6, err := http_device6.NewPeer(pk, peerconf.NodeID)
+			if err != nil {
+				fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+				return err
+			}
+			peer6.StaticConn = true
+			if peerconf.PSKey != "" {
+				psk, err := device.Str2PSKey(peerconf.PSKey)
+				if err != nil {
+					fmt.Println("Error decode base64 ", err)
+					return err
+				}
+				peer6.SetPSK(psk)
+			}
+		}
+
 		http_PeerState[peerconf.PubKey] = &PeerState{}
 	}
-	logger4.Verbosef("Device started")
+	logger4.Verbosef("Device4 started")
+	logger6.Verbosef("Device6 started")
 
 	errs := make(chan error, 1<<3)
 	term := make(chan os.Signal, 1)
@@ -290,14 +303,13 @@ func PushNhTable() {
 	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
-	header.SetUsage(path.UpdateNhTable)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, _ := range http_PeerState {
 		if peer := http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-			http_device4.SendPacket(peer, buf, device.MessageTransportOffsetContent)
+			http_device4.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
 		}
 		if peer := http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-			http_device6.SendPacket(peer, buf, device.MessageTransportOffsetContent)
+			http_device6.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
 		}
 
 	}
@@ -317,15 +329,14 @@ func PushUpdate() {
 	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
-	header.SetUsage(path.UpdatePeer)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range http_PeerState {
 		if peerstate.PeerInfoState != http_PeerInfo_hash {
 			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil {
-				http_device4.SendPacket(peer, buf, device.MessageTransportOffsetContent)
+				http_device4.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := http_device6.LookupPeerByStr(pkstr); peer != nil {
-				http_device6.SendPacket(peer, buf, device.MessageTransportOffsetContent)
+				http_device6.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}

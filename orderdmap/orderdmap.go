@@ -34,12 +34,12 @@ type OrderedMap struct {
 	escapeHTML bool
 }
 
-func New() *OrderedMap {
+func New() OrderedMap {
 	o := OrderedMap{}
 	o.keys = []string{}
 	o.values = map[string]interface{}{}
 	o.escapeHTML = true
-	return &o
+	return o
 }
 
 func (o *OrderedMap) SetEscapeHTML(on bool) {
@@ -77,7 +77,11 @@ func (o *OrderedMap) Delete(key string) {
 }
 
 func (o *OrderedMap) Keys() []string {
-	return o.keys
+	ret := make([]string, len(o.keys))
+	for i, v := range o.keys {
+		ret[i] = v
+	}
+	return ret
 }
 
 // SortKeys Sort the map keys using your sort func

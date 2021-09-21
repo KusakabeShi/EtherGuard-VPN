@@ -6,6 +6,7 @@
 package device
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"runtime"
@@ -392,7 +393,7 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex,
 			return 0, errors.New("Superconfig is nil")
 		}
 		peerlist = device.SuperConfig.Peers
-		pkstr := PubKey2Str(pk)
+		pkstr := pk.ToString()
 		for _, peerinfo := range peerlist {
 			if peerinfo.PubKey == pkstr {
 				return peerinfo.NodeID, nil
@@ -404,7 +405,7 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex,
 			return 0, errors.New("EdgeConfig is nil")
 		}
 		peerlist = device.EdgeConfig.Peers
-		pkstr := PubKey2Str(pk)
+		pkstr := pk.ToString()
 		for _, peerinfo := range peerlist {
 			if peerinfo.PubKey == pkstr {
 				return peerinfo.NodeID, nil
@@ -429,34 +430,51 @@ func (device *Device) LookupPeerByStr(pks string) *Peer {
 	return device.LookupPeer(pk)
 }
 
-func PubKey2Str(pk NoisePublicKey) (result string) {
-	result = string(base64.StdEncoding.EncodeToString(pk[:]))
-	return
+func (pk *NoisePublicKey) ToString() string {
+	if bytes.Equal(pk[:], make([]byte, len(pk))) {
+		return ""
+	}
+	return string(base64.StdEncoding.EncodeToString(pk[:]))
 }
 
-func PriKey2Str(pk NoisePrivateKey) (result string) {
-	result = string(base64.StdEncoding.EncodeToString(pk[:]))
-	return
+func (pk *NoisePrivateKey) ToString() (result string) {
+	if bytes.Equal(pk[:], make([]byte, len(pk))) {
+		return ""
+	}
+	return string(base64.StdEncoding.EncodeToString(pk[:]))
 }
-func PSKeyStr(pk NoisePresharedKey) (result string) {
-	result = string(base64.StdEncoding.EncodeToString(pk[:]))
-	return
+func (pk *NoisePresharedKey) ToString() (result string) {
+	if bytes.Equal(pk[:], make([]byte, len(pk))) {
+		return ""
+	}
+	return string(base64.StdEncoding.EncodeToString(pk[:]))
 }
 
-func Str2PubKey(k string) (pk NoisePublicKey) {
-	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+func Str2PubKey(k string) (pk NoisePublicKey, err error) {
+	if k == "" {
+		err = errors.New("Empty public key string")
+		return
+	}
+	sk_slice, err := base64.StdEncoding.DecodeString(k)
 	copy(pk[:], sk_slice)
 	return
 }
 
-func Str2PriKey(k string) (pk NoisePrivateKey) {
-	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+func Str2PriKey(k string) (pk NoisePrivateKey, err error) {
+	if k == "" {
+		err = errors.New("Empty private key string")
+		return
+	}
+	sk_slice, err := base64.StdEncoding.DecodeString(k)
 	copy(pk[:], sk_slice)
 	return
 }
 
-func Str2PSKey(k string) (pk NoisePresharedKey) {
-	sk_slice, _ := base64.StdEncoding.DecodeString(k)
+func Str2PSKey(k string) (pk NoisePresharedKey, err error) {
+	if k == "" {
+		return
+	}
+	sk_slice, err := base64.StdEncoding.DecodeString(k)
 	copy(pk[:], sk_slice)
 	return
 }

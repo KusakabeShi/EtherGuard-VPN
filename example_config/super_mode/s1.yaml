@@ -2,7 +2,10 @@ nodename: NodeSuper
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000
-statepassword: passwd
+passwords:
+  showstate: passwd
+  addpeer: passwd_addpeer
+  delpeer: passwd_delpeer
 loglevel:
   loglevel: normal
   logtransit: true
@@ -12,8 +15,9 @@ repushconfiginterval: 30
 graphrecalculatesetting:
   jittertolerance: 5
   jittertolerancemultiplier: 1.01
-  nodereporttimeout: 40
+  nodereporttimeout: 50
   recalculatecooldown: 5
+edgetemplate: "example_config/super_mode/s1.yaml"
 peers:
 - nodeid: 1
   name: "Node_01"

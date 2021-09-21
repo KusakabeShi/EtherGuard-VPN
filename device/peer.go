@@ -8,7 +8,6 @@ package device
 import (
 	"bytes"
 	"container/list"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
+	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,7 +28,7 @@ type Peer struct {
 	handshake        Handshake
 	device           *Device
 	endpoint         conn.Endpoint
-	endpoint_trylist sync.Map //map[string]time.Time
+	endpoint_trylist orderedmap.OrderedMap //map[string]time.Time
 	LastPingReceived time.Time
 	stopping         sync.WaitGroup // routines pending stop
 
@@ -95,7 +95,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 
 	// create peer
 	if device.LogLevel.LogControl {
-		fmt.Println("Control: Create peer with ID : " + id.ToString() + " and PubKey:" + base64.StdEncoding.EncodeToString(pk[:]))
+		fmt.Println("Control: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
 	}
 	peer := new(Peer)
 	peer.Lock()
@@ -103,6 +103,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
+	peer.endpoint_trylist = orderedmap.New()
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
@@ -342,8 +343,8 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 
 	url := endpoint.DstToString()
 	foundInFile := false
-	pubkeystr := PubKey2Str(peer.handshake.remoteStatic)
-	pskstr := PSKeyStr(peer.handshake.presharedKey)
+	pubkeystr := peer.handshake.remoteStatic.ToString()
+	pskstr := peer.handshake.presharedKey.ToString()
 	if bytes.Equal(peer.handshake.presharedKey[:], make([]byte, 32)) {
 		pskstr = ""
 	}

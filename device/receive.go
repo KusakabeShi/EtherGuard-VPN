@@ -25,13 +25,14 @@ import (
 )
 
 type QueueHandshakeElement struct {
-	msgType  uint32
+	msgType  path.Usage
 	packet   []byte
 	endpoint conn.Endpoint
 	buffer   *[MaxMessageSize]byte
 }
 
 type QueueInboundElement struct {
+	Type path.Usage
 	sync.Mutex
 	buffer   *[MaxMessageSize]byte
 	packet   []byte
@@ -122,15 +123,19 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 		// check size of packet
 
 		packet := buffer[:size]
-		msgType := binary.LittleEndian.Uint32(packet[:4])
+		msgType := path.Usage(packet[0])
+		msgType_wg := msgType
+		if msgType >= path.MessageTransportType {
+			msgType_wg = path.MessageTransportType
+		}
 
 		var okay bool
 
-		switch msgType {
+		switch msgType_wg {
 
 		// check if transport
 
-		case MessageTransportType:
+		case path.MessageTransportType:
 
 			// check size
 
@@ -158,6 +163,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 			// create work element
 			peer := value.peer
 			elem := device.GetInboundElement()
+			elem.Type = msgType
 			elem.packet = packet
 			elem.buffer = buffer
 			elem.keypair = keypair
@@ -178,13 +184,13 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 
 		// otherwise it is a fixed size & handshake related packet
 
-		case MessageInitiationType:
+		case path.MessageInitiationType:
 			okay = len(packet) == MessageInitiationSize
 
-		case MessageResponseType:
+		case path.MessageResponseType:
 			okay = len(packet) == MessageResponseSize
 
-		case MessageCookieReplyType:
+		case path.MessageCookieReplyType:
 			okay = len(packet) == MessageCookieReplySize
 
 		default:
@@ -250,7 +256,7 @@ func (device *Device) RoutineHandshake(id int) {
 
 		switch elem.msgType {
 
-		case MessageCookieReplyType:
+		case path.MessageCookieReplyType:
 
 			// unmarshal packet
 
@@ -281,7 +287,7 @@ func (device *Device) RoutineHandshake(id int) {
 
 			goto skip
 
-		case MessageInitiationType, MessageResponseType:
+		case path.MessageInitiationType, path.MessageResponseType:
 
 			// check mac fields and maybe ratelimit
 
@@ -316,7 +322,7 @@ func (device *Device) RoutineHandshake(id int) {
 		// handle handshake initiation/response content
 
 		switch elem.msgType {
-		case MessageInitiationType:
+		case path.MessageInitiationType:
 
 			// unmarshal
 
@@ -349,7 +355,7 @@ func (device *Device) RoutineHandshake(id int) {
 
 			peer.SendHandshakeResponse()
 
-		case MessageResponseType:
+		case path.MessageResponseType:
 
 			// unmarshal
 
@@ -454,7 +460,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		src_nodeID = EgHeader.GetSrc()
 		dst_nodeID = EgHeader.GetDst()
 		elem.packet = elem.packet[:EgHeader.GetPacketLength()+path.EgHeaderLen] // EG header + true packet
-		packet_type = EgHeader.GetUsage()
+		packet_type = elem.Type
 
 		if device.IsSuperNode {
 			peer.LastPingReceived = time.Now()
@@ -506,12 +512,12 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			} else {
 				EgHeader.SetTTL(l2ttl - 1)
 				if dst_nodeID == config.Boardcast { //Regular transfer algorithm
-					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.packet, MessageTransportOffsetContent)
+					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == config.ControlMessage { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[config.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
-					device.SpreadPacket(skip_list, elem.packet, MessageTransportOffsetContent)
+					device.SpreadPacket(skip_list, elem.Type, elem.packet, MessageTransportOffsetContent)
 
 				} else {
 					next_id := device.graph.Next(device.ID, dst_nodeID)
@@ -520,7 +526,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						if device.LogLevel.LogTransit {
 							fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 						}
-						device.SendPacket(peer_out, elem.packet, MessageTransportOffsetContent)
+						device.SendPacket(peer_out, elem.Type, elem.packet, MessageTransportOffsetContent)
 					}
 				}
 			}

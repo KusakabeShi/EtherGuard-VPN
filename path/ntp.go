@@ -17,7 +17,7 @@ func (g *IG) InitNTP() {
 			g.ntp_info.UseNTP = false
 			return
 		}
-		g.ntp_servers = *orderedmap.New()
+		g.ntp_servers = orderedmap.New()
 		for _, url := range g.ntp_info.Servers {
 			g.ntp_servers.Set(url, ntp.Response{
 				RTT: forever,

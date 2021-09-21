@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tai64n"
 )
 
@@ -53,26 +54,19 @@ const (
 )
 
 const (
-	MessageInitiationType  = 1
-	MessageResponseType    = 2
-	MessageCookieReplyType = 3
-	MessageTransportType   = 4
-)
-
-const (
-	MessageInitiationSize      = 148                                           // size of handshake initiation message
-	MessageResponseSize        = 92                                            // size of response message
-	MessageCookieReplySize     = 64                                            // size of cookie reply message
-	MessageTransportHeaderSize = 16                                            // size of data preceding content in transport message
+	MessageInitiationSize      = 145                                           // size of handshake initiation message
+	MessageResponseSize        = 89                                            // size of response message
+	MessageCookieReplySize     = 61                                            // size of cookie reply message
+	MessageTransportHeaderSize = 13                                            // size of data preceding content in transport message
 	MessageTransportSize       = MessageTransportHeaderSize + poly1305.TagSize // size of empty transport
 	MessageKeepaliveSize       = MessageTransportSize                          // size of keepalive
 	MessageHandshakeSize       = MessageInitiationSize                         // size of largest handshake related message
 )
 
 const (
-	MessageTransportOffsetReceiver = 4
-	MessageTransportOffsetCounter  = 8
-	MessageTransportOffsetContent  = 16
+	MessageTransportOffsetReceiver = 1
+	MessageTransportOffsetCounter  = 5
+	MessageTransportOffsetContent  = 13
 )
 
 /* Type is an 8-bit field, followed by 3 nul bytes,
@@ -82,7 +76,7 @@ const (
  */
 
 type MessageInitiation struct {
-	Type      uint32
+	Type      path.Usage
 	Sender    uint32
 	Ephemeral NoisePublicKey
 	Static    [NoisePublicKeySize + poly1305.TagSize]byte
@@ -92,7 +86,7 @@ type MessageInitiation struct {
 }
 
 type MessageResponse struct {
-	Type      uint32
+	Type      path.Usage
 	Sender    uint32
 	Receiver  uint32
 	Ephemeral NoisePublicKey
@@ -102,14 +96,14 @@ type MessageResponse struct {
 }
 
 type MessageTransport struct {
-	Type     uint32
+	Type     path.Usage
 	Receiver uint32
 	Counter  uint64
 	Content  []byte
 }
 
 type MessageCookieReply struct {
-	Type     uint32
+	Type     path.Usage
 	Receiver uint32
 	Nonce    [chacha20poly1305.NonceSizeX]byte
 	Cookie   [blake2s.Size128 + poly1305.TagSize]byte
@@ -196,7 +190,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	handshake.mixHash(handshake.remoteStatic[:])
 
 	msg := MessageInitiation{
-		Type:      MessageInitiationType,
+		Type:      path.MessageInitiationType,
 		Ephemeral: handshake.localEphemeral.publicKey(),
 	}
 
@@ -252,7 +246,7 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 		chainKey [blake2s.Size]byte
 	)
 
-	if msg.Type != MessageInitiationType {
+	if msg.Type != path.MessageInitiationType {
 		return nil
 	}
 
@@ -370,7 +364,7 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 	}
 
 	var msg MessageResponse
-	msg.Type = MessageResponseType
+	msg.Type = path.MessageResponseType
 	msg.Sender = handshake.localIndex
 	msg.Receiver = handshake.remoteIndex
 
@@ -418,7 +412,7 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 }
 
 func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
-	if msg.Type != MessageResponseType {
+	if msg.Type != path.MessageResponseType {
 		return nil
 	}
 

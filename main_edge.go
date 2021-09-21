@@ -8,7 +8,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -210,24 +209,29 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel.LogNTP)
 	graph.SetNHTable(econfig.NextHopTable, [32]byte{})
 
-	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &econfig, nil, nil,Version)
+	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &econfig, nil, nil, Version)
 	defer the_device.Close()
-	var sk [32]byte
-	sk_slice, _ := base64.StdEncoding.DecodeString(econfig.PrivKey)
-	copy(sk[:], sk_slice)
-	the_device.SetPrivateKey(sk)
+	pk, err := device.Str2PriKey(econfig.PrivKey)
+	if err != nil {
+		fmt.Println("Error decode base64 ", err)
+		return err
+	}
+	the_device.SetPrivateKey(pk)
 	the_device.IpcSet("fwmark=0\n")
 	the_device.IpcSet("listen_port=" + strconv.Itoa(econfig.ListenPort) + "\n")
 	the_device.IpcSet("replace_peers=true\n")
 	for _, peerconf := range econfig.Peers {
-		sk_slice, _ = base64.StdEncoding.DecodeString(peerconf.PubKey)
-		copy(sk[:], sk_slice)
+		pk, err := device.Str2PubKey(peerconf.PubKey)
+		if err != nil {
+			fmt.Println("Error decode base64 ", err)
+			return err
+		}
 		if peerconf.NodeID >= config.SuperNodeMessage {
 			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
 		}
-		the_device.NewPeer(sk, peerconf.NodeID)
+		the_device.NewPeer(pk, peerconf.NodeID)
 		if peerconf.EndPoint != "" {
-			peer := the_device.LookupPeer(sk)
+			peer := the_device.LookupPeer(pk)
 			endpoint, err := the_device.Bind().ParseEndpoint(peerconf.EndPoint)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint %v: %w", peerconf.EndPoint, err)
@@ -241,13 +245,16 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	if econfig.DynamicRoute.SuperNode.UseSuperNode {
 		if econfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
-			sk_slice, _ = base64.StdEncoding.DecodeString(econfig.DynamicRoute.SuperNode.PubKeyV4)
-			copy(sk[:], sk_slice)
+			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV4)
+			if err != nil {
+				fmt.Println("Error decode base64 ", err)
+				return err
+			}
 			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV4)
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(sk, config.SuperNodeMessage)
+			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage)
 			if err != nil {
 				return err
 			}
@@ -256,13 +263,15 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			peer.SetEndpointFromPacket(endpoint)
 		}
 		if econfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
-			sk_slice, _ = base64.StdEncoding.DecodeString(econfig.DynamicRoute.SuperNode.PubKeyV6)
-			copy(sk[:], sk_slice)
+			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV6)
+			if err != nil {
+				fmt.Println("Error decode base64 ", err)
+			}
 			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV6)
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(sk, config.SuperNodeMessage)
+			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage)
 			if err != nil {
 				return err
 			}
