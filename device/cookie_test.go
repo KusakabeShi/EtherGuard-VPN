@@ -22,7 +22,7 @@ func TestCookieMAC1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk := sk.publicKey()
+	pk := sk.PublicKey()
 
 	generator.Init(pk)
 	checker.Init(pk)

@@ -143,8 +143,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	err = readYaml(configPath, &econfig)
 	if err != nil {
-		fmt.Printf("Error read config: %s :", configPath)
-		fmt.Print(err)
+		fmt.Printf("Error read config: %v\t%v\n", configPath, err)
 		return err
 	}
 
@@ -226,10 +225,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			fmt.Println("Error decode base64 ", err)
 			return err
 		}
-		if peerconf.NodeID >= config.SuperNodeMessage {
-			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
-		}
-		the_device.NewPeer(pk, peerconf.NodeID)
+		the_device.NewPeer(pk, peerconf.NodeID, false)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(pk)
 			endpoint, err := the_device.Bind().ParseEndpoint(peerconf.EndPoint)
@@ -254,7 +250,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage)
+			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}
@@ -271,7 +267,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 			if err != nil {
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage)
+			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}

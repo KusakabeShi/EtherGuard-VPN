@@ -284,7 +284,7 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 		if err != nil {
 			return errors.New("Create new peer by UAPI is not implemented")
 		}
-		peer.Peer, err = device.NewPeer(publicKey, id)
+		peer.Peer, err = device.NewPeer(publicKey, id, false)
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)
 		}

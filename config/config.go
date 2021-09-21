@@ -87,11 +87,11 @@ type LoggerInfo struct {
 func (v *Vertex) ToString() string {
 	switch *v {
 	case Boardcast:
-		return "B"
+		return "Boardcast"
 	case ControlMessage:
-		return "C"
+		return "Control"
 	case SuperNodeMessage:
-		return "S"
+		return "Super"
 	default:
 		return strconv.Itoa(int(*v))
 	}
@@ -142,14 +142,14 @@ type GraphRecalculateSetting struct {
 type DistTable map[Vertex]map[Vertex]float64
 type NextHopTable map[Vertex]map[Vertex]*Vertex
 
-type HTTP_Peerinfo struct {
+type API_Peerinfo struct {
 	NodeID  Vertex
 	PubKey  string
 	PSKey   string
 	Connurl map[string]bool
 }
 
-type HTTP_Peers map[string]HTTP_Peerinfo
+type API_Peers map[string]API_Peerinfo // map[PubKey]API_Peerinfo
 
 const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 

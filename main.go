@@ -55,7 +55,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version == true {
-		fmt.Printf("etherguard-go %s\n%s\n\nA full mesh VPN %s-%s.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, tap.VPP_SUPPORT, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version,runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
 		return
 	}
 	if *help == true {

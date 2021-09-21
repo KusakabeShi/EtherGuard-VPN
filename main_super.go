@@ -8,7 +8,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -69,9 +68,16 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 		return nil
 	}
 	var sconfig config.SuperConfig
+
 	err = readYaml(configPath, &sconfig)
 	if err != nil {
-		fmt.Printf("Error read config: %v\n", configPath)
+		fmt.Printf("Error read config: %v\t%v\n", configPath, err)
+		return err
+	}
+	http_sconfig = &sconfig
+	err = readYaml(sconfig.EdgeTemplate, &http_econfig_tmp)
+	if err != nil {
+		fmt.Printf("Error read config: %v\t%v\n", sconfig.EdgeTemplate, err)
 		return err
 	}
 	NodeName := sconfig.NodeName
@@ -100,11 +106,11 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 		fmt.Sprintf("(%s) ", NodeName+"_v6"),
 	)
 
+	http_sconfig_path = configPath
 	http_PeerState = make(map[string]*PeerState)
-	http_PeerID2Map = make(map[config.Vertex]string)
-	http_PeerInfos = make(map[string]config.HTTP_Peerinfo)
+	http_PeerID2PubKey = make(map[config.Vertex]string)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
-	http_StatePWD = sconfig.Passwords.ShowState
+	http_passwords = sconfig.Passwords
 
 	super_chains := path.SUPER_Events{
 		Event_server_pong:            make(chan path.PongMsg, 1<<5),
@@ -145,57 +151,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	}
 
 	for _, peerconf := range sconfig.Peers {
-		http_peerinfos.Store(peerconf.NodeID, peerconf.Name)
-		pk, err := device.Str2PubKey(peerconf.PubKey)
-		if err != nil {
-			fmt.Println("Error decode base64 ", err)
-			return err
-		}
-
-		if peerconf.NodeID >= config.SuperNodeMessage {
-			return errors.New(fmt.Sprintf("Invalid Node_id at peer %s\n", peerconf.PubKey))
-		}
-		http_PeerID2Map[peerconf.NodeID] = peerconf.PubKey
-		http_PeerInfos[peerconf.PubKey] = config.HTTP_Peerinfo{
-			NodeID:  peerconf.NodeID,
-			PubKey:  peerconf.PubKey,
-			PSKey:   peerconf.PSKey,
-			Connurl: make(map[string]bool),
-		}
-		if sconfig.PrivKeyV4 != "" {
-			peer4, err := http_device4.NewPeer(pk, peerconf.NodeID)
-			if err != nil {
-				fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-				return err
-			}
-			peer4.StaticConn = true
-			if peerconf.PSKey != "" {
-				psk, err := device.Str2PSKey(peerconf.PSKey)
-				if err != nil {
-					fmt.Println("Error decode base64 ", err)
-					return err
-				}
-				peer4.SetPSK(psk)
-			}
-		}
-		if sconfig.PrivKeyV6 != "" {
-			peer6, err := http_device6.NewPeer(pk, peerconf.NodeID)
-			if err != nil {
-				fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-				return err
-			}
-			peer6.StaticConn = true
-			if peerconf.PSKey != "" {
-				psk, err := device.Str2PSKey(peerconf.PSKey)
-				if err != nil {
-					fmt.Println("Error decode base64 ", err)
-					return err
-				}
-				peer6.SetPSK(psk)
-			}
-		}
-
-		http_PeerState[peerconf.PubKey] = &PeerState{}
+		super_peeradd(peerconf)
 	}
 	logger4.Verbosef("Device4 started")
 	logger6.Verbosef("Device6 started")
@@ -231,44 +187,84 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	return
 }
 
+func super_peeradd(peerconf config.SuperPeerInfo) error {
+	pk, err := device.Str2PubKey(peerconf.PubKey)
+	if err != nil {
+		fmt.Println("Error decode base64 ", err)
+		return err
+	}
+	if http_sconfig.PrivKeyV4 != "" {
+		peer4, err := http_device4.NewPeer(pk, peerconf.NodeID, false)
+		if err != nil {
+			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+			return err
+		}
+		peer4.StaticConn = true
+		if peerconf.PSKey != "" {
+			psk, err := device.Str2PSKey(peerconf.PSKey)
+			if err != nil {
+				fmt.Println("Error decode base64 ", err)
+				return err
+			}
+			peer4.SetPSK(psk)
+		}
+	}
+	if http_sconfig.PrivKeyV6 != "" {
+		peer6, err := http_device6.NewPeer(pk, peerconf.NodeID, false)
+		if err != nil {
+			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
+			return err
+		}
+		peer6.StaticConn = true
+		if peerconf.PSKey != "" {
+			psk, err := device.Str2PSKey(peerconf.PSKey)
+			if err != nil {
+				fmt.Println("Error decode base64 ", err)
+				return err
+			}
+			peer6.SetPSK(psk)
+		}
+	}
+	http_PeerID2PubKey[peerconf.NodeID] = peerconf.PubKey
+	http_PeerState[peerconf.PubKey] = &PeerState{}
+	return nil
+}
+
+func super_peerdel(toDelete config.Vertex) {
+	http_device4.RemovePeerByID(toDelete)
+	http_device6.RemovePeerByID(toDelete)
+	http_graph.RemoveVirt(toDelete, true, false)
+	PubKey := http_PeerID2PubKey[toDelete]
+	delete(http_PeerState, PubKey)
+	delete(http_PeerID2PubKey, toDelete)
+}
+
 func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 	for {
 		select {
 		case reg_msg := <-events.Event_server_register:
-			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
-			copy(http_PeerState[http_PeerID2Map[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
-			PubKey := http_PeerID2Map[reg_msg.Node_id]
-			if peer := http_device4.LookupPeerByStr(PubKey); peer != nil {
-				if connstr := peer.GetEndpointDstStr(); connstr != "" {
-					http_PeerInfos[PubKey].Connurl[connstr] = true
-				}
+			if reg_msg.Node_id < config.Special_NodeID {
+				copy(http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
+				copy(http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
 			}
-			if peer := http_device6.LookupPeerByStr(PubKey); peer != nil {
-				if connstr := peer.GetEndpointDstStr(); connstr != "" {
-					http_PeerInfos[PubKey].Connurl[connstr] = true
-				}
-			}
-			http_PeerInfoStr, _ = json.Marshal(&http_PeerInfos)
-			PeerInfo_hash_raw := md5.Sum(append(http_PeerInfoStr, http_HashSalt...))
-			PeerInfo_hash_str := hex.EncodeToString(PeerInfo_hash_raw[:])
-			PeerInfo_hash_str_byte := []byte(PeerInfo_hash_str)
-			if bytes.Equal(http_PeerInfo_hash[:], PeerInfo_hash_str_byte) == false {
-				copy(http_PeerInfo_hash[:], PeerInfo_hash_str_byte)
-				PushUpdate()
+			var changed bool
+			_, http_PeerInfoStr, http_PeerInfo_hash, changed = get_api_peers()
+			if changed {
+				PushPeerinfo()
 			}
 		case <-events.Event_server_NhTable_changed:
-			NhTable := graph.GetNHTable(false)
+			NhTable := graph.GetNHTable()
 			NhTablestr, _ := json.Marshal(NhTable)
 			md5_hash_raw := md5.Sum(http_NhTableStr)
 			new_hash_str := hex.EncodeToString(md5_hash_raw[:])
 			new_hash_str_byte := []byte(new_hash_str)
 			copy(http_NhTable_Hash[:], new_hash_str_byte)
 			http_NhTableStr = NhTablestr
-			PushUpdate()
+			PushNhTable()
 		case pong_msg := <-events.Event_server_pong:
 			changed := graph.UpdateLentancy(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
 			if changed {
-				NhTable := graph.GetNHTable(false)
+				NhTable := graph.GetNHTable()
 				NhTablestr, _ := json.Marshal(NhTable)
 				md5_hash_raw := md5.Sum(append(http_NhTableStr, http_HashSalt...))
 				new_hash_str := hex.EncodeToString(md5_hash_raw[:])
@@ -285,7 +281,7 @@ func RoutinePushSettings(interval time.Duration) {
 	for {
 		time.Sleep(interval)
 		PushNhTable()
-		PushUpdate()
+		PushPeerinfo()
 	}
 }
 
@@ -315,7 +311,7 @@ func PushNhTable() {
 	}
 }
 
-func PushUpdate() {
+func PushPeerinfo() {
 	body, err := path.GetByte(path.UpdatePeerMsg{
 		State_hash: http_PeerInfo_hash,
 	})

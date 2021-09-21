@@ -191,7 +191,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 
 	msg := MessageInitiation{
 		Type:      path.MessageInitiationType,
-		Ephemeral: handshake.localEphemeral.publicKey(),
+		Ephemeral: handshake.localEphemeral.PublicKey(),
 	}
 
 	handshake.mixKey(msg.Ephemeral[:])
@@ -374,7 +374,7 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 	if err != nil {
 		return nil, err
 	}
-	msg.Ephemeral = handshake.localEphemeral.publicKey()
+	msg.Ephemeral = handshake.localEphemeral.PublicKey()
 	handshake.mixHash(msg.Ephemeral[:])
 	handshake.mixKey(msg.Ephemeral[:])
 

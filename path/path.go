@@ -48,7 +48,7 @@ type IG struct {
 	NodeReportTimeout         time.Duration
 	SuperNodeInfoTimeout      time.Duration
 	RecalculateCoolDown       time.Duration
-	RecalculateTime           time.Time
+	recalculateTime           time.Time
 	dlTable                   config.DistTable
 	nhTable                   config.NextHopTable
 	NhTableHash               [32]byte
@@ -112,7 +112,7 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 }
 
 func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
-	if g.RecalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
+	if g.recalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
 		dist, next := FloydWarshall(g)
 		changed = false
 		if checkchange {
@@ -128,7 +128,27 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 			}
 		}
 		g.dlTable, g.nhTable = dist, next
-		g.RecalculateTime = time.Now()
+		g.recalculateTime = time.Now()
+	}
+	return
+}
+
+func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (changed bool) { //Waiting for test
+	g.edgelock.Lock()
+	if _, ok := g.Vert[v]; ok {
+		delete(g.Vert, v)
+	}
+	if _, ok := g.edges[v]; ok {
+		delete(g.edges, v)
+	}
+	for u, vv := range g.edges {
+		if _, ok := vv[v]; ok {
+			delete(g.edges[u], v)
+		}
+	}
+	g.edgelock.Unlock()
+	if recalculate {
+		changed = g.RecalculateNhTable(checkchange)
 	}
 	return
 }
@@ -139,6 +159,7 @@ func (g *IG) UpdateLentancy(u, v config.Vertex, dt time.Duration, recalculate bo
 	g.Vert[v] = true
 	w := float64(dt) / float64(time.Second)
 	if _, ok := g.edges[u]; !ok {
+		g.recalculateTime = time.Time{}
 		g.edges[u] = make(map[config.Vertex]Latency)
 	}
 	g.edgelock.Unlock()
@@ -255,9 +276,9 @@ func (g *IG) SetNHTable(nh config.NextHopTable, table_hash [32]byte) { // set nh
 	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
 }
 
-func (g *IG) GetNHTable(checkChange bool) config.NextHopTable {
+func (g *IG) GetNHTable() config.NextHopTable {
 	if time.Now().After(g.NhTableExpire) {
-		g.RecalculateNhTable(checkChange)
+		g.RecalculateNhTable(false)
 	}
 	return g.nhTable
 }
@@ -323,7 +344,7 @@ func a2n(s string) (ret float64) {
 }
 
 func a2v(s string) config.Vertex {
-	ret, err := strconv.Atoi(s)
+	ret, err := strconv.ParseUint(s, 10, 16)
 	if err != nil {
 		panic(err)
 	}

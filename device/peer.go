@@ -76,7 +76,20 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex) (*Peer, error) {
+func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSpecial bool) (*Peer, error) {
+	if isSpecial {
+		if id >= config.Special_NodeID {
+			//pass check
+		} else {
+			return nil, errors.New(fmt.Sprint("ID", uint32(id), "is not a special NodeID"))
+		}
+	} else {
+		if id < config.Special_NodeID {
+			//pass check
+		} else {
+			return nil, errors.New(fmt.Sprint("ID ", uint32(id), " is a special NodeID"))
+		}
+	}
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
@@ -328,7 +341,7 @@ func (peer *Peer) GetEndpointDstStr() string {
 }
 
 func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
-	if device.IsSuperNode { //Can't in super mode
+	if device.IsSuperNode { //Can't use in super mode
 		return
 	}
 	if peer.StaticConn == true { //static conn do not write new endpoint to config
@@ -373,6 +386,6 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 func (device *Device) SaveConfig() {
 	if device.DRoute.SaveNewPeers {
 		configbytes, _ := yaml.Marshal(device.EdgeConfig)
-		ioutil.WriteFile(device.EdgeConfigPath, configbytes, 0666)
+		ioutil.WriteFile(device.EdgeConfigPath, configbytes, 0644)
 	}
 }

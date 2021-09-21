@@ -87,7 +87,7 @@ func newPrivateKey() (sk NoisePrivateKey, err error) {
 	return
 }
 
-func (sk *NoisePrivateKey) publicKey() (pk NoisePublicKey) {
+func (sk *NoisePrivateKey) PublicKey() (pk NoisePublicKey) {
 	apk := (*[NoisePublicKeySize]byte)(&pk)
 	ask := (*[NoisePrivateKeySize]byte)(sk)
 	curve25519.ScalarBaseMult(apk, ask)

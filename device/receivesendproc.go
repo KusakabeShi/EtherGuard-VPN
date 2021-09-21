@@ -57,7 +57,8 @@ func (device *Device) BoardcastPacket(skip_list map[config.Vertex]bool, usage pa
 	device.peers.RLock()
 	for node_id, should_send := range send_list {
 		if should_send {
-			device.SendPacket(device.peers.IDMap[node_id], usage, packet, offset)
+			peer_out, _ := device.peers.IDMap[node_id]
+			device.SendPacket(peer_out, usage, packet, offset)
 		}
 	}
 	device.peers.RUnlock()
@@ -315,7 +316,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			}
 			return nil
 		}
-		var peer_infos config.HTTP_Peers
+		var peer_infos config.API_Peers
 		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
 			if device.LogLevel.LogControl {
 				fmt.Println("Control: Same PeerState Hash, skip download nhTable")
@@ -367,11 +368,11 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 
 		}
 
-		for pubkey, peerinfo := range peer_infos {
+		for PubKey, peerinfo := range peer_infos {
 			if len(peerinfo.Connurl) == 0 {
 				return nil
 			}
-			sk, err := Str2PubKey(pubkey)
+			sk, err := Str2PubKey(peerinfo.PubKey)
 			if err != nil {
 				device.log.Errorf("Error decode base64:", err)
 				return err
@@ -382,7 +383,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			thepeer := device.LookupPeer(sk)
 			if thepeer == nil { //not exist in local
 				if device.LogLevel.LogControl {
-					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + pubkey)
+					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + PubKey)
 				}
 				if device.graph.Weight(device.ID, peerinfo.NodeID) == path.Infinity { // add node to graph
 					device.graph.UpdateLentancy(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), true, false)
@@ -390,7 +391,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				if device.graph.Weight(peerinfo.NodeID, device.ID) == path.Infinity { // add node to graph
 					device.graph.UpdateLentancy(peerinfo.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
 				}
-				device.NewPeer(sk, peerinfo.NodeID)
+				device.NewPeer(sk, peerinfo.NodeID, false)
 				thepeer = device.LookupPeer(sk)
 				if peerinfo.PSKey != "" {
 					pk, err := Str2PSKey(peerinfo.PSKey)
@@ -729,7 +730,7 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 			if device.graph.Weight(content.NodeID, device.ID) == path.Infinity { // add node to graph
 				device.graph.UpdateLentancy(content.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
 			}
-			device.NewPeer(pk, content.NodeID)
+			device.NewPeer(pk, content.NodeID, false)
 			thepeer = device.LookupPeer(pk)
 			var pk NoisePresharedKey
 			copy(pk[:], content.PSKey[:])

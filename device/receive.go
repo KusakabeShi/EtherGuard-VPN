@@ -522,7 +522,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				} else {
 					next_id := device.graph.Next(device.ID, dst_nodeID)
 					if next_id != nil {
+						device.peers.RLock()
 						peer_out = device.peers.IDMap[*next_id]
+						device.peers.RUnlock()
 						if device.LogLevel.LogTransit {
 							fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 						}

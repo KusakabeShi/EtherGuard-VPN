@@ -277,7 +277,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 
 	// remove peers with matching public keys
 
-	publicKey := sk.publicKey()
+	publicKey := sk.PublicKey()
 	for key, peer := range device.peers.keyMap {
 		if peer.handshake.remoteStatic.Equals(publicKey) {
 			peer.handshake.mutex.RUnlock()
@@ -479,8 +479,22 @@ func Str2PSKey(k string) (pk NoisePresharedKey, err error) {
 	return
 }
 
-func (device *Device) GetIPMap() map[config.Vertex]*Peer {
-	return device.peers.IDMap
+func (device *Device) GetConnurl(v config.Vertex) string {
+	if peer, has := device.peers.IDMap[v]; has {
+		if peer.endpoint != nil {
+			return peer.endpoint.DstToString()
+		}
+	}
+	return ""
+}
+
+func (device *Device) RemovePeerByID(id config.Vertex) {
+	device.peers.Lock()
+	defer device.peers.Unlock()
+	peer, ok := device.peers.IDMap[id]
+	if ok {
+		removePeerLocked(device, peer, peer.handshake.remoteStatic)
+	}
 }
 
 func (device *Device) RemovePeer(key NoisePublicKey) {

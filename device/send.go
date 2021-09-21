@@ -270,7 +270,9 @@ func (device *Device) RoutineReadFromTUN() {
 			var peer *Peer
 			next_id := device.graph.Next(device.ID, dst_nodeID)
 			if next_id != nil {
+				device.peers.RLock()
 				peer = device.peers.IDMap[*next_id]
+				device.peers.RUnlock()
 				if peer == nil {
 					continue
 				}
@@ -284,7 +286,7 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 			}
 		} else {
-			device.BoardcastPacket(make(map[config.Vertex]bool, 0),elem.Type, elem.packet, offset)
+			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.Type, elem.packet, offset)
 		}
 
 	}
