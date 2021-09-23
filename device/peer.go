@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,7 @@ type Peer struct {
 	AskedForNeighbor bool
 	StaticConn       bool //if true, this peer will not write to config file when roaming, and the endpoint will be reset periodically
 	ConnURL          string
+	ConnAF           int //0: both, 4: ipv4 only, 6: ipv6 only
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -76,20 +78,21 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSpecial bool) (*Peer, error) {
-	if isSpecial {
-		if id >= config.Special_NodeID {
-			//pass check
-		} else {
-			return nil, errors.New(fmt.Sprint("ID", uint32(id), "is not a special NodeID"))
-		}
-	} else {
+func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool) (*Peer, error) {
+	if isSuper == false {
 		if id < config.Special_NodeID {
 			//pass check
 		} else {
 			return nil, errors.New(fmt.Sprint("ID ", uint32(id), " is a special NodeID"))
 		}
+	} else {
+		if id == config.SuperNodeMessage {
+			//pass check
+		} else {
+			return nil, errors.New(fmt.Sprint("ID", uint32(id), "is not a supernode NodeID"))
+		}
 	}
+
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
@@ -311,9 +314,34 @@ func (peer *Peer) Stop() {
 }
 
 func (peer *Peer) SetPSK(psk NoisePresharedKey) {
+	if peer.device.IsSuperNode == false && peer.ID < config.Special_NodeID && peer.device.DRoute.P2P.UseP2P == true {
+		peer.device.log.Verbosef("Preshared keys disabled in P2P mode.")
+		return
+	}
 	peer.handshake.mutex.Lock()
 	peer.handshake.presharedKey = psk
 	peer.handshake.mutex.Unlock()
+}
+
+func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) error {
+	peer.StaticConn = static
+	peer.ConnURL = connurl
+	peer.ConnAF = af
+
+	var err error
+	connurl, err = conn.LookupIP(connurl, af)
+	if err != nil {
+		return err
+	}
+
+	endpoint, err := peer.device.net.bind.ParseEndpoint(connurl)
+	if err != nil {
+		return err
+	}
+	peer.StaticConn = static
+	peer.ConnURL = connurl
+	peer.SetEndpointFromPacket(endpoint)
+	return nil
 }
 
 func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
@@ -321,6 +349,18 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 		return
 	}
 	peer.Lock()
+	if peer.ID == config.SuperNodeMessage {
+		conn, err := net.Dial("udp", endpoint.DstToString())
+		defer conn.Close()
+		if err == nil {
+			IP := conn.LocalAddr().(*net.UDPAddr).IP
+			if ip4 := IP.To4(); ip4 != nil {
+				peer.device.peers.LocalV4 = ip4
+			} else {
+				peer.device.peers.LocalV6 = IP
+			}
+		}
+	}
 	peer.device.SaveToConfig(peer, endpoint)
 	peer.endpoint = endpoint
 	peer.Unlock()

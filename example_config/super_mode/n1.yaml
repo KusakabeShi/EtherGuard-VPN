@@ -21,21 +21,23 @@ loglevel:
   logntp: true
 dynamicroute:
   sendpinginterval: 16
+  peeralivetimeout: 30
   dupchecktimeout: 40
   conntimeout: 30
+  connnexttry: 5
   savenewpeers: true
   supernode:
     usesupernode: true
+    pskey: 'iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI='
     connurlv4: 127.0.0.1:3000
     pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: '[::1]:3000'
+    connurlv6: ''
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 50
   p2p:
     usep2p: false
     sendpeerinterval: 20
-    peeralivetimeout: 30
     graphrecalculatesetting:
       jittertolerance: 20
       jittertolerancemultiplier: 1.1
@@ -45,7 +47,7 @@ dynamicroute:
     usentp: true
     maxserveruse: 8
     synctimeinterval: 3600
-    ntptimeout: 10
+    ntptimeout: 3
     servers:
     - time.google.com
     - time1.google.com

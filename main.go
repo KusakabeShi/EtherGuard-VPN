@@ -47,7 +47,8 @@ var (
 	tconfig      = flag.String("config", "", "Config path for the interface.")
 	mode         = flag.String("mode", "", "Running mode. [super|edge|solve]")
 	printExample = flag.Bool("example", false, "Print example config")
-	nouapi       = flag.Bool("no-uapi", false, "Do not use UAPI")
+	bind         = flag.String("bind", "linux", "UDP socket bind mode. [linux|std]\nYou may need this if tou want to run Etherguard under WSL.")
+	nouapi       = flag.Bool("no-uapi", false, "Disable UAPI\nWith UAPI, you can check etherguard status by \"wg\" command")
 	version      = flag.Bool("version", false, "Show version")
 	help         = flag.Bool("help", false, "Show this help")
 )
@@ -55,7 +56,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version == true {
-		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version,runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
+		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
 		return
 	}
 	if *help == true {
@@ -71,9 +72,9 @@ func main() {
 	var err error
 	switch *mode {
 	case "edge":
-		err = Edge(*tconfig, !*nouapi, *printExample)
+		err = Edge(*tconfig, !*nouapi, *printExample, *bind)
 	case "super":
-		err = Super(*tconfig, !*nouapi, *printExample)
+		err = Super(*tconfig, !*nouapi, *printExample, *bind)
 	case "solve":
 		err = path.Solve(*tconfig, *printExample)
 	default:

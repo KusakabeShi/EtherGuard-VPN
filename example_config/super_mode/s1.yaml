@@ -2,28 +2,29 @@ nodename: NodeSuper
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000
-passwords:
-  showstate: passwd
-  addpeer: passwd_addpeer
-  delpeer: passwd_delpeer
 loglevel:
   loglevel: normal
   logtransit: true
   logcontrol: true
   lognormal: true
+  logntp: false
 repushconfiginterval: 30
+passwords:
+  showstate: passwd
+  addpeer: passwd_addpeer
+  delpeer: passwd_delpeer
 graphrecalculatesetting:
   jittertolerance: 5
   jittertolerancemultiplier: 1.01
   nodereporttimeout: 50
   recalculatecooldown: 5
-edgetemplate: "example_config/super_mode/s1.yaml"
+edgetemplate: example_config/super_mode/n1.yaml
 peers:
-- nodeid: 1
-  name: "Node_01"
-  pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
-  pskey: ""
 - nodeid: 2
-  name: "Node_02"
+  name: Node_02
   pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
-  pskey: ""
+  pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
+- nodeid: 1
+  name: Node_01
+  pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
+  pskey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuardVPN/conn"
 	"github.com/KusakabeSi/EtherGuardVPN/device"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	yaml "gopkg.in/yaml.v2"
@@ -27,7 +29,7 @@ var (
 	http_NhTable_Hash  [32]byte
 	http_PeerInfo_hash [32]byte
 	http_NhTableStr    []byte
-	http_PeerInfoStr   []byte
+	http_PeerInfo      config.API_Peers
 
 	http_PeerID2PubKey map[config.Vertex]string
 
@@ -36,11 +38,17 @@ var (
 	http_StateString_tmp []byte
 
 	http_PeerState map[string]*PeerState //the state hash reported by peer
+	http_PeerIPs   map[string]*HttpPeerLocalIP
 	http_sconfig   *config.SuperConfig
 
 	http_sconfig_path string
 	http_econfig_tmp  *config.EdgeConfig
 )
+
+type HttpPeerLocalIP struct {
+	IPv4 net.UDPAddr
+	IPv6 net.UDPAddr
+}
 
 type HttpState struct {
 	PeerInfo map[config.Vertex]HttpPeerInfo
@@ -68,26 +76,38 @@ type client struct {
 	notify6 string
 }
 
-func get_api_peers() (api_peerinfo config.API_Peers, api_peerinfo_str_byte []byte, StateHash [32]byte, changed bool) {
+func get_api_peers(old_State_hash [32]byte) (api_peerinfo config.API_Peers, StateHash [32]byte, changed bool) {
 	api_peerinfo = make(config.API_Peers)
 	for _, peerinfo := range http_sconfig.Peers {
 		api_peerinfo[peerinfo.PubKey] = config.API_Peerinfo{
 			NodeID:  peerinfo.NodeID,
-			PubKey:  peerinfo.PubKey,
 			PSKey:   peerinfo.PSKey,
-			Connurl: make(map[string]bool),
+			Connurl: make(map[string]int),
 		}
 		connV4 := http_device4.GetConnurl(peerinfo.NodeID)
 		connV6 := http_device6.GetConnurl(peerinfo.NodeID)
-		api_peerinfo[peerinfo.PubKey].Connurl[connV4] = true
-		api_peerinfo[peerinfo.PubKey].Connurl[connV6] = true
+		api_peerinfo[peerinfo.PubKey].Connurl[connV4] = 4
+		api_peerinfo[peerinfo.PubKey].Connurl[connV6] = 6
+		L4Addr := http_PeerIPs[peerinfo.PubKey].IPv4
+		L4IP := L4Addr.IP
+		L4str := L4Addr.String()
+		if L4str != connV4 && conn.ValidIP(L4IP) {
+			api_peerinfo[peerinfo.PubKey].Connurl[L4str] = 14
+		}
+		L6Addr := http_PeerIPs[peerinfo.PubKey].IPv6
+		L6IP := L6Addr.IP
+		L6str := L6Addr.String()
+		if L6str != connV6 && conn.ValidIP(L6IP) {
+			api_peerinfo[peerinfo.PubKey].Connurl[L6str] = 16
+		}
+
 		delete(api_peerinfo[peerinfo.PubKey].Connurl, "")
 	}
-	api_peerinfo_str_byte, _ = json.Marshal(&api_peerinfo)
+	api_peerinfo_str_byte, _ := json.Marshal(&api_peerinfo)
 	hash_raw := md5.Sum(append(api_peerinfo_str_byte, http_HashSalt...))
 	hash_str := hex.EncodeToString(hash_raw[:])
 	copy(StateHash[:], []byte(hash_str))
-	if bytes.Equal(http_PeerInfo_hash[:], StateHash[:]) == false {
+	if bytes.Equal(old_State_hash[:], StateHash[:]) == false {
 		changed = true
 	}
 	return
@@ -107,14 +127,55 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Not found"))
 		return
 	}
+	NIDA, has := params["NodeID"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+	NID2, err := strconv.ParseUint(NIDA[0], 10, 16)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(fmt.Sprintf("%v", err)))
+		return
+	}
 	PubKey := PubKeyA[0]
 	State := StateA[0]
+	NodeID := config.Vertex(NID2)
+	if http_PeerID2PubKey[NodeID] != PubKey {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+
 	if bytes.Equal(http_PeerInfo_hash[:], []byte(State)) {
 		if state := http_PeerState[PubKey]; state != nil {
 			copy(http_PeerState[PubKey].PeerInfoState[:], State)
+			http_PeerInfo_2peer := make(config.API_Peers)
+
+			for PeerPubKey, peerinfo := range http_PeerInfo {
+				h := sha256.New()
+				if NodeID > peerinfo.NodeID {
+					h.Write([]byte(PubKey))
+					h.Write([]byte(PeerPubKey))
+				} else if NodeID < peerinfo.NodeID {
+					h.Write([]byte(PeerPubKey))
+					h.Write([]byte(PubKey))
+				} else {
+					continue
+				}
+				h.Write(http_HashSalt)
+				bs := h.Sum(nil)
+				var psk device.NoisePresharedKey
+				copy(psk[:], bs[:])
+				peerinfo.PSKey = psk.ToString()
+				http_PeerInfo_2peer[PeerPubKey] = peerinfo
+			}
+			api_peerinfo_str_byte, _ := json.Marshal(&http_PeerInfo_2peer)
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(http_PeerInfoStr))
+			w.Write(api_peerinfo_str_byte)
 			return
 		}
 	}
@@ -136,8 +197,27 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Not found"))
 		return
 	}
+	NIDA, has := params["NodeID"]
+	if !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+	NID2, err := strconv.ParseUint(NIDA[0], 10, 16)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(fmt.Sprintf("%v", err)))
+		return
+	}
 	PubKey := PubKeyA[0]
 	State := StateA[0]
+	NodeID := config.Vertex(NID2)
+	if http_PeerID2PubKey[NodeID] != PubKey {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not found"))
+		return
+	}
+
 	if bytes.Equal(http_NhTable_Hash[:], []byte(State)) {
 		if state := http_PeerState[PubKey]; state != nil {
 			copy(http_PeerState[PubKey].NhTableState[:], State)
@@ -252,8 +332,22 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 		PubKey: PubKey,
 		PSKey:  PSKey,
 	})
+	http_sconfig.Peers = append(http_sconfig.Peers, config.SuperPeerInfo{
+		NodeID: NodeID,
+		Name:   Name,
+		PubKey: PubKey,
+		PSKey:  PSKey,
+	})
 	configbytes, _ := yaml.Marshal(http_sconfig)
 	ioutil.WriteFile(http_sconfig_path, configbytes, 0644)
+	http_econfig_tmp.NodeID = NodeID
+	http_econfig_tmp.NodeName = Name
+	http_econfig_tmp.PrivKey = "Your_Private_Key"
+	http_econfig_tmp.DynamicRoute.SuperNode.PSKey = PSKey
+	ret_str_byte, _ := yaml.Marshal(&http_econfig_tmp)
+	w.WriteHeader(http.StatusOK)
+	w.Write(ret_str_byte)
+	return
 }
 
 func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
@@ -264,7 +358,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	PubKey := ""
 	if has {
 		password := PasswordA[0]
-		if password == http_passwords.AddPeer {
+		if password == http_passwords.DelPeer {
 			NodeIDA, has := params["nodeid"]
 			if !has {
 				w.WriteHeader(http.StatusBadRequest)

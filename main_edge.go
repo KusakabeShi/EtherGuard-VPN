@@ -49,6 +49,7 @@ func printExampleEdgeConf() {
 		},
 		DynamicRoute: config.DynamicRouteInfo{
 			SendPingInterval: 20,
+			PeerAliveTimeout: 30,
 			DupCheckTimeout:  40,
 			ConnTimeOut:      30,
 			SaveNewPeers:     true,
@@ -64,7 +65,6 @@ func printExampleEdgeConf() {
 			P2P: config.P2Pinfo{
 				UseP2P:           true,
 				SendPeerInterval: 20,
-				PeerAliveTimeout: 30,
 				GraphRecalculateSetting: config.GraphRecalculateSetting{
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
@@ -132,7 +132,7 @@ func printExampleEdgeConf() {
 	return
 }
 
-func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
+func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {
 	if printExample {
 		printExampleEdgeConf()
 		return nil
@@ -208,7 +208,7 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel.LogNTP)
 	graph.SetNHTable(econfig.NextHopTable, [32]byte{})
 
-	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(), logger, graph, false, configPath, &econfig, nil, nil, Version)
+	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
 	defer the_device.Close()
 	pk, err := device.Str2PriKey(econfig.PrivKey)
 	if err != nil {
@@ -228,14 +228,11 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 		the_device.NewPeer(pk, peerconf.NodeID, false)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(pk)
-			endpoint, err := the_device.Bind().ParseEndpoint(peerconf.EndPoint)
+			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, 0, peerconf.Static)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint %v: %w", peerconf.EndPoint, err)
 				return err
 			}
-			peer.StaticConn = peerconf.Static
-			peer.ConnURL = peerconf.EndPoint
-			peer.SetEndpointFromPacket(endpoint)
 		}
 	}
 
@@ -246,34 +243,44 @@ func Edge(configPath string, useUAPI bool, printExample bool) (err error) {
 				fmt.Println("Error decode base64 ", err)
 				return err
 			}
-			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV4)
+			psk, err := device.Str2PSKey(econfig.DynamicRoute.SuperNode.PSKey)
 			if err != nil {
+				fmt.Println("Error decode base64 ", err)
 				return err
 			}
 			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}
-			peer.StaticConn = false
-			peer.ConnURL = econfig.DynamicRoute.SuperNode.ConnURLV4
-			peer.SetEndpointFromPacket(endpoint)
+			peer.SetPSK(psk)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV4, 4, false)
+			if err != nil {
+				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV4, err)
+				return err
+			}
 		}
 		if econfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV6)
 			if err != nil {
 				fmt.Println("Error decode base64 ", err)
 			}
-			endpoint, err := the_device.Bind().ParseEndpoint(econfig.DynamicRoute.SuperNode.ConnURLV6)
+			psk, err := device.Str2PSKey(econfig.DynamicRoute.SuperNode.PSKey)
 			if err != nil {
+				fmt.Println("Error decode base64 ", err)
 				return err
 			}
 			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}
+			peer.SetPSK(psk)
 			peer.StaticConn = false
 			peer.ConnURL = econfig.DynamicRoute.SuperNode.ConnURLV6
-			peer.SetEndpointFromPacket(endpoint)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV6, 6, false)
+			if err != nil {
+				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV6, err)
+				return err
+			}
 		}
 		the_device.Event_Supernode_OK <- struct{}{}
 	}

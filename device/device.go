@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -69,6 +70,8 @@ type Device struct {
 		IDMap        map[config.Vertex]*Peer
 		SuperPeer    map[NoisePublicKey]*Peer
 		Peer_state   [32]byte
+		LocalV4      net.IP
+		LocalV6      net.IP
 	}
 	event_tryendpoint chan struct{}
 	ResetConnInterval float64

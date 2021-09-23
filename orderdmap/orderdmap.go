@@ -76,6 +76,12 @@ func (o *OrderedMap) Delete(key string) {
 	delete(o.values, key)
 }
 
+func (o *OrderedMap) Clear() { // delete whole orderdmap
+	for _, key := range o.Keys() {
+		o.Delete(key)
+	}
+}
+
 func (o *OrderedMap) Keys() []string {
 	ret := make([]string, len(o.keys))
 	for i, v := range o.keys {

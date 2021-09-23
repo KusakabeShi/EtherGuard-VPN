@@ -8,6 +8,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -62,7 +63,7 @@ func printExampleSuperConf() {
 	return
 }
 
-func Super(configPath string, useUAPI bool, printExample bool) (err error) {
+func Super(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {
 	if printExample {
 		printExampleSuperConf()
 		return nil
@@ -108,6 +109,7 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 
 	http_sconfig_path = configPath
 	http_PeerState = make(map[string]*PeerState)
+	http_PeerIPs = make(map[string]*HttpPeerLocalIP)
 	http_PeerID2PubKey = make(map[config.Vertex]string)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
 	http_passwords = sconfig.Passwords
@@ -120,10 +122,10 @@ func Super(configPath string, useUAPI bool, printExample bool) (err error) {
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
 
 	thetap4, _ := tap.CreateDummyTAP()
-	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewCustomBind(true, false), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
+	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewDefaultBind(true, false, bindmode), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device4.Close()
 	thetap6, _ := tap.CreateDummyTAP()
-	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewCustomBind(false, true), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
+	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewDefaultBind(false, true, bindmode), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device6.Close()
 	if sconfig.PrivKeyV4 != "" {
 		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)
@@ -199,7 +201,7 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
 			return err
 		}
-		peer4.StaticConn = true
+		peer4.StaticConn = false
 		if peerconf.PSKey != "" {
 			psk, err := device.Str2PSKey(peerconf.PSKey)
 			if err != nil {
@@ -215,7 +217,7 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
 			return err
 		}
-		peer6.StaticConn = true
+		peer6.StaticConn = false
 		if peerconf.PSKey != "" {
 			psk, err := device.Str2PSKey(peerconf.PSKey)
 			if err != nil {
@@ -227,15 +229,41 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 	}
 	http_PeerID2PubKey[peerconf.NodeID] = peerconf.PubKey
 	http_PeerState[peerconf.PubKey] = &PeerState{}
+	http_PeerIPs[peerconf.PubKey] = &HttpPeerLocalIP{}
 	return nil
 }
 
 func super_peerdel(toDelete config.Vertex) {
+	PubKey := http_PeerID2PubKey[toDelete]
+	UpdateErrorMsg := path.UpdateErrorMsg{
+		Node_id:   toDelete,
+		Action:    path.Shutdown,
+		ErrorCode: 410,
+		ErrorMsg:  "You've been removed from supernode.",
+	}
+	for i := 0; i < 10; i++ {
+		body, _ := path.GetByte(&UpdateErrorMsg)
+		buf := make([]byte, path.EgHeaderLen+len(body))
+		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+		header.SetSrc(config.SuperNodeMessage)
+		header.SetTTL(0)
+		header.SetPacketLength(uint16(len(body)))
+		copy(buf[path.EgHeaderLen:], body)
+		header.SetDst(toDelete)
+
+		peer4 := http_device4.LookupPeerByStr(PubKey)
+		http_device4.SendPacket(peer4, path.UpdateError, buf, device.MessageTransportOffsetContent)
+
+		peer6 := http_device6.LookupPeerByStr(PubKey)
+		http_device6.SendPacket(peer6, path.UpdateError, buf, device.MessageTransportOffsetContent)
+		time.Sleep(path.S2TD(0.1))
+	}
 	http_device4.RemovePeerByID(toDelete)
 	http_device6.RemovePeerByID(toDelete)
 	http_graph.RemoveVirt(toDelete, true, false)
-	PubKey := http_PeerID2PubKey[toDelete]
+
 	delete(http_PeerState, PubKey)
+	delete(http_PeerIPs, PubKey)
 	delete(http_PeerID2PubKey, toDelete)
 }
 
@@ -243,14 +271,29 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 	for {
 		select {
 		case reg_msg := <-events.Event_server_register:
+			var should_push_peer bool
+			var should_push_nh bool
 			if reg_msg.Node_id < config.Special_NodeID {
-				copy(http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].NhTableState[:], reg_msg.NhStateHash[:])
-				copy(http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].PeerInfoState[:], reg_msg.PeerStateHash[:])
+				PubKey := http_PeerID2PubKey[reg_msg.Node_id]
+				if bytes.Equal(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:]) == false {
+					copy(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:])
+					should_push_nh = true
+				}
+				if bytes.Equal(http_PeerState[PubKey].PeerInfoState[:], reg_msg.PeerStateHash[:]) == false {
+					copy(http_PeerState[PubKey].PeerInfoState[:], reg_msg.PeerStateHash[:])
+					should_push_peer = true
+				}
+
+				http_PeerIPs[PubKey].IPv4 = reg_msg.LocalV4
+				http_PeerIPs[PubKey].IPv6 = reg_msg.LocalV6
 			}
-			var changed bool
-			_, http_PeerInfoStr, http_PeerInfo_hash, changed = get_api_peers()
-			if changed {
+			var peer_state_changed bool
+			http_PeerInfo, http_PeerInfo_hash, peer_state_changed = get_api_peers(http_PeerInfo_hash)
+			if should_push_peer || peer_state_changed {
 				PushPeerinfo()
+			}
+			if should_push_nh {
+				PushNhTable()
 			}
 		case <-events.Event_server_NhTable_changed:
 			NhTable := graph.GetNHTable()
@@ -307,7 +350,6 @@ func PushNhTable() {
 		if peer := http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
 			http_device6.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
 		}
-
 	}
 }
 

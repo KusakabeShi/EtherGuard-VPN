@@ -99,8 +99,10 @@ func (v *Vertex) ToString() string {
 
 type DynamicRouteInfo struct {
 	SendPingInterval float64
+	PeerAliveTimeout float64
 	DupCheckTimeout  float64
 	ConnTimeOut      float64
+	ConnNextTry      float64
 	SaveNewPeers     bool
 	SuperNode        SuperInfo
 	P2P              P2Pinfo
@@ -117,6 +119,7 @@ type NTPinfo struct {
 
 type SuperInfo struct {
 	UseSuperNode         bool
+	PSKey                string
 	ConnURLV4            string
 	PubKeyV4             string
 	ConnURLV6            string
@@ -128,7 +131,6 @@ type SuperInfo struct {
 type P2Pinfo struct {
 	UseP2P                  bool
 	SendPeerInterval        float64
-	PeerAliveTimeout        float64
 	GraphRecalculateSetting GraphRecalculateSetting
 }
 
@@ -144,9 +146,8 @@ type NextHopTable map[Vertex]map[Vertex]*Vertex
 
 type API_Peerinfo struct {
 	NodeID  Vertex
-	PubKey  string
 	PSKey   string
-	Connurl map[string]bool
+	Connurl map[string]int
 }
 
 type API_Peers map[string]API_Peerinfo // map[PubKey]API_Peerinfo

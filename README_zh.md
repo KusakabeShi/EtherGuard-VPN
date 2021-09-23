@@ -20,6 +20,9 @@ OSPF能夠根據cost自動選路
 
 ```bash
 Usage of ./etherguard-go-vpp:
+  -bind string
+        UDP socket bind mode. [linux|std]
+        You may need this if tou want to run Etherguard under WSL. (default "linux")
   -config string
         設定檔路徑
   -example

@@ -65,9 +65,15 @@ type LinuxSocketBind struct {
 }
 
 func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1, use4: true, use6: true} }
-func NewDefaultBind() Bind     { return NewLinuxSocketBind() }
-func NewCustomBind(use4 bool, use6 bool) Bind {
+func NewLinuxSocketBindAf(use4 bool, use6 bool) Bind {
 	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6}
+}
+
+func NewDefaultBind(use4 bool, use6 bool, bindmode string) Bind {
+	if bindmode == "std" {
+		return NewStdNetBindAf(use4, use6)
+	}
+	return NewLinuxSocketBindAf(use4, use6)
 }
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)

@@ -16,6 +16,9 @@ Here is the solution. This VPN `Etherguard` can collect all the single-way lenta
 
 ```bash
 Usage of ./etherguard-go:
+  -bind string
+        UDP socket bind mode. [linux|std]
+        You may need this if tou want to run Etherguard under WSL. (default "linux")
   -config string
         Config path.
   -example
@@ -26,6 +29,7 @@ Usage of ./etherguard-go:
         Running mode. [super|edge|solve]
   -no-uapi
         Do not use UAPI
+        With UAPI, you can check etherguard status by `wg` command
   -version
         Show version
 ```

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -22,13 +24,24 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 
 type RegisterMsg struct {
 	Node_id       config.Vertex
+	Version       string
 	PeerStateHash [32]byte
 	NhStateHash   [32]byte
-	Version       string
+	LocalV4       net.UDPAddr
+	LocalV6       net.UDPAddr
+}
+
+func Hash2Str(h []byte) string {
+	for _, v := range h {
+		if v != 0 {
+			return base64.StdEncoding.EncodeToString(h)[:10] + "..."
+		}
+	}
+	return "\"\""
 }
 
 func (c *RegisterMsg) ToString() string {
-	return "RegisterMsg Node_id:" + c.Node_id.ToString() + " Version:" + c.Version + " PeerHash:" + base64.StdEncoding.EncodeToString(c.PeerStateHash[:]) + " NhHash:" + base64.StdEncoding.EncodeToString(c.NhStateHash[:])
+	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+Hash2Str(c.PeerStateHash[:]), " NhHash:"+Hash2Str(c.NhStateHash[:]), " LocalV4:"+c.LocalV4.String(), " LocalV6:"+c.LocalV6.String())
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -108,9 +121,10 @@ func ParseUpdateNhTableMsg(bin []byte) (StructPlace UpdateNhTableMsg, err error)
 }
 
 type PingMsg struct {
-	RequestID  uint32
-	Src_nodeID config.Vertex
-	Time       time.Time
+	RequestID    uint32
+	Src_nodeID   config.Vertex
+	Time         time.Time
+	RequestReply int
 }
 
 func (c *PingMsg) ToString() string {
@@ -164,7 +178,6 @@ type BoardcastPeerMsg struct {
 	Request_ID uint32
 	NodeID     config.Vertex
 	PubKey     [32]byte
-	PSKey      [32]byte
 	ConnURL    string
 }
 

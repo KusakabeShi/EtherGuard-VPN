@@ -22,9 +22,14 @@ type StdNetBind struct {
 	ipv6       *net.UDPConn
 	blackhole4 bool
 	blackhole6 bool
+	use4       bool
+	use6       bool
 }
 
-func NewStdNetBind() Bind { return &StdNetBind{} }
+func NewStdNetBind() Bind { return &StdNetBind{use4: true, use6: true} }
+func NewStdNetBindAf(use4 bool, use6 bool) Bind {
+	return &StdNetBind{use4: use4, use6: use6}
+}
 
 type StdNetEndpoint net.UDPAddr
 
@@ -100,21 +105,31 @@ again:
 	port := int(uport)
 	var ipv4, ipv6 *net.UDPConn
 
-	ipv4, port, err = listenNet("udp4", port)
-	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		return nil, 0, err
+	if bind.use4 {
+		ipv4, port, err = listenNet("udp4", port)
+		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+			ipv6.Close()
+			tries++
+			goto again
+		}
+		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			ipv6.Close()
+			return nil, 0, err
+		}
 	}
 
-	// Listen on the same port as we're using for ipv4.
-	ipv6, port, err = listenNet("udp6", port)
-	if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-		ipv4.Close()
-		tries++
-		goto again
-	}
-	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		ipv4.Close()
-		return nil, 0, err
+	if bind.use6 {
+		// Listen on the same port as we're using for ipv4.
+		ipv6, port, err = listenNet("udp6", port)
+		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+			ipv4.Close()
+			tries++
+			goto again
+		}
+		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			ipv4.Close()
+			return nil, 0, err
+		}
 	}
 	var fns []ReceiveFunc
 	if ipv4 != nil {

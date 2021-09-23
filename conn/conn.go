@@ -149,3 +149,28 @@ func parseEndpoint(s string) (*net.UDPAddr, error) {
 	}
 	return addr, err
 }
+
+func LookupIP(host_port string, af int) (string, error) {
+	network := "udp"
+	if af == 4 {
+		network = "udp4"
+	} else if af == 6 {
+		network = "udp6"
+	}
+	conn, err := net.Dial(network, host_port)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	return conn.RemoteAddr().String(), nil
+}
+
+func ValidIP(ip net.IP) bool {
+	for b := range ip {
+		if b != 0 {
+			return true
+		}
+	}
+	return false
+
+}

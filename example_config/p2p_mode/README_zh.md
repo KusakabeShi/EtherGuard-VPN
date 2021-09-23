@@ -68,4 +68,10 @@ P2P模式也有幾個參數
     1. nodereporttimeout: 收到的`Pong`封包的有效期限。太久沒收到就變回Infinity
     1. recalculatecooldown: Floyd-Warshal是O(n^3)時間複雜度，不能太常算。設個冷卻時間
 
+## Note
+P2P模式下，PSK是禁用的。因為n個節點有n(n-1)/2的連線，每個連線都要使用不同PSK  
+又不像static mode提前設好，peer數固定不再變動  
+也不像super mode，有中心伺服器統一分發
+每對peer要協商出一個PSK有難度，因此我設定禁用PSK了，只用wireguard原本的加密系統
+
 **最後，P2P模式我還沒有大規模測試過，穩定性不知如何。PR is welecome**

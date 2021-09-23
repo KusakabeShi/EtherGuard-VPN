@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
+	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 )
 
@@ -253,6 +255,9 @@ func (device *Device) server_process_Pong(content path.PongMsg) error {
 
 func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 	peer.LastPingReceived = time.Now()
+	peer.Lock()
+	//peer.endpoint_trylist.
+	peer.Unlock()
 	PongMSG := path.PongMsg{
 		Src_nodeID: content.Src_nodeID,
 		Dst_nodeID: device.ID,
@@ -279,7 +284,16 @@ func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 		header.SetDst(config.ControlMessage)
 		device.SpreadPacket(make(map[config.Vertex]bool), path.PongPacket, buf, MessageTransportOffsetContent)
 	}
+	go device.SendPing(peer, content.RequestReply, 0, 3)
 	return nil
+}
+
+func (device *Device) SendPing(peer *Peer, times int, replies int, interval float32) {
+	for i := 0; i < times; i++ {
+		packet, usage, _ := device.GeneratePingPacket(device.ID, replies)
+		device.SendPacket(peer, usage, packet, MessageTransportOffsetContent)
+		time.Sleep(path.S2TD(float64(interval)))
+	}
 }
 
 func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
@@ -324,7 +338,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			return nil
 		}
 
-		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?NodeID=" + strconv.Itoa(int(device.ID)) + "&PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Download peerinfo from :" + downloadurl)
 		}
@@ -365,14 +379,13 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				device.RemovePeer(pk)
 				continue
 			}
-
 		}
 
 		for PubKey, peerinfo := range peer_infos {
 			if len(peerinfo.Connurl) == 0 {
 				return nil
 			}
-			sk, err := Str2PubKey(peerinfo.PubKey)
+			sk, err := Str2PubKey(PubKey)
 			if err != nil {
 				device.log.Errorf("Error decode base64:", err)
 				return err
@@ -393,17 +406,17 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				}
 				device.NewPeer(sk, peerinfo.NodeID, false)
 				thepeer = device.LookupPeer(sk)
-				if peerinfo.PSKey != "" {
-					pk, err := Str2PSKey(peerinfo.PSKey)
-					if err != nil {
-						device.log.Errorf("Error decode base64:", err)
-						return err
-					}
-					thepeer.handshake.presharedKey = pk
+			}
+			if peerinfo.PSKey != "" {
+				pk, err := Str2PSKey(peerinfo.PSKey)
+				if err != nil {
+					device.log.Errorf("Error decode base64:", err)
+					return err
 				}
+				thepeer.SetPSK(pk)
 			}
 
-			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).Before(time.Now()) {
+			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).Before(time.Now()) {
 				//Peer died, try to switch to this new endpoint
 				for url, _ := range peerinfo.Connurl {
 					thepeer.Lock()
@@ -440,7 +453,7 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, content path.UpdateNh
 		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
 			return nil
 		}
-		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		downloadurl := device.DRoute.SuperNode.APIUrl + "/nhtable?NodeID=" + strconv.Itoa(int(device.ID)) + "&PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Download NhTable from :" + downloadurl)
 		}
@@ -477,7 +490,7 @@ func (device *Device) process_UpdateErrorMsg(peer *Peer, content path.UpdateErro
 		}
 		return nil
 	}
-	device.log.Errorf(content.ToString())
+	device.log.Errorf(strconv.Itoa(content.ErrorCode) + ": " + content.ErrorMsg)
 	if content.Action == path.Shutdown {
 		device.closed <- struct{}{}
 	} else if content.Action == path.Panic {
@@ -494,7 +507,7 @@ func (device *Device) RoutineSetEndpoint() {
 		NextRun := false
 		<-device.event_tryendpoint
 		for _, thepeer := range device.peers.IDMap {
-			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).After(time.Now()) {
+			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).After(time.Now()) {
 				//Peer alives
 				thepeer.Lock()
 				for _, key := range thepeer.endpoint_trylist.Keys() { // delete whole endpoint_trylist
@@ -503,6 +516,9 @@ func (device *Device) RoutineSetEndpoint() {
 				thepeer.Unlock()
 			} else {
 				thepeer.RLock()
+				thepeer.endpoint_trylist.Sort(func(a *orderedmap.Pair, b *orderedmap.Pair) bool {
+					return a.Value().(time.Time).Before(b.Value().(time.Time))
+				})
 				trylist := thepeer.endpoint_trylist.Keys()
 				thepeer.RUnlock()
 				for _, key := range trylist { // try next endpoint
@@ -519,25 +535,23 @@ func (device *Device) RoutineSetEndpoint() {
 						thepeer.endpoint_trylist.Delete(key)
 						thepeer.Unlock()
 					} else {
-						endpoint, err := device.Bind().ParseEndpoint(connurl) //trying to bind first url in the list and wait device.DRoute.P2P.PeerAliveTimeout seconds
+						if device.LogLevel.LogControl {
+							fmt.Println("Control: Set endpoint to " + connurl + " for NodeID:" + thepeer.ID.ToString())
+						}
+						err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, thepeer.StaticConn) //trying to bind first url in the list and wait device.DRoute.P2P.PeerAliveTimeout seconds
 						if err != nil {
-							device.log.Errorf("Can't bind " + connurl)
+							device.log.Errorf("Bind " + connurl + " failed!")
 							thepeer.Lock()
 							thepeer.endpoint_trylist.Delete(connurl)
 							thepeer.Unlock()
 							continue
 						}
-						if device.LogLevel.LogControl {
-							fmt.Println("Control: Set endpoint to " + endpoint.DstToString() + " for NodeID:" + thepeer.ID.ToString())
-						}
-						thepeer.SetEndpointFromPacket(endpoint)
 						NextRun = true
 						thepeer.Lock()
 						thepeer.endpoint_trylist.Set(key, time.Now())
 						thepeer.Unlock()
 						//Send Ping message to it
-						packet, usage, err := device.GeneratePingPacket(device.ID)
-						device.SendPacket(thepeer, usage, packet, MessageTransportOffsetContent)
+						go device.SendPing(thepeer, int(device.DRoute.ConnNextTry+1), 1, 1)
 						break
 					}
 				}
@@ -551,7 +565,7 @@ func (device *Device) RoutineSetEndpoint() {
 				break ClearChanLoop
 			}
 		}
-		time.Sleep(path.S2TD(device.DRoute.P2P.PeerAliveTimeout))
+		time.Sleep(path.S2TD(device.DRoute.ConnNextTry))
 		if NextRun {
 			device.event_tryendpoint <- struct{}{}
 		}
@@ -563,7 +577,7 @@ func (device *Device) RoutineSendPing() {
 		return
 	}
 	for {
-		packet, usage, _ := device.GeneratePingPacket(device.ID)
+		packet, usage, _ := device.GeneratePingPacket(device.ID, 0)
 		device.SpreadPacket(make(map[config.Vertex]bool), usage, packet, MessageTransportOffsetContent)
 		time.Sleep(path.S2TD(device.DRoute.SendPingInterval))
 	}
@@ -575,11 +589,20 @@ func (device *Device) RoutineRegister() {
 	}
 	_ = <-device.Event_Supernode_OK
 	for {
+
 		body, _ := path.GetByte(path.RegisterMsg{
 			Node_id:       device.ID,
 			PeerStateHash: device.peers.Peer_state,
 			NhStateHash:   device.graph.NhTableHash,
 			Version:       device.Version,
+			LocalV4: net.UDPAddr{
+				IP:   device.peers.LocalV4,
+				Port: int(device.net.port),
+			},
+			LocalV6: net.UDPAddr{
+				IP:   device.peers.LocalV6,
+				Port: int(device.net.port),
+			},
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
@@ -633,27 +656,27 @@ func (device *Device) RoutineResetConn() {
 	}
 	for {
 		for _, peer := range device.peers.keyMap {
-			if peer.StaticConn {
+			if !peer.StaticConn { //Do not reset connecton for dynamic peer
 				continue
 			}
 			if peer.ConnURL == "" {
 				continue
 			}
-			endpoint, err := device.Bind().ParseEndpoint(peer.ConnURL)
+			err := peer.SetEndpointFromConnURL(peer.ConnURL, peer.ConnAF, peer.StaticConn)
 			if err != nil {
 				device.log.Errorf("Failed to bind "+peer.ConnURL, err)
 				continue
 			}
-			peer.SetEndpointFromPacket(endpoint)
 		}
-		time.Sleep(time.Duration(device.ResetConnInterval))
+		time.Sleep(path.S2TD(device.ResetConnInterval))
 	}
 }
 
-func (device *Device) GeneratePingPacket(src_nodeID config.Vertex) ([]byte, path.Usage, error) {
+func (device *Device) GeneratePingPacket(src_nodeID config.Vertex, request_reply int) ([]byte, path.Usage, error) {
 	body, err := path.GetByte(&path.PingMsg{
-		Src_nodeID: src_nodeID,
-		Time:       device.graph.GetCurrentTime(),
+		Src_nodeID:   src_nodeID,
+		Time:         device.graph.GetCurrentTime(),
+		RequestReply: request_reply,
 	})
 	if err != nil {
 		return nil, path.PingPacket, err
@@ -686,7 +709,6 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 				Request_ID: content.Request_ID,
 				NodeID:     peer.ID,
 				PubKey:     pubkey,
-				PSKey:      peer.handshake.presharedKey,
 				ConnURL:    peer.endpoint.DstToString(),
 			}
 			peer.handshake.mutex.RUnlock()
@@ -731,12 +753,8 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 				device.graph.UpdateLentancy(content.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
 			}
 			device.NewPeer(pk, content.NodeID, false)
-			thepeer = device.LookupPeer(pk)
-			var pk NoisePresharedKey
-			copy(pk[:], content.PSKey[:])
-			thepeer.handshake.presharedKey = pk
 		}
-		if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.P2P.PeerAliveTimeout)).Before(time.Now()) {
+		if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).Before(time.Now()) {
 			//Peer died, try to switch to this new endpoint
 			thepeer.Lock()
 			thepeer.endpoint_trylist.Set(content.ConnURL, time.Time{}) //another gorouting will process it
