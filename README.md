@@ -118,7 +118,7 @@ Install Go 1.16
 ```bash
 add-apt-repository ppa:longsleep/golang-backports
 apt-get -y update
-apt-install -y wireguard-tools golang-go build-essential
+apt-get install -y wireguard-tools golang-go build-essential git
 ```
 
 Build

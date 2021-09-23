@@ -166,7 +166,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 	return
 }
 
-func (device *Device) sprint_received(msg_type path.Usage, body []byte) (string) {
+func (device *Device) sprint_received(msg_type path.Usage, body []byte) string {
 	switch msg_type {
 	case path.Register:
 		if content, err := path.ParseRegisterMsg(body); err == nil {
@@ -390,12 +390,12 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 
 		for PubKey, peerinfo := range peer_infos {
 			if len(peerinfo.Connurl) == 0 {
-				return nil
+				continue
 			}
 			sk, err := Str2PubKey(PubKey)
 			if err != nil {
 				device.log.Errorf("Error decode base64:", err)
-				return err
+				continue
 			}
 			if bytes.Equal(sk[:], device.staticIdentity.publicKey[:]) {
 				continue
@@ -418,7 +418,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				pk, err := Str2PSKey(peerinfo.PSKey)
 				if err != nil {
 					device.log.Errorf("Error decode base64:", err)
-					return err
+					continue
 				}
 				thepeer.SetPSK(pk)
 			}

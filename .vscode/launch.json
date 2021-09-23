@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}",
             "buildFlags": "-tags=vpp",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
-            "args":["-config","example_config/super_mode/s1.yaml","-mode","super"/*,"-example"*/],
+            "args":["-config","tttttttttt.yaml","-mode","edge"/*,"-example"*/],
         }
     ]
 }
