@@ -237,6 +237,8 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	}
 
 	if econfig.DynamicRoute.SuperNode.UseSuperNode {
+		S4 := true
+		S6 := true
 		if econfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV4)
 			if err != nil {
@@ -256,7 +258,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV4, 4, false)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV4, err)
-				return err
+				S4 = false
 			}
 		}
 		if econfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
@@ -279,7 +281,10 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV6, 6, false)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV6, err)
-				return err
+				S6 = false
+			}
+			if !(S4 || S6) {
+				return errors.New("Failed to connect to supernode.")
 			}
 		}
 		the_device.Event_Supernode_OK <- struct{}{}

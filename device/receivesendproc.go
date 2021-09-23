@@ -166,44 +166,51 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 	return
 }
 
-func (device *Device) sprint_received(msg_type path.Usage, body []byte) (ret string) {
+func (device *Device) sprint_received(msg_type path.Usage, body []byte) (string) {
 	switch msg_type {
 	case path.Register:
 		if content, err := path.ParseRegisterMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "RegisterMsg: Parse failed"
 	case path.UpdatePeer:
 		if content, err := path.ParseUpdatePeerMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "UpdatePeerMsg: Parse failed"
 	case path.UpdateNhTable:
 		if content, err := path.ParseUpdateNhTableMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "UpdateNhTableMsg: Parse failed"
 	case path.UpdateError:
 		if content, err := path.ParseUpdateErrorMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "UpdateErrorMsg: Parse failed"
 	case path.PingPacket:
 		if content, err := path.ParsePingMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "PingPacketMsg: Parse failed"
 	case path.PongPacket:
 		if content, err := path.ParsePongMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "PongPacketMsg: Parse failed"
 	case path.QueryPeer:
 		if content, err := path.ParseQueryPeerMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "QueryPeerMsg: Parse failed"
 	case path.BoardcastPeer:
 		if content, err := path.ParseBoardcastPeerMsg(body); err == nil {
-			ret = content.ToString()
+			return content.ToString()
 		}
+		return "BoardcastPeerMsg: Parse failed"
 	default:
-		ret = "Not a valid msg_type"
+		return "UnknowMsg: Not a valid msg_type"
 	}
-	return
 }
 
 func (device *Device) server_process_RegisterMsg(peer *Peer, content path.RegisterMsg) error {
