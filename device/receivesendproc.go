@@ -263,7 +263,7 @@ func (device *Device) server_process_Pong(content path.PongMsg) error {
 func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 	peer.LastPingReceived = time.Now()
 	peer.Lock()
-	//peer.endpoint_trylist.
+	//remove peer.endpoint_trylist
 	peer.Unlock()
 	PongMSG := path.PongMsg{
 		Src_nodeID: content.Src_nodeID,
@@ -363,11 +363,15 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			device.log.Errorf(err.Error())
 			return err
 		}
+		if resp.StatusCode != 200 {
+			device.log.Errorf("Control: Download peerinfo result failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
+			return nil
+		}
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Download peerinfo result :" + string(allbytes))
 		}
 		if err := json.Unmarshal(allbytes, &peer_infos); err != nil {
-			device.log.Errorf(err.Error())
+			device.log.Errorf("JSON decode error:", err.Error())
 			return err
 		}
 
@@ -478,11 +482,15 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, content path.UpdateNh
 			device.log.Errorf(err.Error())
 			return err
 		}
+		if resp.StatusCode != 200 {
+			device.log.Errorf("Control: Download peerinfo result failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
+			return nil
+		}
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Download NhTable result :" + string(allbytes))
 		}
 		if err := json.Unmarshal(allbytes, &NhTable); err != nil {
-			device.log.Errorf(err.Error())
+			device.log.Errorf("JSON decode error:", err.Error())
 			return err
 		}
 		device.graph.SetNHTable(NhTable, content.State_hash)
@@ -516,11 +524,7 @@ func (device *Device) RoutineSetEndpoint() {
 		for _, thepeer := range device.peers.IDMap {
 			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).After(time.Now()) {
 				//Peer alives
-				thepeer.Lock()
-				for _, key := range thepeer.endpoint_trylist.Keys() { // delete whole endpoint_trylist
-					thepeer.endpoint_trylist.Delete(key)
-				}
-				thepeer.Unlock()
+				continue
 			} else {
 				thepeer.RLock()
 				thepeer.endpoint_trylist.Sort(func(a *orderedmap.Pair, b *orderedmap.Pair) bool {
