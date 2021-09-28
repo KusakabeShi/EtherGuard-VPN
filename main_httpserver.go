@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"net/http"
@@ -37,9 +38,10 @@ var (
 	http_StateExpire     time.Time
 	http_StateString_tmp []byte
 
-	http_PeerState map[string]*PeerState //the state hash reported by peer
-	http_PeerIPs   map[string]*HttpPeerLocalIP
-	http_sconfig   *config.SuperConfig
+	http_PeerState    map[string]*PeerState //the state hash reported by peer
+	http_PeerIPs      map[string]*HttpPeerLocalIP
+	http_PeerLastSeen sync.Map // ID -> time.Time
+	http_sconfig      *config.SuperConfig
 
 	http_sconfig_path string
 	http_econfig_tmp  *config.EdgeConfig
@@ -59,7 +61,8 @@ type HttpState struct {
 }
 
 type HttpPeerInfo struct {
-	Name string
+	Name     string
+	LastSeen string
 }
 
 type PeerState struct {
@@ -84,24 +87,26 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo config.API_Peers, Stat
 			PSKey:   peerinfo.PSKey,
 			Connurl: make(map[string]int),
 		}
-		connV4 := http_device4.GetConnurl(peerinfo.NodeID)
-		connV6 := http_device6.GetConnurl(peerinfo.NodeID)
-		api_peerinfo[peerinfo.PubKey].Connurl[connV4] = 4
-		api_peerinfo[peerinfo.PubKey].Connurl[connV6] = 6
-		L4Addr := http_PeerIPs[peerinfo.PubKey].IPv4
-		L4IP := L4Addr.IP
-		L4str := L4Addr.String()
-		if L4str != connV4 && conn.ValidIP(L4IP) {
-			api_peerinfo[peerinfo.PubKey].Connurl[L4str] = 14
+		lastSeen, has := http_PeerLastSeen.Load(peerinfo.NodeID)
+		if has && lastSeen.(time.Time).Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
+			connV4 := http_device4.GetConnurl(peerinfo.NodeID)
+			connV6 := http_device6.GetConnurl(peerinfo.NodeID)
+			api_peerinfo[peerinfo.PubKey].Connurl[connV4] = 4
+			api_peerinfo[peerinfo.PubKey].Connurl[connV6] = 6
+			L4Addr := http_PeerIPs[peerinfo.PubKey].IPv4
+			L4IP := L4Addr.IP
+			L4str := L4Addr.String()
+			if L4str != connV4 && conn.ValidIP(L4IP) {
+				api_peerinfo[peerinfo.PubKey].Connurl[L4str] = 14
+			}
+			L6Addr := http_PeerIPs[peerinfo.PubKey].IPv6
+			L6IP := L6Addr.IP
+			L6str := L6Addr.String()
+			if L6str != connV6 && conn.ValidIP(L6IP) {
+				api_peerinfo[peerinfo.PubKey].Connurl[L6str] = 16
+			}
+			delete(api_peerinfo[peerinfo.PubKey].Connurl, "")
 		}
-		L6Addr := http_PeerIPs[peerinfo.PubKey].IPv6
-		L6IP := L6Addr.IP
-		L6str := L6Addr.String()
-		if L6str != connV6 && conn.ValidIP(L6IP) {
-			api_peerinfo[peerinfo.PubKey].Connurl[L6str] = 16
-		}
-
-		delete(api_peerinfo[peerinfo.PubKey].Connurl, "")
 	}
 	api_peerinfo_str_byte, _ := json.Marshal(&api_peerinfo)
 	hash_raw := md5.Sum(append(api_peerinfo_str_byte, http_HashSalt...))
@@ -254,8 +259,13 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 			Dist:     http_graph.GetDtst(),
 		}
 		for _, peerinfo := range http_sconfig.Peers {
+			LastSeenStr := ""
+			if lastseen, has := http_PeerLastSeen.Load(peerinfo.NodeID); has {
+				LastSeenStr = lastseen.(time.Time).String()
+			}
 			hs.PeerInfo[peerinfo.NodeID] = HttpPeerInfo{
-				Name: peerinfo.Name,
+				Name:     peerinfo.Name,
+				LastSeen: LastSeenStr,
 			}
 		}
 		http_StateExpire = time.Now().Add(5 * time.Second)

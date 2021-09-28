@@ -230,6 +230,7 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 	http_PeerID2PubKey[peerconf.NodeID] = peerconf.PubKey
 	http_PeerState[peerconf.PubKey] = &PeerState{}
 	http_PeerIPs[peerconf.PubKey] = &HttpPeerLocalIP{}
+	http_PeerLastSeen.Store(peerconf.NodeID, time.Time{})
 	return nil
 }
 
@@ -261,6 +262,7 @@ func super_peerdel(toDelete config.Vertex) {
 	http_device4.RemovePeerByID(toDelete)
 	http_device6.RemovePeerByID(toDelete)
 	http_graph.RemoveVirt(toDelete, true, false)
+	http_PeerLastSeen.Delete(toDelete)
 
 	delete(http_PeerState, PubKey)
 	delete(http_PeerIPs, PubKey)
@@ -273,6 +275,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 		case reg_msg := <-events.Event_server_register:
 			var should_push_peer bool
 			var should_push_nh bool
+			http_PeerLastSeen.Store(reg_msg.Node_id, time.Now())
 			if reg_msg.Node_id < config.Special_NodeID {
 				PubKey := http_PeerID2PubKey[reg_msg.Node_id]
 				if bytes.Equal(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:]) == false {

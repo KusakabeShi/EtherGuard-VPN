@@ -124,7 +124,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 			}
 		case path.PongPacket:
 			if content, err := path.ParsePongMsg(body); err == nil {
-				return device.server_process_Pong(content)
+				return device.server_process_Pong(peer, content)
 			}
 		default:
 			err = errors.New("Not a valid msg_type")
@@ -251,11 +251,13 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content path.Regist
 		device.SendPacket(peer, path.UpdateError, buf, MessageTransportOffsetContent)
 		return nil
 	}
+	peer.LastPingReceived = time.Now()
 	device.Event_server_register <- content
 	return nil
 }
 
-func (device *Device) server_process_Pong(content path.PongMsg) error {
+func (device *Device) server_process_Pong(peer *Peer, content path.PongMsg) error {
+	peer.LastPingReceived = time.Now()
 	device.Event_server_pong <- content
 	return nil
 }

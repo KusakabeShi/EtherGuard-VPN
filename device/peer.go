@@ -119,7 +119,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
-	peer.endpoint_trylist = orderedmap.New()
+	peer.endpoint_trylist = *orderedmap.New()
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
