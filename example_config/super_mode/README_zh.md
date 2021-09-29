@@ -62,7 +62,7 @@ Super node收到Pong以後，就會更新它裡面的`Distance matrix`，並且�
 不然每隔一段時間就會重新發送`UpdateXXX`給該節點
 
 ### peerstate  
-HTTP還有一個API  
+HTTP還有三個個API，首先是這個peerstate
 ```
 http://127.0.0.1:3000/api/peerstate?Password=passwd
 ```  
@@ -71,32 +71,323 @@ http://127.0.0.1:3000/api/peerstate?Password=passwd
 
 這個json下載下來有一個叫做`infinity`的欄位，值應該永遠是99999  
 因為json沒辦法表達無限大。所以大於這個數值的就是無限大，不可達的意思  
-這個數值是編譯時決定的，一般不會動。但說不定你想改code，改成999呢?  
+這個數值是編譯時決定的，一般不會動。但保留變更的彈性  
 所以有這個欄位，前端顯示時看到數值大於這個，就視為不可達，不用畫線了
 
+返回值範例:
+```json
+{
+  "PeerInfo": {
+    "1": {
+      "Name": "hk",
+      "LastSeen": "2021-09-29 11:23:22.854700559 +0000 UTC m=+28740.116476977"
+    },
+    "1001": {
+      "Name": "relay_kr",
+      "LastSeen": "2021-09-29 11:23:21.277417897 +0000 UTC m=+28738.539194315"
+    },
+    "121": {
+      "Name": "za_north",
+      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    },
+    "33": {
+      "Name": "us_west",
+      "LastSeen": "2021-09-29 11:23:13.257033252 +0000 UTC m=+28730.518809670"
+    },
+    "49": {
+      "Name": "us_east",
+      "LastSeen": "2021-09-29 11:23:16.606165241 +0000 UTC m=+28733.867941659"
+    },
+    "51": {
+      "Name": "ca_central",
+      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    },
+    "65": {
+      "Name": "fr",
+      "LastSeen": "2021-09-29 11:23:19.4084596 +0000 UTC m=+28736.670236018"
+    },
+    "81": {
+      "Name": "au_central",
+      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    },
+    "89": {
+      "Name": "uae_north",
+      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    },
+    "9": {
+      "Name": "jp_east",
+      "LastSeen": "2021-09-29 11:23:16.669505147 +0000 UTC m=+28733.931281565"
+    },
+    "97": {
+      "Name": "br_south",
+      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    }
+  },
+  "Infinity": 99999,
+  "Edges": {
+    "1": {
+      "1001": 0.033121187,
+      "33": 0.075653164,
+      "49": 0.100471502,
+      "65": 0.065714769,
+      "9": 0.022864241
+    },
+    "1001": {
+      "1": 0.018561948,
+      "33": 0.064077348,
+      "49": 0.094459818,
+      "65": 0.079481599,
+      "9": 0.011163433
+    },
+    "33": {
+      "1": 0.075263428,
+      "1001": 0.070029457,
+      "49": 0.032631349,
+      "65": 0.045575061,
+      "9": 0.050444255
+    },
+    "49": {
+      "1": 0.100271358,
+      "1001": 0.100182834,
+      "33": 0.034563118,
+      "65": 0.017950046,
+      "9": 0.07510982
+    },
+    "65": {
+      "1": 0.114219741,
+      "1001": 0.132759205,
+      "33": 0.095265063,
+      "49": 0.067413235,
+      "9": 0.127562362
+    },
+    "9": {
+      "1": 0.026909699,
+      "1001": 0.022555855,
+      "33": 0.056469043,
+      "49": 0.090400723,
+      "65": 0.08525314
+    }
+  },
+  "NhTable": {
+    "1": {
+      "1001": 1001,
+      "33": 33,
+      "49": 49,
+      "65": 65,
+      "9": 9
+    },
+    "1001": {
+      "1": 1,
+      "33": 33,
+      "49": 49,
+      "65": 65,
+      "9": 9
+    },
+    "33": {
+      "1": 1,
+      "1001": 1001,
+      "49": 49,
+      "65": 65,
+      "9": 9
+    },
+    "49": {
+      "1": 1,
+      "1001": 9,
+      "33": 33,
+      "65": 65,
+      "9": 9
+    },
+    "65": {
+      "1": 1,
+      "1001": 1001,
+      "33": 33,
+      "49": 49,
+      "9": 9
+    },
+    "9": {
+      "1": 1,
+      "1001": 1001,
+      "33": 33,
+      "49": 33,
+      "65": 65
+    }
+  },
+  "Dist": {
+    "1": {
+      "1": 0,
+      "1001": 0.033121187,
+      "33": 0.075119328,
+      "49": 0.102236885,
+      "65": 0.074688856,
+      "9": 0.022473723
+    },
+    "1001": {
+      "1": 0.018561948,
+      "1001": 0,
+      "33": 0.064077348,
+      "49": 0.094459818,
+      "65": 0.079481599,
+      "9": 0.011163433
+    },
+    "33": {
+      "1": 0.075263428,
+      "1001": 0.070029457,
+      "33": 0,
+      "49": 0.032631349,
+      "65": 0.045575061,
+      "9": 0.050444255
+    },
+    "49": {
+      "1": 0.100271358,
+      "1001": 0.097665675,
+      "33": 0.034563118,
+      "49": 0,
+      "65": 0.017950046,
+      "9": 0.07510982
+    },
+    "65": {
+      "1": 0.114219741,
+      "1001": 0.132759205,
+      "33": 0.095265063,
+      "49": 0.067413235,
+      "65": 0,
+      "9": 0.127562362
+    },
+    "9": {
+      "1": 0.026909699,
+      "1001": 0.022555855,
+      "33": 0.056469043,
+      "49": 0.089100392,
+      "65": 0.08525314,
+      "9": 0
+    }
+  }
+}
+```
+
+欄位意義:  
+1. PeerInfo: 節點id，名稱，上次上線時間
+2. Edges: 節點**直連的延遲**，99999或是缺失代表不可達(打洞失敗)
+3. NhTable: 計算結果
+4. Dist: 節點走**Etherguard之後的延遲**
+
 ### peeradd
-新增peer
+再來是新增peer，可以不用重啟Supernode就新增Peer
 
 範例:  
 ```
 curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "nodeid=1&name=Node_01&pubkey=ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=&pskey=iPM8FXfnHVzwjguZHRW9bLNY%2bh7%2bB1O2oTJtktptQkI="
+                           -H "Content-Type: application/x-www-form-urlencoded" \
+                           -d "nodeid=100&name=Node_100&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
 ```
 參數:
-1. URL query: Password: 新增peer用的密碼
+1. URL query: Password: 新增peer用的密碼，在設定檔配置
 1. Post body:
     1. nodeid: Node ID
     1. pubkey: Public Key
     1. pskey: Preshared Key
 
-### peerdel  
-刪除peer
+返回值:
+1. http code != 200: 出錯原因  
+2. http code == 200，一份edge的參考設定檔  
+    * 會根據 `edgetemplate` 裡面的內容，再填入使用者的資訊(nodeid/name/pubkey)
+    * 方便使用者複製貼上
+```yaml
+interface:
+  itype: stdio
+  name: tap1
+  vppifaceid: 1
+  vppbridgeid: 4242
+  macaddrprefix: AA:BB:CC:DD
+  mtu: 1416
+  recvaddr: 127.0.0.1:4001
+  sendaddr: 127.0.0.1:5001
+  l2headermode: kbdbg
+nodeid: 100
+nodename: Node_100
+defaultttl: 200
+privkey: Your_Private_Key
+listenport: 3001
+loglevel:
+  loglevel: normal
+  logtransit: true
+  logcontrol: true
+  lognormal: true
+  logntp: true
+dynamicroute:
+  sendpinginterval: 16
+  peeralivetimeout: 30
+  dupchecktimeout: 40
+  conntimeout: 30
+  connnexttry: 5
+  savenewpeers: true
+  supernode:
+    usesupernode: true
+    pskey: ""
+    connurlv4: 127.0.0.1:3000
+    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
+    connurlv6: ""
+    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
+    apiurl: http://127.0.0.1:3000/api
+    supernodeinfotimeout: 50
+  p2p:
+    usep2p: false
+    sendpeerinterval: 20
+    graphrecalculatesetting:
+      jittertolerance: 20
+      jittertolerancemultiplier: 1.1
+      nodereporttimeout: 40
+      recalculatecooldown: 5
+  ntpconfig:
+    usentp: true
+    maxserveruse: 8
+    synctimeinterval: 3600
+    ntptimeout: 3
+    servers:
+    - time.google.com
+    - time1.google.com
+    - time2.google.com
+    - time3.google.com
+    - time4.google.com
+    - time1.facebook.com
+    - time2.facebook.com
+    - time3.facebook.com
+    - time4.facebook.com
+    - time5.facebook.com
+    - time.cloudflare.com
+    - time.apple.com
+    - time.asia.apple.com
+    - time.euro.apple.com
+    - time.windows.com
+nexthoptable: {}
+resetconninterval: 86400
+peers: []
+```
 
-範例:   
+### peerdel  
+最後是刪除peer。  
+有兩種刪除模式，分別是使用Password刪除，以及使用privkey刪除。  
+設計上分別是給管理員使用，或是給加入網路的人，想離開網路使用
+
+使用Password刪除可以刪除任意節點，以上面新增的節點為例，使用這個API即可刪除剛剛新增的節點
 ```
-curl "http://127.0.0.1:3000/api/peer/del?Password=passwd_delpeer&nodeid=1"
+curl "http://127.0.0.1:3000/api/peer/del?Password=passwd_delpeer&nodeid=100"
 ```
+
+也可以使用privkey刪除，同上，但是只要附上privkey參數就好
+```
+curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ="
+```
+
+參數:
+1. URL query: 
+    1. Password: 刪除peer用的密碼，在設定檔配置
+    1. nodeid: 你想刪除的Node ID
+    1. privkey: 該節點的私鑰
+
+返回值:
+1. http code != 200: 被刪除的nodeID  
+2. http code == 200: 空字串，表示成功
 
 ## Config Paramaters
 
@@ -169,7 +460,7 @@ b1會被轉換成 12byte 的layer 2 header，b是廣播地址`FF:FF:FF:FF:FF:FF`
 ![EGS06](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS06.png)  
 
 還有，就算雙方都是ConeNAT，也不保證100%成功。  
-還得看NAT設備的支援情況，詳見[此文](https://bford.info/pub/net/p2pnat/)，裡面3.5章節描述的情況，也無法打洞成功
+還得看NAT設備的支援情況，詳見[此文](https://bford.info/pub/net/p2pnat/#SECTION00035000000000000000)，裡面3.5章節描述的情況，也無法打洞成功
 
 ## Relay node
 因為Etherguard的Supernode單純只負責幫忙打洞+計算[Floyd-Warshall](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並分發運算結果  

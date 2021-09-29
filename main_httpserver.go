@@ -421,6 +421,9 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	http_sconfig.Peers = peers_new
 	configbytes, _ := yaml.Marshal(http_sconfig)
 	ioutil.WriteFile(http_sconfig_path, configbytes, 0644)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(toDelete.ToString() + " deleted."))
+	return
 }
 
 func HttpServer(http_port int, apiprefix string) {
