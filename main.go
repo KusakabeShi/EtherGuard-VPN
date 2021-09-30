@@ -47,7 +47,7 @@ var (
 	tconfig      = flag.String("config", "", "Config path for the interface.")
 	mode         = flag.String("mode", "", "Running mode. [super|edge|solve]")
 	printExample = flag.Bool("example", false, "Print example config")
-	bind         = flag.String("bind", "linux", "UDP socket bind mode. [linux|std]\nYou may need this if tou want to run Etherguard under WSL.")
+	bind         = flag.String("bind", "linux", "UDP socket bind mode. [linux|std]\nYou may need std mode if you want to run Etherguard under WSL.")
 	nouapi       = flag.Bool("no-uapi", false, "Disable UAPI\nWith UAPI, you can check etherguard status by \"wg\" command")
 	version      = flag.Bool("version", false, "Show version")
 	help         = flag.Bool("help", false, "Show this help")

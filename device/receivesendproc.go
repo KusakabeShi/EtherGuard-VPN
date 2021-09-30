@@ -11,11 +11,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
 func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, offset int) {
@@ -26,13 +29,15 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 	}
 	if device.LogLevel.LogNormal {
 		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
-		if usage == path.NornalPacket {
+		if usage == path.NormalPacket {
 			dst_nodeID := EgHeader.GetDst()
 			fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(packet)))
+			packet := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+			fmt.Println(packet.Dump())
 		}
 	}
 	if device.LogLevel.LogControl {
-		if usage != path.NornalPacket {
+		if usage != path.NormalPacket {
 			if peer.GetEndpointDstStr() != "" {
 				fmt.Println("Control: Send To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(usage, packet[path.EgHeaderLen:]))
 			}
@@ -155,7 +160,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 			if content, err := path.ParseQueryPeerMsg(body); err == nil {
 				return device.process_RequestPeerMsg(content)
 			}
-		case path.BoardcastPeer:
+		case path.BroadcastPeer:
 			if content, err := path.ParseBoardcastPeerMsg(body); err == nil {
 				return device.process_BoardcastPeerMsg(peer, content)
 			}
@@ -203,7 +208,7 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) string {
 			return content.ToString()
 		}
 		return "QueryPeerMsg: Parse failed"
-	case path.BoardcastPeer:
+	case path.BroadcastPeer:
 		if content, err := path.ParseBoardcastPeerMsg(body); err == nil {
 			return content.ToString()
 		}
@@ -211,6 +216,16 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) string {
 	default:
 		return "UnknowMsg: Not a valid msg_type"
 	}
+}
+
+func compareVersion(v1 string, v2 string) bool {
+	if strings.Contains(v1, "-") {
+		v1 = strings.Split(v1, "-")[0]
+	}
+	if strings.Contains(v2, "-") {
+		v2 = strings.Split(v2, "-")[0]
+	}
+	return v1 == v2
 }
 
 func (device *Device) server_process_RegisterMsg(peer *Peer, content path.RegisterMsg) error {
@@ -228,7 +243,7 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content path.Regist
 			ErrorMsg:  "Your node ID is not match with our registered nodeID",
 		}
 	}
-	if content.Version != device.Version {
+	if compareVersion(content.Version, device.Version) == false {
 		UpdateErrorMsg = path.UpdateErrorMsg{
 			Node_id:   peer.ID,
 			Action:    path.Shutdown,
@@ -297,11 +312,11 @@ func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 	return nil
 }
 
-func (device *Device) SendPing(peer *Peer, times int, replies int, interval float32) {
+func (device *Device) SendPing(peer *Peer, times int, replies int, interval float64) {
 	for i := 0; i < times; i++ {
 		packet, usage, _ := device.GeneratePingPacket(device.ID, replies)
 		device.SendPacket(peer, usage, packet, MessageTransportOffsetContent)
-		time.Sleep(path.S2TD(float64(interval)))
+		time.Sleep(path.S2TD(interval))
 	}
 }
 
@@ -657,7 +672,7 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	}
 	for {
 		device.process_RequestPeerMsg(path.QueryPeerMsg{
-			Request_ID: uint32(config.Boardcast),
+			Request_ID: uint32(config.Broadcast),
 		})
 		time.Sleep(path.S2TD(device.DRoute.P2P.SendPeerInterval))
 	}
@@ -737,7 +752,7 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 			header.SetSrc(device.ID)
 			header.SetPacketLength(uint16(len(body)))
 			copy(buf[path.EgHeaderLen:], body)
-			device.SpreadPacket(make(map[config.Vertex]bool), path.BoardcastPeer, buf, MessageTransportOffsetContent)
+			device.SpreadPacket(make(map[config.Vertex]bool), path.BroadcastPeer, buf, MessageTransportOffsetContent)
 		}
 		device.peers.RUnlock()
 	}

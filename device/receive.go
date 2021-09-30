@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
@@ -474,7 +476,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 		} else {
 			switch dst_nodeID {
-			case config.Boardcast:
+			case config.Broadcast:
 				should_receive = true
 				should_transfer = true
 			case config.SuperNodeMessage:
@@ -492,7 +494,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					}
 				}
 			case device.ID:
-				if packet_type == path.NornalPacket {
+				if packet_type == path.NormalPacket {
 					should_receive = true
 				} else {
 					should_process = true
@@ -511,7 +513,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
 				EgHeader.SetTTL(l2ttl - 1)
-				if dst_nodeID == config.Boardcast { //Regular transfer algorithm
+				if dst_nodeID == config.Broadcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == config.ControlMessage { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[config.Vertex]bool)
@@ -535,7 +537,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 
 		if should_process {
-			if packet_type != path.NornalPacket {
+			if packet_type != path.NormalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
 						fmt.Println("Control: Received From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
@@ -549,13 +551,15 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 
 		if should_receive { // Write message to tap device
-			if packet_type == path.NornalPacket {
-				if device.LogLevel.LogNormal {
-					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
-				}
+			if packet_type == path.NormalPacket {
 				if len(elem.packet) <= path.EgHeaderLen+12 {
 					device.log.Errorf("Invalid normal packet from peer %v", peer.ID.ToString())
 					goto skip
+				}
+				if device.LogLevel.LogNormal {
+					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+					fmt.Println(packet.Dump())
 				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
 				if !tap.IsNotUnicast(src_macaddr) {

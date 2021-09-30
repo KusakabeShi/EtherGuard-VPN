@@ -31,7 +31,7 @@ Static Mode的[範例配置檔](./)的說明文件
 轉發/發送封包時，直接查詢 `NhTable[起點][終點]=下一跳`  
 就知道下面一個封包要轉給誰了
 
-```
+```yaml
 nexthoptable:
   1:
     2: 2
@@ -182,4 +182,32 @@ src     dist            path
 6 -> 5  1.500000        [6 4 3 5]
 ```
 
-接下來你就能了解一下[Super Mode的運作](../super_mode/README_zh.md)
+### Quick start
+
+#### Run example config
+
+在**不同terminal**分別執行以下命令
+
+```
+./etherguard-go -config example_config/super_mode/n1.yaml -mode edge
+./etherguard-go -config example_config/super_mode/n2.yaml -mode edge
+./etherguard-go -config example_config/super_mode/n3.yaml -mode edge
+./etherguard-go -config example_config/super_mode/n4.yaml -mode edge
+./etherguard-go -config example_config/super_mode/n5.yaml -mode edge
+./etherguard-go -config example_config/super_mode/n6.yaml -mode edge
+```
+
+因為本範例配置是stdio的kbdbg模式，stdin會讀入VPN網路  
+請在其中一個edge視窗中鍵入
+```
+b1message
+```
+因為`l2headermode`是`kbdbg`，所以b1會被轉換成 12byte 的layer 2 header，b是廣播地址`FF:FF:FF:FF:FF:FF`，1是普通地址`AA:BB:CC:DD:EE:01`，message是後面的payload，然後再丟入VPN  
+此時應該要能夠在另一個視窗上看見字串b1message。前12byte被轉換回來了
+
+#### Run your own etherguard
+
+要正式使用，請將itype改成`tap`，並且修改各節點的公鑰私鑰和連線地址
+再關閉不必要的log增加性能，最後部屬到不同節點即可
+
+## 下一篇: [Super Mode的運作](../super_mode/README_zh.md)

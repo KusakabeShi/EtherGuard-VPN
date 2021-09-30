@@ -14,17 +14,23 @@ passwords:
   addpeer: passwd_addpeer
   delpeer: passwd_delpeer
 graphrecalculatesetting:
+  staticmode: false
   jittertolerance: 5
   jittertolerancemultiplier: 1.01
   nodereporttimeout: 50
   recalculatecooldown: 5
+nexthoptable:
+  1:
+    2: 2
+  2:
+    1: 1
 edgetemplate: example_config/super_mode/n1.yaml
 peers:
-- nodeid: 2
-  name: Node_02
-  pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
-  pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
 - nodeid: 1
   name: Node_01
   pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
   pskey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
+- nodeid: 2
+  name: Node_02
+  pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
+  pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=

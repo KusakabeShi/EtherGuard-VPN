@@ -1,6 +1,7 @@
 package path
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -43,6 +44,7 @@ type IG struct {
 	Vert                      map[config.Vertex]bool
 	edges                     map[config.Vertex]map[config.Vertex]Latency
 	edgelock                  *sync.RWMutex
+	StaticMode                bool
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
 	NodeReportTimeout         time.Duration
@@ -69,6 +71,7 @@ func S2TD(secs float64) time.Duration {
 func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting, ntpinfo config.NTPinfo, logntp bool) *IG {
 	g := IG{
 		edgelock:                  &sync.RWMutex{},
+		StaticMode:                theconfig.StaticMode,
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
 		NodeReportTimeout:         S2TD(theconfig.NodeReportTimeout),
@@ -112,6 +115,12 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 }
 
 func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
+	if g.StaticMode {
+		if bytes.Equal(g.NhTableHash[:], make([]byte, 32)) {
+			changed = checkchange
+		}
+		return
+	}
 	if g.recalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
 		dist, next := FloydWarshall(g)
 		changed = false
@@ -147,6 +156,7 @@ func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (ch
 		}
 	}
 	g.edgelock.Unlock()
+	g.NhTableHash = [32]byte{}
 	if recalculate {
 		changed = g.RecalculateNhTable(checkchange)
 	}

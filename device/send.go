@@ -19,6 +19,8 @@ import (
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -254,9 +256,9 @@ func (device *Device) RoutineReadFromTUN() {
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
 		if tap.IsNotUnicast(dstMacAddr) {
-			dst_nodeID = config.Boardcast
+			dst_nodeID = config.Broadcast
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
-			dst_nodeID = config.Boardcast
+			dst_nodeID = config.Broadcast
 		} else {
 			dst_nodeID = val.(config.Vertex)
 		}
@@ -264,9 +266,9 @@ func (device *Device) RoutineReadFromTUN() {
 		EgBody.SetDst(dst_nodeID)
 		EgBody.SetPacketLength(uint16(len(elem.packet) - path.EgHeaderLen))
 		EgBody.SetTTL(device.DefaultTTL)
-		elem.Type = path.NornalPacket
+		elem.Type = path.NormalPacket
 
-		if dst_nodeID != config.Boardcast {
+		if dst_nodeID != config.Broadcast {
 			var peer *Peer
 			next_id := device.graph.Next(device.ID, dst_nodeID)
 			if next_id != nil {
@@ -278,6 +280,8 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 				if device.LogLevel.LogNormal {
 					fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+					fmt.Println(packet.Dump())
 				}
 				if peer.isRunning.Get() {
 					peer.StagePacket(elem)

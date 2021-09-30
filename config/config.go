@@ -10,8 +10,8 @@ import (
 type Vertex uint16
 
 const (
-	Boardcast        Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
-	ControlMessage   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know keer and prevent dup/ super mode: send to supernode
+	Broadcast        Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
+	ControlMessage   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
 	SuperNodeMessage Vertex = math.MaxUint16 - iota
 	Special_NodeID   Vertex = SuperNodeMessage
 )
@@ -39,7 +39,9 @@ type SuperConfig struct {
 	RePushConfigInterval    float64
 	Passwords               Passwords
 	GraphRecalculateSetting GraphRecalculateSetting
+	NextHopTable            NextHopTable
 	EdgeTemplate            string
+	UsePSKForInterEdge      bool
 	Peers                   []SuperPeerInfo
 }
 
@@ -86,7 +88,7 @@ type LoggerInfo struct {
 
 func (v *Vertex) ToString() string {
 	switch *v {
-	case Boardcast:
+	case Broadcast:
 		return "Boardcast"
 	case ControlMessage:
 		return "Control"
@@ -135,6 +137,7 @@ type P2Pinfo struct {
 }
 
 type GraphRecalculateSetting struct {
+	StaticMode                bool
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
 	NodeReportTimeout         float64

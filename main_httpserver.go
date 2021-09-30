@@ -159,21 +159,25 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 			http_PeerInfo_2peer := make(config.API_Peers)
 
 			for PeerPubKey, peerinfo := range http_PeerInfo {
-				h := sha256.New()
-				if NodeID > peerinfo.NodeID {
-					h.Write([]byte(PubKey))
-					h.Write([]byte(PeerPubKey))
-				} else if NodeID < peerinfo.NodeID {
-					h.Write([]byte(PeerPubKey))
-					h.Write([]byte(PubKey))
+				if http_sconfig.UsePSKForInterEdge {
+					h := sha256.New()
+					if NodeID > peerinfo.NodeID {
+						h.Write([]byte(PubKey))
+						h.Write([]byte(PeerPubKey))
+					} else if NodeID < peerinfo.NodeID {
+						h.Write([]byte(PeerPubKey))
+						h.Write([]byte(PubKey))
+					} else {
+						continue
+					}
+					h.Write(http_HashSalt)
+					bs := h.Sum(nil)
+					var psk device.NoisePresharedKey
+					copy(psk[:], bs[:])
+					peerinfo.PSKey = psk.ToString()
 				} else {
-					continue
+					peerinfo.PSKey = ""
 				}
-				h.Write(http_HashSalt)
-				bs := h.Sum(nil)
-				var psk device.NoisePresharedKey
-				copy(psk[:], bs[:])
-				peerinfo.PSKey = psk.ToString()
 				http_PeerInfo_2peer[PeerPubKey] = peerinfo
 			}
 			api_peerinfo_str_byte, _ := json.Marshal(&http_PeerInfo_2peer)
@@ -321,20 +325,47 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	}
 	for _, peerinfo := range http_sconfig.Peers {
 		if peerinfo.NodeID == NodeID {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte("NodeID exists"))
 			return
 		}
 		if peerinfo.Name == Name {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte("Node name exists"))
 			return
 		}
 		if peerinfo.PubKey == PubKey {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte("PubKey exists"))
 			return
 		}
+	}
+	if http_sconfig.GraphRecalculateSetting.StaticMode == false {
+		NhTableStr := r.Form.Get("nexthoptable")
+		if NhTableStr == "" {
+			w.WriteHeader(http.StatusExpectationFailed)
+			w.Write([]byte("Your NextHopTable is in static mode.\nPlease provide your new NextHopTable in \"nexthoptable\" parmater in json format"))
+			return
+		}
+		var NewNhTable config.NextHopTable
+		err := json.Unmarshal([]byte(NhTableStr), &NewNhTable)
+		if err != nil {
+			w.WriteHeader(http.StatusExpectationFailed)
+			w.Write([]byte(fmt.Sprintf("%v", err)))
+			return
+		}
+		err = checkNhTable(NewNhTable, append(http_sconfig.Peers, config.SuperPeerInfo{
+			NodeID: NodeID,
+			Name:   Name,
+			PubKey: PubKey,
+			PSKey:  PSKey,
+		}))
+		if err != nil {
+			w.WriteHeader(http.StatusExpectationFailed)
+			w.Write([]byte(fmt.Sprintf("%v", err)))
+			return
+		}
+		http_graph.SetNHTable(NewNhTable, [32]byte{})
 	}
 	super_peeradd(config.SuperPeerInfo{
 		NodeID: NodeID,
@@ -362,7 +393,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 
 func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	params := r.URL.Query()
-	toDelete := config.Boardcast
+	toDelete := config.Broadcast
 
 	PasswordA, has := params["Password"]
 	PubKey := ""
@@ -402,9 +433,8 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 				toDelete = peerinfo.NodeID
 			}
 		}
-
 	}
-	if toDelete == config.Boardcast {
+	if toDelete == config.Broadcast {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Wrong password"))
 		return
@@ -418,6 +448,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 			peers_new = append(peers_new, peerinfo)
 		}
 	}
+
 	http_sconfig.Peers = peers_new
 	configbytes, _ := yaml.Marshal(http_sconfig)
 	ioutil.WriteFile(http_sconfig_path, configbytes, 0644)

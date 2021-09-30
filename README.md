@@ -4,13 +4,17 @@
 
 A Full Mesh Layer2 VPN based on wireguard-go  
 
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
+
 OSPF can find best route based on it's cost.  
 But sometimes the lentancy are different in the packet goes and back.  
 I'am thinking, is it possible to find the best route based on the **single-way latency**?  
 For example, I have two routes A and B at node N1, both of them can reach my node N2. A goes fast, but B backs fast.  
-My VPN can automatically send packet through route A at node N1, and the packet backsfrom route B.
+My VPN can automatically send packet through route A at node N1, and the packet backs from route B.
 
-Here is the solution. This VPN `Etherguard` can collect all the single-way lentancy from all nodes, and calculate the best route using [Floyd–Warshall algorithm](https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm).
+Here is the solution. This VPN `Etherguard` can collect all the single-way lentancy from all nodes, and calculate the best route using [Floyd–Warshall algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm).
+
+Wirried about the clock not match so that the measure result are not correct? It doesn't matter, here is the proof (Mandarin):  [https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html](https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html)
 
 ## Usage
 
@@ -18,7 +22,7 @@ Here is the solution. This VPN `Etherguard` can collect all the single-way lenta
 Usage of ./etherguard-go:
   -bind string
         UDP socket bind mode. [linux|std]
-        You may need this if tou want to run Etherguard under WSL. (default "linux")
+        You may need std mode if tou want to run Etherguard under WSL. (default "linux")
   -config string
         Config path.
   -example
@@ -68,7 +72,7 @@ Usage of ./etherguard-go:
         2. `kbdbg`: Keyboard debug mode.  
                     Let me construct Layer 2 header by ascii character only.  
                     So that I can track the packet flow with `loglevel` option.
-        3. `noL2`: Remove all Layer 2 header
+        3. `noL2`: Remove all Layer 2 header, all boardcast
 2. `nodeid`: NodeID. Must be unique in the whole Etherguard network.
 3. `nodename`: Node Name.
 4. `defaultttl`: Default TTL(etherguard layer. not affect ethernet layer)
@@ -85,8 +89,8 @@ Usage of ./etherguard-go:
     2. `dupchecktimeout`: Duplication chack timeout.
     3. `conntimeout`: Connection timeout.
     4. `savenewpeers`: Save peer info to local file.
-    5. `supernode`: See [Super Mode](example_config/super_mode/README_zh.md)
-    6. `p2p` See [P2P Mode](example_config/p2p_mode/README_zh.md)
+    5. `supernode`: See [Super Mode](example_config/super_mode/README.md)
+    6. `p2p` See [P2P Mode](example_config/p2p_mode/README.md)
     7. `ntpconfig`: NTP related settings
         1. `usentp`: USE NTP or not.
         2. `maxserveruse`: How many NTP servers should we use at once.  
@@ -94,7 +98,7 @@ Usage of ./etherguard-go:
         3. `synctimeinterval`: NTP sync interval.
         4. `ntptimeout`: NTP timeout
         5. `servers`: NTP server list
-8. `nexthoptable`: Nexthop table。Only static mode use it. See [Static Mㄍㄟ](example_config/super_mode/README_zh.md)
+8. `nexthoptable`: Nexthop table。Only static mode use it. See [Static Mode](example_config/super_mode/README.md)
 9. `resetconninterval`: Reset the endpoint for peers. You may need this if that peer use DDNS.
 10. `peers`: Peer info.
     1. `nodeid`: Node ID.

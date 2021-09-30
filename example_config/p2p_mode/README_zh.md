@@ -62,6 +62,7 @@ P2P模式也有幾個參數
 1. sendpeerinterval: 廣播BoardcastPeer的間格
 1. peeralivetimeout: 每次收到封包就重置，超過時間沒收到就視為該peer離線
 1. graphrecalculatesetting: 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
+    1. staticmode: 關閉Floyd-Warshall演算法，只使用一開始載入的nexthoptable。P2P單純用來打洞
     1. jittertolerance: 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算
     1. jittertolerancemultiplier: 一樣是抖動容許誤差，但是高ping的話允許更多誤差  
         https://www.desmos.com/calculator/raoti16r5n
@@ -74,4 +75,4 @@ P2P模式下，PSK是禁用的。因為n個節點有n(n-1)/2的連線，每個�
 也不像super mode，有中心伺服器統一分發
 每對peer要協商出一個PSK有難度，因此我設定禁用PSK了，只用wireguard原本的加密系統
 
-**最後，P2P模式我還沒有大規模測試過，穩定性不知如何。PR is welecome**
+**最後，P2P模式我還沒有大規模測試過，穩定性不知如何。PR is welcome**

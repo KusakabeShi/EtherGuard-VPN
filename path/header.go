@@ -21,7 +21,7 @@ const (
 	MessageCookieReplyType
 	MessageTransportType
 
-	NornalPacket
+	NormalPacket
 	Register //Register to server
 
 	UpdatePeer //Comes from server
@@ -31,7 +31,7 @@ const (
 	PingPacket //Comes from other peer
 	PongPacket //Send to everyone, include server
 	QueryPeer
-	BoardcastPeer
+	BroadcastPeer
 )
 
 func NewEgHeader(pac []byte) (e EgHeader, err error) {

@@ -38,6 +38,7 @@ dynamicroute:
     usep2p: false
     sendpeerinterval: 20
     graphrecalculatesetting:
+      staticmode: false
       jittertolerance: 20
       jittertolerancemultiplier: 1.1
       nodereporttimeout: 40

@@ -25,20 +25,24 @@ import (
 )
 
 func printExampleEdgeConf() {
+	v1 := config.Vertex(1)
+	v2 := config.Vertex(2)
 	tconfig := config.EdgeConfig{
 		Interface: config.InterfaceConf{
 			Itype:         "stdio",
-			VPPIfaceID:    5,
 			Name:          "tap1",
-			MacAddrPrefix: "AA:BB:CC:DD:EE:FF",
-			MTU:           1400,
+			VPPIfaceID:    5,
+			VPPBridgeID:   4242,
+			MacAddrPrefix: "AA:BB:CC:DD",
+			MTU:           1416,
 			RecvAddr:      "127.0.0.1:4001",
 			SendAddr:      "127.0.0.1:5001",
 			L2HeaderMode:  "nochg",
 		},
 		NodeID:     1,
 		NodeName:   "Node01",
-		PrivKey:    "SM8pGjT0r8njy1/7ffN4wMwF7nnJ8UYSjGRWpCqo3ng=",
+		DefaultTTL: 200,
+		PrivKey:    "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort: 3001,
 		LogLevel: config.LoggerInfo{
 			LogLevel:   "normal",
@@ -52,20 +56,23 @@ func printExampleEdgeConf() {
 			PeerAliveTimeout: 30,
 			DupCheckTimeout:  40,
 			ConnTimeOut:      30,
+			ConnNextTry:      5,
 			SaveNewPeers:     true,
 			SuperNode: config.SuperInfo{
 				UseSuperNode:         true,
+				PSKey:                "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
 				ConnURLV4:            "127.0.0.1:3000",
 				PubKeyV4:             "LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=",
 				ConnURLV6:            "[::1]:3000",
 				PubKeyV6:             "HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=",
 				APIUrl:               "http://127.0.0.1:3000/api",
-				SuperNodeInfoTimeout: 40,
+				SuperNodeInfoTimeout: 50,
 			},
 			P2P: config.P2Pinfo{
 				UseP2P:           true,
 				SendPeerInterval: 20,
 				GraphRecalculateSetting: config.GraphRecalculateSetting{
+					StaticMode:   false,
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
 					NodeReportTimeout:         40,
@@ -76,7 +83,7 @@ func printExampleEdgeConf() {
 				UseNTP:           true,
 				MaxServerUse:     5,
 				SyncTimeInterval: 3600,
-				NTPTimeout:       10,
+				NTPTimeout:       3,
 				Servers: []string{"time.google.com",
 					"time1.google.com",
 					"time2.google.com",
@@ -94,18 +101,20 @@ func printExampleEdgeConf() {
 					"time.windows.com"},
 			},
 		},
-		NextHopTable:      config.NextHopTable{},
+		NextHopTable: config.NextHopTable{
+			config.Vertex(1): {
+				config.Vertex(2): &v2,
+			},
+			config.Vertex(2): {
+				config.Vertex(1): &v1,
+			},
+		},
 		ResetConnInterval: 86400,
 		Peers: []config.PeerInfo{
 			{
 				NodeID:   2,
-				PubKey:   "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
-				EndPoint: "127.0.0.1:3001",
-				Static:   true,
-			},
-			{
-				NodeID:   2,
 				PubKey:   "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
+				PSKey:    "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
 				EndPoint: "127.0.0.1:3002",
 				Static:   true,
 			},

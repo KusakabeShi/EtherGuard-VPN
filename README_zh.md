@@ -3,6 +3,8 @@
 
 [English](README.md)
 
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
+
 一個從wireguard-go改來的Full Mesh Layer2 VPN.  
 
 OSPF能夠根據cost自動選路  

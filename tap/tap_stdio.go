@@ -39,7 +39,7 @@ func Charform2mac(b byte) MacAddress {
 	if b == 'b' {
 		return MacAddress{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	}
-	return MacAddress{0x00, 0x11, 0xff, 0xff, 0xff, b - 48}
+	return MacAddress{0xaa, 0xbb, 0xcc, 0xdd, 0xee, b - 48}
 }
 func Mac2charForm(m []byte) byte {
 	var M MacAddress
@@ -51,13 +51,13 @@ func Mac2charForm(m []byte) byte {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateStdIOTAP(iconfig config.InterfaceConf,NodeID config.Vertex) (tapdev Device, err error) {
+func CreateStdIOTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix,uint32(NodeID))
+	macaddr, err := GetMacAddr(iconfig.MacAddrPrefix, uint32(NodeID))
 	if err != nil {
 		fmt.Println("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err

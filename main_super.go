@@ -30,7 +30,40 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+func checkNhTable(NhTable config.NextHopTable, peers []config.SuperPeerInfo) error {
+	allpeer := make(map[config.Vertex]bool, len(peers))
+	for _, peer1 := range peers {
+		allpeer[peer1.NodeID] = true
+	}
+	for _, peer1 := range peers {
+		for _, peer2 := range peers {
+			if peer1.NodeID == peer2.NodeID {
+				continue
+			}
+			id1 := peer1.NodeID
+			id2 := peer2.NodeID
+			if dst, has := NhTable[id1]; has {
+				if next, has2 := dst[id2]; has2 {
+					if _, hasa := allpeer[*next]; hasa {
+
+					} else {
+						return errors.New(fmt.Sprintf("NextHopTable[%v][%v]=%v which is not in the peer list", id1, id2, next))
+					}
+				} else {
+					return errors.New(fmt.Sprintf("NextHopTable[%v][%v] not found", id1, id2))
+				}
+			} else {
+				return errors.New(fmt.Sprintf("NextHopTable[%v] not found", id1))
+			}
+		}
+	}
+	return nil
+}
+
 func printExampleSuperConf() {
+	v1 := config.Vertex(1)
+	v2 := config.Vertex(2)
+
 	sconfig := config.SuperConfig{
 		NodeName:   "NodeSuper",
 		PrivKeyV4:  "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
@@ -42,24 +75,46 @@ func printExampleSuperConf() {
 			LogControl: true,
 		},
 		RePushConfigInterval: 30,
-		Peers: []config.SuperPeerInfo{
-			{
-				NodeID: 2,
-				Name:   "Node02",
-				PubKey: "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
-				PSKey:  "NuYJ/3Ght+C4HovFq5Te/BrIazo6zwDJ8Bdu4rQCz0o=",
-			},
+		Passwords: config.Passwords{
+			ShowState: "passwd",
+			AddPeer:   "passwd_addpeer",
+			DelPeer:   "passwd_delpeer",
 		},
 		GraphRecalculateSetting: config.GraphRecalculateSetting{
+			StaticMode:                false,
 			JitterTolerance:           5,
 			JitterToleranceMultiplier: 1.01,
 			NodeReportTimeout:         40,
 			RecalculateCoolDown:       5,
 		},
+		NextHopTable: config.NextHopTable{
+			config.Vertex(1): {
+				config.Vertex(2): &v2,
+			},
+			config.Vertex(2): {
+				config.Vertex(1): &v1,
+			},
+		},
+		EdgeTemplate:       "example_config/super_mode/n1.yaml",
+		UsePSKForInterEdge: true,
+		Peers: []config.SuperPeerInfo{
+			{
+				NodeID: 1,
+				Name:   "Node_01",
+				PubKey: "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
+				PSKey:  "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
+			},
+			{
+				NodeID: 2,
+				Name:   "Node_02",
+				PubKey: "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
+				PSKey:  "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
+			},
+		},
 	}
 
-	soprint, _ := yaml.Marshal(sconfig)
-	fmt.Print(string(soprint))
+	scprint, _ := yaml.Marshal(sconfig)
+	fmt.Print(string(scprint))
 	return
 }
 
@@ -120,7 +175,13 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		Event_server_NhTable_changed: make(chan struct{}, 1<<4),
 	}
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
-
+	http_graph.SetNHTable(http_sconfig.NextHopTable, [32]byte{})
+	if sconfig.GraphRecalculateSetting.StaticMode {
+		err = checkNhTable(http_sconfig.NextHopTable, sconfig.Peers)
+		if err != nil {
+			return err
+		}
+	}
 	thetap4, _ := tap.CreateDummyTAP()
 	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewDefaultBind(true, false, bindmode), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
 	defer http_device4.Close()
@@ -140,7 +201,6 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 
 	if sconfig.PrivKeyV6 != "" {
-
 		pk6, err := device.Str2PriKey(sconfig.PrivKeyV6)
 		if err != nil {
 			fmt.Println("Error decode base64 ", err)
@@ -316,6 +376,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 				new_hash_str := hex.EncodeToString(md5_hash_raw[:])
 				new_hash_str_byte := []byte(new_hash_str)
 				copy(http_NhTable_Hash[:], new_hash_str_byte)
+				copy(graph.NhTableHash[:], new_hash_str_byte)
 				http_NhTableStr = NhTablestr
 				PushNhTable()
 			}
