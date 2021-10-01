@@ -45,7 +45,7 @@ func printExampleEdgeConf() {
 		PrivKey:    "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort: 3001,
 		LogLevel: config.LoggerInfo{
-			LogLevel:   "normal",
+			LogLevel:   "error",
 			LogTransit: true,
 			LogControl: true,
 			LogNormal:  true,
@@ -72,7 +72,7 @@ func printExampleEdgeConf() {
 				UseP2P:           true,
 				SendPeerInterval: 20,
 				GraphRecalculateSetting: config.GraphRecalculateSetting{
-					StaticMode:   false,
+					StaticMode:                false,
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
 					NodeReportTimeout:         40,

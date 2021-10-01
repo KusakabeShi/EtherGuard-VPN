@@ -11,6 +11,7 @@ interface:
 nodeid: 2
 nodename: Node02
 defaultttl: 200
+l2fibtimeout: 3600
 privkey: OH8BsVUU2Rqzeu9B2J5GPG8PUmxWfX8uVvNFZKhVF3o=
 listenport: 3002
 loglevel:

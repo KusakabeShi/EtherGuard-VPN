@@ -11,6 +11,7 @@ interface:
 nodeid: 6
 nodename: Node06
 defaultttl: 200
+l2fibtimeout: 3600
 privkey: IIX5F6oWZUS2dlhxWFJ7TxdJtDCr5jzeuhxUB6YM7Us=
 listenport: 3006
 loglevel:

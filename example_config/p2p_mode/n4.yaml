@@ -11,6 +11,7 @@ interface:
 nodeid: 4
 nodename: Node04
 defaultttl: 200
+l2fibtimeout: 3600
 privkey: wAdLgCk0SHiO11/aUf9944focD1BUCH5b6Pe+cRHHXQ=
 listenport: 3004
 loglevel:

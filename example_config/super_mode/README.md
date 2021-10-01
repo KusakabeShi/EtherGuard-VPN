@@ -290,6 +290,7 @@ Parameter:
     1. nodeid: Node ID
     1. pubkey: Public Key
     1. pskey: Pre shared Key
+    1. nexthoptable: If the `graphrecalculatesetting` of your super node is in static mode, you need to provide a new `NextHopTable` in json format in this parameter.
 
 Return value:
 1. http code != 200: Error reason  

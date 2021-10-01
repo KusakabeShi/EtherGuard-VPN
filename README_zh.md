@@ -83,7 +83,8 @@ Usage of ./etherguard-go-vpp:
 2. `nodeid`: 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
 3. `nodename`: 節點名稱
 4. `defaultttl`: 預設ttl(etherguard層使用，和乙太層不共通)
-4. `privkey`: 私鑰，和wireguard規格一樣
+5. `l2fibtimeout`: MacAddr-> NodeID 查找表的 timeout(秒)
+5. `privkey`: 私鑰，和wireguard規格一樣
 5. `listenport`: 監聽的udp埠
 6. `loglevel`: 紀錄log
     1. `loglevel`: wireguard原本的log紀錄器的loglevel。  

@@ -96,6 +96,7 @@ type Device struct {
 	DefaultTTL  uint8
 	graph       *path.IG
 	l2fib       sync.Map
+	fibTimeout  float64
 	LogLevel    config.LoggerInfo
 	DRoute      config.DynamicRouteInfo
 	DupData     fixed_time_cache.Cache
@@ -121,6 +122,11 @@ type Device struct {
 	ipcMutex sync.RWMutex
 	closed   chan struct{}
 	log      *Logger
+}
+
+type IdAndTime struct {
+	ID   config.Vertex
+	Time time.Time
 }
 
 // deviceState represents the state of a Device.
@@ -357,12 +363,14 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.LogLevel = econfig.LogLevel
 		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
 		device.DefaultTTL = econfig.DefaultTTL
+		device.fibTimeout = econfig.L2FIBTimeout
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
 		go device.RoutineRecalculateNhTable()
 		go device.RoutineSpreadAllMyNeighbor()
 		go device.RoutineResetConn()
+		go device.RoutineClearL2FIB()
 	}
 	// create queues
 

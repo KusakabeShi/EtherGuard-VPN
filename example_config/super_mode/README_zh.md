@@ -296,6 +296,7 @@ curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
     1. nodeid: Node ID
     1. pubkey: Public Key
     1. pskey: Preshared Key
+    1. nexthoptable: 如果你的super node的`graphrecalculatesetting`是static mode，那麼你需要在這提供一張新的`NextHopTable`，json格式
 
 返回值:
 1. http code != 200: 出錯原因  

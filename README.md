@@ -76,7 +76,8 @@ Usage of ./etherguard-go:
 2. `nodeid`: NodeID. Must be unique in the whole Etherguard network.
 3. `nodename`: Node Name.
 4. `defaultttl`: Default TTL(etherguard layer. not affect ethernet layer)
-4. `privkey`: Private key. Same spec as wireguard.
+5. `l2fibtimeout`: The timeout(in seconds) of the MacAddr-> NodeID lookup table
+5. `privkey`: Private key. Same spec as wireguard.
 5. `listenport`: UDP lesten port
 6. `loglevel`: Log Level
     1. `loglevel`: `debug`,`error`,`slient` for wirefuard logger.

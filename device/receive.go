@@ -553,20 +553,34 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if should_receive { // Write message to tap device
 			if packet_type == path.NormalPacket {
 				if len(elem.packet) <= path.EgHeaderLen+12 {
-					device.log.Errorf("Invalid normal packet from peer %v", peer.ID.ToString())
+					device.log.Errorf("Invalid normal packet: Ethernet packet too small from peer %v", peer.ID.ToString())
 					goto skip
 				}
 				if device.LogLevel.LogNormal {
-					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					packet_len := len(elem.packet) - path.EgHeaderLen
+					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(packet_len))
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
 				if !tap.IsNotUnicast(src_macaddr) {
-					actual, loaded := device.l2fib.LoadOrStore(src_macaddr, src_nodeID)
-					if loaded {
-						if actual.(config.Vertex) != src_nodeID {
-							device.l2fib.Store(src_macaddr, src_nodeID) // Write to l2fib table
+					val, ok := device.l2fib.Load(src_macaddr)
+					if ok {
+						idtime := val.(*IdAndTime)
+						if idtime.ID != src_nodeID {
+							idtime.ID = src_nodeID
+							if device.LogLevel.LogNormal {
+								fmt.Printf("Normal: L2FIB [%v -> %v] updated.\n", src_macaddr.String(), src_nodeID)
+							}
+						}
+						idtime.Time = time.Now()
+					} else {
+						device.l2fib.Store(src_macaddr, &IdAndTime{
+							ID:   src_nodeID,
+							Time: time.Now(),
+						}) // Write to l2fib table
+						if device.LogLevel.LogNormal {
+							fmt.Printf("Normal: L2FIB [%v -> %v] added.\n", src_macaddr.String(), src_nodeID)
 						}
 					}
 				}

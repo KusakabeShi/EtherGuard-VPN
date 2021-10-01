@@ -21,6 +21,7 @@ type EdgeConfig struct {
 	NodeID            Vertex
 	NodeName          string
 	DefaultTTL        uint8
+	L2FIBTimeout      float64
 	PrivKey           string
 	ListenPort        int
 	LogLevel          LoggerInfo

@@ -260,13 +260,20 @@ func (device *Device) RoutineReadFromTUN() {
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
 			dst_nodeID = config.Broadcast
 		} else {
-			dst_nodeID = val.(config.Vertex)
+			dst_nodeID = val.(*IdAndTime).ID
 		}
+		packet_len := len(elem.packet) - path.EgHeaderLen
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
-		EgBody.SetPacketLength(uint16(len(elem.packet) - path.EgHeaderLen))
+		EgBody.SetPacketLength(uint16(packet_len))
 		EgBody.SetTTL(device.DefaultTTL)
 		elem.Type = path.NormalPacket
+		if packet_len <= 12 {
+			if device.LogLevel.LogNormal {
+				fmt.Println("Normal: Invalid packet: Ethernet packet too small." + " Len:" + strconv.Itoa(packet_len))
+			}
+			continue
+		}
 
 		if dst_nodeID != config.Broadcast {
 			var peer *Peer
@@ -279,7 +286,7 @@ func (device *Device) RoutineReadFromTUN() {
 					continue
 				}
 				if device.LogLevel.LogNormal {
-					fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
+					fmt.Println("Normal: Send packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(len(elem.packet)))
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}

@@ -8,12 +8,17 @@ package tap
 import (
 	"encoding/binary"
 	"errors"
+	"net"
 	"strconv"
 	"strings"
 )
 
 type Event int
-type MacAddress [6]uint8
+type MacAddress [6]byte
+
+func (mac *MacAddress) String() string {
+	return net.HardwareAddr((*mac)[:]).String()
+}
 
 func GetDstMacAddr(packet []byte) (dstMacAddr MacAddress) {
 	copy(dstMacAddr[:], packet[0:6])
