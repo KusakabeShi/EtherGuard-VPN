@@ -19,22 +19,19 @@ def signal_handler(sig, frame):
     
 def read_loop(fd):
     print("Sub: Start read fd:",fd)
-    with os.fdopen(fd, 'rb') as fdfile:
-        while True:
-            text = fdfile.read()
-            if len(text) == 0:
-                print("EOF!!!!!!!!!!!!!!!!!!!!!!!!")
-                break
-            print("Sub RECEIVED:",text)
+    while True:
+        text = os.read(fd, 65535)
+        if len(text) == 0:
+            print("EOF!!!!!!!!!!!!!!!!!!!!!!!!")
+            break
+        print("Sub RECEIVED:",text)
         
 def write_loop(fd):
-    with os.fdopen(fd, 'wb') as fdfile:
-        while True:
-            print("Sub: Write fd:",fd)
-            text = b'\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa' + b's'*88
-            fdfile.write(text)
-            fdfile.flush()
-            time.sleep(1)
+    while True:
+        print("Sub: Write fd:",fd)
+        text = b'\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa' + b's'*88
+        os.write(fd,text)
+        time.sleep(1)
             
 tr = threading.Thread(target = read_loop,  args=(er,))
 tr.start()

@@ -53,6 +53,9 @@ func CreateSockTAP(iconfig config.InterfaceConf, protocol string, NodeID config.
 	if iconfig.SendAddr != "" {
 		client, err := net.Dial(protocol, iconfig.SendAddr)
 		if err != nil {
+			if tap.server != nil {
+				(*tap.server).Close()
+			}
 			return nil, err
 		}
 		tap.connTx = &client
