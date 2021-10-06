@@ -25,6 +25,7 @@ nexthoptable:
   2:
     1: 1
 edgetemplate: example_config/super_mode/n1.yaml
+usepskforinteredge: true
 peers:
 - nodeid: 1
   name: Node_01

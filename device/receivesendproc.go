@@ -318,9 +318,9 @@ func (device *Device) server_process_Pong(peer *Peer, content path.PongMsg) erro
 
 func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 	peer.LastPingReceived = time.Now()
-	peer.Lock()
+	//peer.Lock()
 	//remove peer.endpoint_trylist
-	peer.Unlock()
+	//peer.Unlock()
 	PongMSG := path.PongMsg{
 		Src_nodeID: content.Src_nodeID,
 		Dst_nodeID: device.ID,
@@ -479,7 +479,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				//Peer died, try to switch to this new endpoint
 				for url, _ := range peerinfo.Connurl {
 					thepeer.Lock()
-					thepeer.endpoint_trylist.Set(url, time.Time{}) //another gorouting will process it
+					thepeer.endpoint_trylist.LoadOrStore(url, time.Time{}) //another gorouting will process it
 					thepeer.Unlock()
 					send_signal = true
 				}
@@ -625,7 +625,7 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 		if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).Before(time.Now()) {
 			//Peer died, try to switch to this new endpoint
 			thepeer.Lock()
-			thepeer.endpoint_trylist.Set(content.ConnURL, time.Time{}) //another gorouting will process it
+			thepeer.endpoint_trylist.LoadOrStore(content.ConnURL, time.Time{}) //another gorouting will process it
 			thepeer.Unlock()
 			device.event_tryendpoint <- struct{}{}
 		}

@@ -59,8 +59,14 @@ Usage of ./etherguard-go-vpp:
         1. `dummy`: 收到的封包直接丟棄，也不發出任何封包。作為中繼節點使用
         2. `stdio`: 收到的封包丟stdout，stdin進來的資料丟入vpn網路  
            需要參數: `macaddrprefix`,`l2headermode`
-        3. `udpsock`: 收到的封包用udp丟到某個網路位置，監聽port進來的資料丟去vpn網路  
-           需要參數: `macaddrprefix`,`recvaddr`,`sendaddr`
+        3. `udpsock`: 把VPN網路收到的layer2封包讀寫去一個udp socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `tcpsock`: 把VPN網路收到的layer2封包讀寫去一個tcp socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `unixsock`: 把VPN網路收到的layer2封包讀寫去一個unix socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `fd`: 把VPN網路收到的layer2封包讀寫去一個特定的file descriptor.  
+           Paramaters: 無. 但是使用環境變數 `EG_FD_RX` 和 `EG_FD_TX` 來指定
         4. `vpp`: 使用libmemif使vpp加入VPN網路  
            需要參數: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
         5. `tap`: Linux的tap設備。讓linux加入VPN網路  
@@ -70,9 +76,9 @@ Usage of ./etherguard-go-vpp:
     4. `vppbridgeid`: VPP 的網橋ID。不使用VPP網橋功能的話填0
     5. `macaddrprefix`: MAC地址前綴。真正的 MAC 地址=[前綴]:[NodeID]。  
                         如果這邊填了完整6格長度，就忽略`NodeID`
-    6. `recvaddr`: 僅限`udpsock`生效。收到的東西丟去 VPN 網路
-    7. `sendaddr`: 僅限`udpsock`生效。VPN網路收到的東西丟去這個 udp 地址
-    8. `l2headermode`: 僅限 `stdio` 和 `udpsock` 生效。debug用途，有三種模式:
+    6. `recvaddr`: 僅限`XXXsock`生效。listen地址，收到的東西丟去 VPN 網路
+    7. `sendaddr`: 僅限`XXXsock`生效。連線地址，VPN網路收到的東西丟去這個地址
+    8. `l2headermode`: 僅限 `stdio` 生效。debug用途，有三種模式:
         1. `nochg`: 從 VPN 網路收到什麼，就往tap裝置發送什麼。不對封包作任何更動
         2. `kbdbg`: 鍵盤bebug模式。搭配 `stdio` 模式，讓我 debug 用  
             因為前 12 byte 會用來做選路判斷，但是只是要debug，構造完整的封包就不是很方便  

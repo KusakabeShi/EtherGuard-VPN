@@ -32,16 +32,16 @@ var (
 	http_NhTableStr    []byte
 	http_PeerInfo      config.API_Peers
 
-	http_PeerID2PubKey map[config.Vertex]string
-
 	http_passwords       config.Passwords
 	http_StateExpire     time.Time
 	http_StateString_tmp []byte
 
-	http_PeerState    map[string]*PeerState //the state hash reported by peer
-	http_PeerIPs      map[string]*HttpPeerLocalIP
-	http_PeerLastSeen sync.Map // ID -> time.Time
-	http_sconfig      *config.SuperConfig
+	http_maps_lock     sync.RWMutex
+	http_PeerID2PubKey map[config.Vertex]string
+	http_PeerState     map[string]*PeerState //the state hash reported by peer
+	http_PeerIPs       map[string]*HttpPeerLocalIP
+
+	http_sconfig *config.SuperConfig
 
 	http_sconfig_path string
 	http_econfig_tmp  *config.EdgeConfig
@@ -68,6 +68,7 @@ type HttpPeerInfo struct {
 type PeerState struct {
 	NhTableState  [32]byte
 	PeerInfoState [32]byte
+	LastSeen      time.Time
 }
 
 type client struct {
@@ -87,8 +88,8 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo config.API_Peers, Stat
 			PSKey:   peerinfo.PSKey,
 			Connurl: make(map[string]int),
 		}
-		lastSeen, has := http_PeerLastSeen.Load(peerinfo.NodeID)
-		if has && lastSeen.(time.Time).Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
+		http_maps_lock.RLock()
+		if http_PeerState[peerinfo.PubKey].LastSeen.Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
 			connV4 := http_device4.GetConnurl(peerinfo.NodeID)
 			connV6 := http_device6.GetConnurl(peerinfo.NodeID)
 			api_peerinfo[peerinfo.PubKey].Connurl[connV4] = 4
@@ -107,6 +108,7 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo config.API_Peers, Stat
 			}
 			delete(api_peerinfo[peerinfo.PubKey].Connurl, "")
 		}
+		http_maps_lock.RUnlock()
 	}
 	api_peerinfo_str_byte, _ := json.Marshal(&api_peerinfo)
 	hash_raw := md5.Sum(append(api_peerinfo_str_byte, http_HashSalt...))
@@ -147,6 +149,8 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	PubKey := PubKeyA[0]
 	State := StateA[0]
 	NodeID := config.Vertex(NID2)
+	http_maps_lock.RLock()
+	defer http_maps_lock.RUnlock()
 	if http_PeerID2PubKey[NodeID] != PubKey {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not found"))
@@ -221,6 +225,8 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	PubKey := PubKeyA[0]
 	State := StateA[0]
 	NodeID := config.Vertex(NID2)
+	http_maps_lock.RLock()
+	defer http_maps_lock.RUnlock()
 	if http_PeerID2PubKey[NodeID] != PubKey {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not found"))
@@ -262,16 +268,15 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 			Edges:    http_graph.GetEdges(),
 			Dist:     http_graph.GetDtst(),
 		}
+		http_maps_lock.RLock()
 		for _, peerinfo := range http_sconfig.Peers {
-			LastSeenStr := ""
-			if lastseen, has := http_PeerLastSeen.Load(peerinfo.NodeID); has {
-				LastSeenStr = lastseen.(time.Time).String()
-			}
+			LastSeenStr := http_PeerState[peerinfo.PubKey].LastSeen.String()
 			hs.PeerInfo[peerinfo.NodeID] = HttpPeerInfo{
 				Name:     peerinfo.Name,
 				LastSeen: LastSeenStr,
 			}
 		}
+		http_maps_lock.RUnlock()
 		http_StateExpire = time.Now().Add(5 * time.Second)
 		http_StateString_tmp, _ = json.Marshal(hs)
 	}
@@ -340,7 +345,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 			return
 		}
 	}
-	if http_sconfig.GraphRecalculateSetting.StaticMode == false {
+	if http_sconfig.GraphRecalculateSetting.StaticMode == true {
 		NhTableStr := r.Form.Get("nexthoptable")
 		if NhTableStr == "" {
 			w.WriteHeader(http.StatusExpectationFailed)

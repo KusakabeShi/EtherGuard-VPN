@@ -7,14 +7,14 @@ A Full Mesh Layer2 VPN based on wireguard-go
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
 
 OSPF can find best route based on it's cost.  
-But sometimes the lentancy are different in the packet goes and back.  
-I'am thinking, is it possible to find the best route based on the **single-way latency**?  
+But sometimes the latency are different in the packet goes and back.  
+I'm thinking, is it possible to find the best route based on the **single-way latency**?  
 For example, I have two routes A and B at node N1, both of them can reach my node N2. A goes fast, but B backs fast.  
 My VPN can automatically send packet through route A at node N1, and the packet backs from route B.
 
-Here is the solution. This VPN `Etherguard` can collect all the single-way lentancy from all nodes, and calculate the best route using [Floyd–Warshall algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm).
+Here is the solution. This VPN `Etherguard` can collect all the single-way latency from all nodes, and calculate the best route using [Floyd–Warshall algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm).
 
-Wirried about the clock not match so that the measure result are not correct? It doesn't matter, here is the proof (Mandarin):  [https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html](https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html)
+Worried about the clock not match so that the measure result are not correct? It doesn't matter, here is the proof (Mandarin):  [https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html](https://www.kskb.eu.org/2021/08/rootless-routerpart-3-etherguard.html)
 
 ## Usage
 
@@ -40,7 +40,7 @@ Usage of ./etherguard-go:
 
 ## Mode
 
-1. Static Mode: Similar to origional wireguard. [Introduction](example_config/static_mode/README.md).
+1. Static Mode: Similar to original wireguard. [Introduction](example_config/static_mode/README.md).
 2. Super Mode: Inspired by[n2n](https://github.com/ntop/n2n). [Introduction](example_config/super_mode/README.md).
 3. P2P Mode: Inspired by[tinc](https://github.com/gsliepen/tinc). [Introduction](example_config/p2p_mode/README.md).
 
@@ -53,8 +53,14 @@ Usage of ./etherguard-go:
         1. `dummy`: Dymmy interface, drop any packet received. You need this if you want to setup it as a relay node.
         2. `stdio`: Wrtie to stdout，read from stdin.  
            Paramaters: `macaddrprefix`,`l2headermode`
-        3. `udpsock`: Write to an udp socket, and read from an net assress.  
-           Paramaters: `macaddrprefix`,`recvaddr`,`sendaddr`
+        3. `udpsock`: Read/Write the raw packet to an udp socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `tcpsock`: Read/Write the raw packet to a tcp socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `unixsock`: Read/Write the raw packet to an unix socket.  
+           Paramaters: `recvaddr`,`sendaddr`
+        3. `fd`: Read/Write the raw packet to specific file descriptor.  
+           Paramaters: None. But require environment variable `EG_FD_RX` and `EG_FD_TX`
         4. `vpp`: Integrate to VPP by libmemif.  
            Paramaters: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
         5. `tap`: Read/Write to tap device from linux.  
@@ -65,9 +71,9 @@ Usage of ./etherguard-go:
     5. `macaddrprefix`: Mac address Prefix.  
                         Real Mac address=[Prefix]:[NodeID].  
                         If you fill full mac address here, NodeID will be ignored.
-    6. `recvaddr`: Listen address for `udpsock` mode
-    7. `sendaddr`: Packet send address for `udpsock` mode
-    8. `l2headermode`: For debug usage, `stdio` and `udpsock` mode only
+    6. `recvaddr`: Listen address for `XXXsock` mode(server mode)
+    7. `sendaddr`: Packet send address for `XXXsock` mode(client mode)
+    8. `l2headermode`: For debug usage, for `stdio` mode only
         1. `nochg`: Do not change anything.
         2. `kbdbg`: Keyboard debug mode.  
                     Let me construct Layer 2 header by ascii character only.  
@@ -137,7 +143,7 @@ make
 Build Etherguard with VPP integrated.  
 You need libmemif.so installed to run this version.
 
-Install VPP and libemif
+Install VPP and libmemif
 
 ```bash
 echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list

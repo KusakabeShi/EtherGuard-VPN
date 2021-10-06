@@ -463,6 +463,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		dst_nodeID = EgHeader.GetDst()
 		elem.packet = elem.packet[:EgHeader.GetPacketLength()+path.EgHeaderLen] // EG header + true packet
 		packet_type = elem.Type
+		peer.LastPingReceived = time.Now()
 
 		if device.IsSuperNode {
 			peer.LastPingReceived = time.Now()

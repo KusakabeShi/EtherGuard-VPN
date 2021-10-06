@@ -287,15 +287,18 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 			peer6.SetPSK(psk)
 		}
 	}
+	http_maps_lock.Lock()
 	http_PeerID2PubKey[peerconf.NodeID] = peerconf.PubKey
 	http_PeerState[peerconf.PubKey] = &PeerState{}
 	http_PeerIPs[peerconf.PubKey] = &HttpPeerLocalIP{}
-	http_PeerLastSeen.Store(peerconf.NodeID, time.Time{})
+	http_maps_lock.Unlock()
 	return nil
 }
 
 func super_peerdel(toDelete config.Vertex) {
+	http_maps_lock.RLock()
 	PubKey := http_PeerID2PubKey[toDelete]
+	http_maps_lock.RUnlock()
 	UpdateErrorMsg := path.UpdateErrorMsg{
 		Node_id:   toDelete,
 		Action:    path.Shutdown,
@@ -322,11 +325,11 @@ func super_peerdel(toDelete config.Vertex) {
 	http_device4.RemovePeerByID(toDelete)
 	http_device6.RemovePeerByID(toDelete)
 	http_graph.RemoveVirt(toDelete, true, false)
-	http_PeerLastSeen.Delete(toDelete)
-
+	http_maps_lock.Lock()
 	delete(http_PeerState, PubKey)
 	delete(http_PeerIPs, PubKey)
 	delete(http_PeerID2PubKey, toDelete)
+	http_maps_lock.Unlock()
 }
 
 func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
@@ -335,7 +338,8 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 		case reg_msg := <-events.Event_server_register:
 			var should_push_peer bool
 			var should_push_nh bool
-			http_PeerLastSeen.Store(reg_msg.Node_id, time.Now())
+			http_maps_lock.RLock()
+			http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].LastSeen = time.Now()
 			if reg_msg.Node_id < config.Special_NodeID {
 				PubKey := http_PeerID2PubKey[reg_msg.Node_id]
 				if bytes.Equal(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:]) == false {
@@ -352,11 +356,12 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			}
 			var peer_state_changed bool
 			http_PeerInfo, http_PeerInfo_hash, peer_state_changed = get_api_peers(http_PeerInfo_hash)
+			http_maps_lock.RUnlock()
 			if should_push_peer || peer_state_changed {
-				PushPeerinfo()
+				PushPeerinfo(false)
 			}
 			if should_push_nh {
-				PushNhTable()
+				PushNhTable(false)
 			}
 		case <-events.Event_server_NhTable_changed:
 			NhTable := graph.GetNHTable()
@@ -366,7 +371,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			new_hash_str_byte := []byte(new_hash_str)
 			copy(http_NhTable_Hash[:], new_hash_str_byte)
 			http_NhTableStr = NhTablestr
-			PushNhTable()
+			PushNhTable(false)
 		case pong_msg := <-events.Event_server_pong:
 			changed := graph.UpdateLentancy(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
 			if changed {
@@ -378,21 +383,29 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 				copy(http_NhTable_Hash[:], new_hash_str_byte)
 				copy(graph.NhTableHash[:], new_hash_str_byte)
 				http_NhTableStr = NhTablestr
-				PushNhTable()
+				PushNhTable(false)
 			}
 		}
 	}
 }
 
 func RoutinePushSettings(interval time.Duration) {
+	force := false
+	var lastforce time.Time
 	for {
-		time.Sleep(interval)
-		PushNhTable()
-		PushPeerinfo()
+		if time.Now().After(lastforce.Add(interval)) {
+			lastforce = time.Now()
+			force = true
+		} else {
+			force = false
+		}
+		PushNhTable(force)
+		PushPeerinfo(false)
+		time.Sleep(path.S2TD(1))
 	}
 }
 
-func PushNhTable() {
+func PushNhTable(force bool) {
 	body, err := path.GetByte(path.UpdateNhTableMsg{
 		State_hash: http_NhTable_Hash,
 	})
@@ -407,17 +420,22 @@ func PushNhTable() {
 	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
-	for pkstr, _ := range http_PeerState {
-		if peer := http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-			http_device4.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
-		}
-		if peer := http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-			http_device6.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
+	http_maps_lock.RLock()
+	for pkstr, peerstate := range http_PeerState {
+		isAlive := peerstate.LastSeen.Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		if (force && isAlive) || peerstate.NhTableState != http_NhTable_Hash {
+			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
+				http_device4.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
+			}
+			if peer := http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
+				http_device6.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
+			}
 		}
 	}
+	http_maps_lock.RUnlock()
 }
 
-func PushPeerinfo() {
+func PushPeerinfo(force bool) {
 	body, err := path.GetByte(path.UpdatePeerMsg{
 		State_hash: http_PeerInfo_hash,
 	})
@@ -432,8 +450,9 @@ func PushPeerinfo() {
 	header.SetSrc(config.SuperNodeMessage)
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
+	http_maps_lock.RLock()
 	for pkstr, peerstate := range http_PeerState {
-		if peerstate.PeerInfoState != http_PeerInfo_hash {
+		if force || peerstate.PeerInfoState != http_PeerInfo_hash {
 			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil {
 				http_device4.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)
 			}
@@ -442,6 +461,7 @@ func PushPeerinfo() {
 			}
 		}
 	}
+	http_maps_lock.RUnlock()
 }
 
 func startUAPI(interfaceName string, logger *device.Logger, the_device *device.Device, errs chan error) (net.Listener, error) {

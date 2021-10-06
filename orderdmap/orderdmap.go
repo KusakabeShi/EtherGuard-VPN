@@ -65,6 +65,18 @@ func (o *OrderedMap) Set(key string, value interface{}) {
 	o.values[key] = value
 }
 
+func (o *OrderedMap) LoadOrStore(key string, value interface{}) (interface{}, bool) {
+	o.rwLock.Lock()
+	defer o.rwLock.Unlock()
+	_, exists := o.values[key]
+	if !exists {
+		o.keys = append(o.keys, key)
+		o.values[key] = value
+		return nil, false
+	}
+	return o.values[key], true
+}
+
 func (o *OrderedMap) Delete(key string) {
 	// check key is in use
 	o.rwLock.Lock()

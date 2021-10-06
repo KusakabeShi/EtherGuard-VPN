@@ -10,7 +10,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -190,9 +189,13 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	case "stdio":
 		thetap, err = tap.CreateStdIOTAP(econfig.Interface, econfig.NodeID)
 	case "udpsock":
-		lis, _ := net.ResolveUDPAddr("udp", econfig.Interface.RecvAddr)
-		sen, _ := net.ResolveUDPAddr("udp", econfig.Interface.SendAddr)
-		thetap, err = tap.CreateUDPSockTAP(econfig.Interface, econfig.NodeID, lis, sen)
+		thetap, err = tap.CreateUDPSockTAP(econfig.Interface, econfig.NodeID)
+	case "tcpsock":
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "tcp", econfig.NodeID)
+	case "unixsock":
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "unix", econfig.NodeID)
+	case "fd":
+		thetap, err = tap.CreateFdTAP(econfig.Interface, econfig.NodeID)
 	case "vpp":
 		thetap, err = tap.CreateVppTAP(econfig.Interface, econfig.NodeID, econfig.LogLevel.LogLevel)
 	case "tap":
