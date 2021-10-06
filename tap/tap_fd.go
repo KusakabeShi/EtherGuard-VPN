@@ -59,7 +59,7 @@ func (tap *FdTap) Read(buf []byte, offset int) (int, error) {
 } // read a packet from the device (without any additional headers)
 func (tap *FdTap) Write(buf []byte, offset int) (size int, err error) {
 	packet := buf[offset:]
-	size, err = tap.fileRX.Write(packet)
+	size, err = tap.fileTX.Write(packet)
 	if err != nil {
 		return 0, err
 	}

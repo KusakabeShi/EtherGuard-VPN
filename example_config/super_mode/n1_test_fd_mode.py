@@ -47,8 +47,10 @@ os.environ["EG_FD_TX"] = str(ew)
 
 print(str(er), str(ew))
 
-#p = subprocess.Popen('./etherguard-go -config example_config/super_mode/n1.yaml -mode edge'.split(" "),pass_fds=[er,ew])
-p = subprocess.Popen('python3 example_config/super_mode/n1_test_fd_mode2.py'.split(" "),pass_fds=[er,ew])
+#p = subprocess.Popen('./etherguard-go -config example_config/super_mode/n1_fd.yaml -mode edge'.split(" "),pass_fds=[er,ew])
+#p = subprocess.Popen('python3 example_config/super_mode/n1_test_fd_mode2.py'.split(" "),pass_fds=[er,ew])
+p = subprocess.Popen('example_config/super_mode/n1_test_fd_mode2'.split(" "),pass_fds=[er,ew])
+
 os.close(er)
 os.close(ew)
 
