@@ -80,11 +80,12 @@ type SuperPeerInfo struct {
 }
 
 type LoggerInfo struct {
-	LogLevel   string
-	LogTransit bool
-	LogControl bool
-	LogNormal  bool
-	LogNTP     bool
+	LogLevel    string
+	LogTransit  bool
+	LogControl  bool
+	LogNormal   bool
+	LogInternal bool
+	LogNTP      bool
 }
 
 func (v *Vertex) ToString() string {

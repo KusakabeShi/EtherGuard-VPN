@@ -50,21 +50,25 @@ Usage of ./etherguard-go:
 
 1. `interface`
     1. `itype`: Interface type.
-        1. `dummy`: Dymmy interface, drop any packet received. You need this if you want to setup it as a relay node.
-        2. `stdio`: Wrtie to stdout，read from stdin.  
-           Paramaters: `macaddrprefix`,`l2headermode`
-        3. `udpsock`: Read/Write the raw packet to an udp socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `tcpsock`: Read/Write the raw packet to a tcp socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `unixsock`: Read/Write the raw packet to an unix socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `fd`: Read/Write the raw packet to specific file descriptor.  
-           Paramaters: None. But require environment variable `EG_FD_RX` and `EG_FD_TX`
-        4. `vpp`: Integrate to VPP by libmemif.  
-           Paramaters: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
-        5. `tap`: Read/Write to tap device from linux.  
-           Paramaters: `name`,`macaddrprefix`,`vppifaceid`,`mtu`
+         1. `dummy`: Dymmy interface, drop any packet received. You need this if you want to setup it as a relay node.
+         2. `stdio`: Wrtie to stdout，read from stdin.  
+            Paramaters: `macaddrprefix`,`l2headermode`
+         3. `udpsock`: Read/Write the raw packet to an udp socket.  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `tcpsock`: Read/Write the raw packet to a tcp socket.  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixsock`: Read/Write the raw packet to an unix socket(SOCK_STREAM mode).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixgramsock`: Read/Write the raw packet to an unix socket(SOCK_DGRAM mode).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixpacketsock`: Read/Write the raw packet to an unix socket((SOCK_SEQPACKET mode).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `fd`: Read/Write the raw packet to specific file descriptor.  
+            Paramaters: None. But require environment variable `EG_FD_RX` and `EG_FD_TX`
+         4. `vpp`: Integrate to VPP by libmemif.  
+            Paramaters: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
+         5. `tap`: Read/Write to tap device from linux.  
+            Paramaters: `name`,`macaddrprefix`,`vppifaceid`,`mtu`
     2. `name` : Device name
     3. `vppifaceid`: Interface ID。Muse be unique in same VPP runtime
     4. `vppbridgeid`: VPP Bridge ID. Fill 0 if you don't use it.

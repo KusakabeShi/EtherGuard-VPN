@@ -814,8 +814,8 @@ func (device *Device) RoutineClearL2FIB() {
 			if time.Now().After(val.Time.Add(timeout)) {
 				mac := k.(tap.MacAddress)
 				device.l2fib.Delete(k)
-				if device.LogLevel.LogNormal {
-					fmt.Printf("Normal: L2FIB [%v -> %v] deleted.\n", mac.String(), val.ID)
+				if device.LogLevel.LogInternal {
+					fmt.Printf("Internal: L2FIB [%v -> %v] deleted.\n", mac.String(), val.ID)
 				}
 			}
 			return true

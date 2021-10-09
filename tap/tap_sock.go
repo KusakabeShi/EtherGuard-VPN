@@ -2,6 +2,7 @@ package tap
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -16,13 +17,14 @@ type SockServerTap struct {
 	connRx   *net.Conn
 	connTx   *net.Conn
 	static   bool
+	loglevel config.LoggerInfo
 
 	closed bool
 	events chan Event
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateSockTAP(iconfig config.InterfaceConf, protocol string, NodeID config.Vertex) (tapdev Device, err error) {
+func CreateSockTAP(iconfig config.InterfaceConf, protocol string, NodeID config.Vertex, loglevel config.LoggerInfo) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	tap := &SockServerTap{
@@ -34,6 +36,7 @@ func CreateSockTAP(iconfig config.InterfaceConf, protocol string, NodeID config.
 		connTx:   nil,
 		static:   false,
 		closed:   false,
+		loglevel: loglevel,
 		events:   make(chan Event, 1<<5),
 	}
 
@@ -75,21 +78,29 @@ func (tap *SockServerTap) RoutineAcceptConnection() {
 		return
 	}
 	for {
-		fd, err := (*tap.server).Accept()
+		conn, err := (*tap.server).Accept()
 		if tap.closed == true {
 			return
 		}
 		if err != nil {
-			println("accept error", err)
-			return
+			if tap.loglevel.LogInternal {
+				fmt.Printf("Internal: Accept error %v\n", err)
+			}
+			continue
+		}
+		if tap.loglevel.LogInternal {
+			fmt.Printf("Internal: New connection accepted from %v\n", conn.RemoteAddr())
 		}
 		if tap.connRx != nil {
+			if tap.loglevel.LogInternal {
+				fmt.Printf("Internal: Old connection %v closed due to new connection\n", (*tap.connRx).RemoteAddr())
+			}
 			(*tap.connRx).Close()
 		}
 
-		tap.connRx = &fd
+		tap.connRx = &conn
 		if tap.static == false {
-			tap.connTx = &fd
+			tap.connTx = &conn
 		}
 	}
 }
@@ -107,6 +118,9 @@ func (tap *SockServerTap) Read(buf []byte, offset int) (size int, err error) {
 	}
 	size, err = (*tap.connRx).Read(buf[offset:])
 	if err != nil && tap.server != nil {
+		if tap.loglevel.LogInternal {
+			fmt.Printf("Internal: Connection closed: %v\n", (*tap.connRx).RemoteAddr())
+		}
 		tap.connRx = nil
 		return 0, nil
 	}

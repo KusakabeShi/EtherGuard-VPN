@@ -56,21 +56,25 @@ Usage of ./etherguard-go-vpp:
 
 1. `interface`
     1. `itype`: 裝置類型，意味著從VPN網路收到的封包要丟去哪個硬體
-        1. `dummy`: 收到的封包直接丟棄，也不發出任何封包。作為中繼節點使用
-        2. `stdio`: 收到的封包丟stdout，stdin進來的資料丟入vpn網路  
-           需要參數: `macaddrprefix`,`l2headermode`
-        3. `udpsock`: 把VPN網路收到的layer2封包讀寫去一個udp socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `tcpsock`: 把VPN網路收到的layer2封包讀寫去一個tcp socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `unixsock`: 把VPN網路收到的layer2封包讀寫去一個unix socket.  
-           Paramaters: `recvaddr`,`sendaddr`
-        3. `fd`: 把VPN網路收到的layer2封包讀寫去一個特定的file descriptor.  
-           Paramaters: 無. 但是使用環境變數 `EG_FD_RX` 和 `EG_FD_TX` 來指定
-        4. `vpp`: 使用libmemif使vpp加入VPN網路  
-           需要參數: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
-        5. `tap`: Linux的tap設備。讓linux加入VPN網路  
-           需要參數: `name`,`macaddrprefix`,`mtu`
+         1. `dummy`: 收到的封包直接丟棄，也不發出任何封包。作為中繼節點使用
+         2. `stdio`: 收到的封包丟stdout，stdin進來的資料丟入vpn網路  
+            需要參數: `macaddrprefix`,`l2headermode`
+         3. `udpsock`: 把VPN網路收到的layer2封包讀寫去一個udp socket.  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `tcpsock`: 把VPN網路收到的layer2封包讀寫去一個tcp socket.  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixsock`: 把VPN網路收到的layer2封包讀寫去一個unix socket(SOCK_STREAM 模式).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixgramsock`: 把VPN網路收到的layer2封包讀寫去一個unix socket(SOCK_DGRAM 模式).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `unixpacketsock`: 把VPN網路收到的layer2封包讀寫去一個unix socket(SOCK_SEQPACKET 模式).  
+            Paramaters: `recvaddr`,`sendaddr`
+         3. `fd`: 把VPN網路收到的layer2封包讀寫去一個特定的file descriptor.  
+            Paramaters: 無. 但是使用環境變數 `EG_FD_RX` 和 `EG_FD_TX` 來指定
+         4. `vpp`: 使用libmemif使vpp加入VPN網路  
+            需要參數: `name`,`vppifaceid`,`vppbridgeid`,`macaddrprefix`,`mtu`
+         5. `tap`: Linux的tap設備。讓linux加入VPN網路  
+            需要參數: `name`,`macaddrprefix`,`mtu`
     2. `name` : 裝置名稱
     3. `vppifaceid`: VPP 的 interface ID。一個VPP runtime內不能重複
     4. `vppbridgeid`: VPP 的網橋ID。不使用VPP網橋功能的話填0

@@ -570,8 +570,8 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						idtime := val.(*IdAndTime)
 						if idtime.ID != src_nodeID {
 							idtime.ID = src_nodeID
-							if device.LogLevel.LogNormal {
-								fmt.Printf("Normal: L2FIB [%v -> %v] updated.\n", src_macaddr.String(), src_nodeID)
+							if device.LogLevel.LogInternal {
+								fmt.Printf("Internal: L2FIB [%v -> %v] updated.\n", src_macaddr.String(), src_nodeID)
 							}
 						}
 						idtime.Time = time.Now()
@@ -580,8 +580,8 @@ func (peer *Peer) RoutineSequentialReceiver() {
 							ID:   src_nodeID,
 							Time: time.Now(),
 						}) // Write to l2fib table
-						if device.LogLevel.LogNormal {
-							fmt.Printf("Normal: L2FIB [%v -> %v] added.\n", src_macaddr.String(), src_nodeID)
+						if device.LogLevel.LogInternal {
+							fmt.Printf("Internal: L2FIB [%v -> %v] added.\n", src_macaddr.String(), src_nodeID)
 						}
 					}
 				}

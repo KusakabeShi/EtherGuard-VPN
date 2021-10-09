@@ -19,6 +19,7 @@ loglevel:
   logtransit: true
   logcontrol: true
   lognormal: true
+  loginternal: true
   logntp: true
 dynamicroute:
   sendpinginterval: 16

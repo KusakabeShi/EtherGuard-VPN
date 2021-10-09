@@ -44,11 +44,12 @@ func printExampleEdgeConf() {
 		PrivKey:    "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort: 3001,
 		LogLevel: config.LoggerInfo{
-			LogLevel:   "error",
-			LogTransit: true,
-			LogControl: true,
-			LogNormal:  true,
-			LogNTP:     false,
+			LogLevel:    "error",
+			LogTransit:  true,
+			LogControl:  true,
+			LogNormal:   true,
+			LogInternal: true,
+			LogNTP:      false,
 		},
 		DynamicRoute: config.DynamicRouteInfo{
 			SendPingInterval: 20,
@@ -191,9 +192,13 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	case "udpsock":
 		thetap, err = tap.CreateUDPSockTAP(econfig.Interface, econfig.NodeID)
 	case "tcpsock":
-		thetap, err = tap.CreateSockTAP(econfig.Interface, "tcp", econfig.NodeID)
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "tcp", econfig.NodeID, econfig.LogLevel)
 	case "unixsock":
-		thetap, err = tap.CreateSockTAP(econfig.Interface, "unix", econfig.NodeID)
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "unix", econfig.NodeID, econfig.LogLevel)
+	case "unixgramsock":
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "unixgram", econfig.NodeID, econfig.LogLevel)
+	case "unixpacketsock":
+		thetap, err = tap.CreateSockTAP(econfig.Interface, "unixpacket", econfig.NodeID, econfig.LogLevel)
 	case "fd":
 		thetap, err = tap.CreateFdTAP(econfig.Interface, econfig.NodeID)
 	case "vpp":
