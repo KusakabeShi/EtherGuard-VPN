@@ -174,7 +174,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		Event_server_register:        make(chan path.RegisterMsg, 1<<5),
 		Event_server_NhTable_changed: make(chan struct{}, 1<<4),
 	}
-	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel.LogNTP)
+	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel)
 	http_graph.SetNHTable(http_sconfig.NextHopTable, [32]byte{})
 	if sconfig.GraphRecalculateSetting.StaticMode {
 		err = checkNhTable(http_sconfig.NextHopTable, sconfig.Peers)
@@ -364,7 +364,7 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 				PushNhTable(false)
 			}
 		case <-events.Event_server_NhTable_changed:
-			NhTable := graph.GetNHTable()
+			NhTable := graph.GetNHTable(true)
 			NhTablestr, _ := json.Marshal(NhTable)
 			md5_hash_raw := md5.Sum(http_NhTableStr)
 			new_hash_str := hex.EncodeToString(md5_hash_raw[:])
@@ -373,9 +373,9 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			http_NhTableStr = NhTablestr
 			PushNhTable(false)
 		case pong_msg := <-events.Event_server_pong:
-			changed := graph.UpdateLentancy(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
+			changed := graph.UpdateLatency(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
 			if changed {
-				NhTable := graph.GetNHTable()
+				NhTable := graph.GetNHTable(true)
 				NhTablestr, _ := json.Marshal(NhTable)
 				md5_hash_raw := md5.Sum(append(http_NhTableStr, http_HashSalt...))
 				new_hash_str := hex.EncodeToString(md5_hash_raw[:])
@@ -423,7 +423,10 @@ func PushNhTable(force bool) {
 	http_maps_lock.RLock()
 	for pkstr, peerstate := range http_PeerState {
 		isAlive := peerstate.LastSeen.Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
-		if (force && isAlive) || peerstate.NhTableState != http_NhTable_Hash {
+		if !isAlive {
+			continue
+		}
+		if force || peerstate.NhTableState != http_NhTable_Hash {
 			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
 				http_device4.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
 			}
@@ -452,6 +455,10 @@ func PushPeerinfo(force bool) {
 	copy(buf[path.EgHeaderLen:], body)
 	http_maps_lock.RLock()
 	for pkstr, peerstate := range http_PeerState {
+		isAlive := peerstate.LastSeen.Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		if !isAlive {
+			continue
+		}
 		if force || peerstate.PeerInfoState != http_PeerInfo_hash {
 			if peer := http_device4.LookupPeerByStr(pkstr); peer != nil {
 				http_device4.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)

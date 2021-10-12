@@ -56,6 +56,7 @@ type HttpState struct {
 	PeerInfo map[config.Vertex]HttpPeerInfo
 	Infinity float64
 	Edges    map[config.Vertex]map[config.Vertex]float64
+	Edges_Nh map[config.Vertex]map[config.Vertex]float64
 	NhTable  config.NextHopTable
 	Dist     config.DistTable
 }
@@ -263,9 +264,10 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 	if time.Now().After(http_StateExpire) {
 		hs := HttpState{
 			PeerInfo: make(map[config.Vertex]HttpPeerInfo),
-			NhTable:  http_graph.GetNHTable(),
+			NhTable:  http_graph.GetNHTable(false),
 			Infinity: path.Infinity,
-			Edges:    http_graph.GetEdges(),
+			Edges:    http_graph.GetEdges(false),
+			Edges_Nh: http_graph.GetEdges(true),
 			Dist:     http_graph.GetDtst(),
 		}
 		http_maps_lock.RLock()

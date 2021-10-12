@@ -347,11 +347,9 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	if IsSuperNode {
 		device.Event_server_pong = superevents.Event_server_pong
 		device.Event_server_register = superevents.Event_server_register
-		device.Event_server_NhTable_changed = superevents.Event_server_NhTable_changed
 		device.LogLevel = sconfig.LogLevel
 		device.SuperConfig = sconfig
 		device.SuperConfigPath = configpath
-		go device.RoutineRecalculateNhTable()
 	} else {
 		device.EdgeConfigPath = configpath
 		device.EdgeConfig = econfig
@@ -367,11 +365,11 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		go device.RoutineSetEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
-		go device.RoutineRecalculateNhTable()
 		go device.RoutineSpreadAllMyNeighbor()
 		go device.RoutineResetConn()
 		go device.RoutineClearL2FIB()
 	}
+	go device.RoutineRecalculateNhTable()
 	// create queues
 
 	device.queue.handshake = newHandshakeQueue()

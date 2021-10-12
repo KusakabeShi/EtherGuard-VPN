@@ -120,21 +120,21 @@ func printExampleEdgeConf() {
 			},
 		},
 	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, false)
+	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel)
 
-	g.UpdateLentancy(1, 2, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(2, 1, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(2, 3, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(3, 2, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(2, 4, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(4, 2, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(3, 4, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(4, 3, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(5, 3, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(3, 5, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(6, 4, path.S2TD(0.5), false, false)
-	g.UpdateLentancy(4, 6, path.S2TD(0.5), false, false)
-	_, next := path.FloydWarshall(g)
+	g.UpdateLatency(1, 2, path.S2TD(0.5), false, false)
+	g.UpdateLatency(2, 1, path.S2TD(0.5), false, false)
+	g.UpdateLatency(2, 3, path.S2TD(0.5), false, false)
+	g.UpdateLatency(3, 2, path.S2TD(0.5), false, false)
+	g.UpdateLatency(2, 4, path.S2TD(0.5), false, false)
+	g.UpdateLatency(4, 2, path.S2TD(0.5), false, false)
+	g.UpdateLatency(3, 4, path.S2TD(0.5), false, false)
+	g.UpdateLatency(4, 3, path.S2TD(0.5), false, false)
+	g.UpdateLatency(5, 3, path.S2TD(0.5), false, false)
+	g.UpdateLatency(3, 5, path.S2TD(0.5), false, false)
+	g.UpdateLatency(6, 4, path.S2TD(0.5), false, false)
+	g.UpdateLatency(4, 6, path.S2TD(0.5), false, false)
+	_, next, _ := g.FloydWarshall(false)
 	tconfig.NextHopTable = next
 	toprint, _ := yaml.Marshal(tconfig)
 	fmt.Print(string(toprint))
@@ -222,7 +222,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	if econfig.DynamicRoute.P2P.UseP2P == false && econfig.DynamicRoute.SuperNode.UseSuperNode == false {
 		econfig.LogLevel.LogNTP = false // NTP in static mode is useless
 	}
-	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel.LogNTP)
+	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel)
 	graph.SetNHTable(econfig.NextHopTable, [32]byte{})
 
 	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)

@@ -17,8 +17,9 @@ graphrecalculatesetting:
   staticmode: false
   jittertolerance: 5
   jittertolerancemultiplier: 1.01
-  nodereporttimeout: 50
-  recalculatecooldown: 5
+  nodereporttimeout: 20
+  timeoutcheckinterval: 5
+  recalculatecooldown: 1
 nexthoptable:
   1:
     2: 2

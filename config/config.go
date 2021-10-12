@@ -143,6 +143,7 @@ type GraphRecalculateSetting struct {
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
 	NodeReportTimeout         float64
+	TimeoutCheckInterval      float64
 	RecalculateCoolDown       float64
 }
 

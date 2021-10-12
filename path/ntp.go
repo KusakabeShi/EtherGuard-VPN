@@ -26,8 +26,8 @@ func (g *IG) InitNTP() {
 		g.SyncTimeMultiple(-1)
 		go g.RoutineSyncTime()
 	} else {
-		if g.ntp_log {
-			fmt.Println("NTP sync disabled")
+		if g.loglevel.LogNTP {
+			fmt.Println("NTP: NTP sync disabled")
 		}
 	}
 }
@@ -87,7 +87,7 @@ func (g *IG) SyncTimeMultiple(count int) {
 			results = append(results, result.ClockOffset)
 		}
 	}
-	if g.ntp_log {
+	if g.loglevel.LogNTP {
 		fmt.Println("NTP: All done")
 	}
 	sort.Sort(ByDuration(results))
@@ -99,25 +99,25 @@ func (g *IG) SyncTimeMultiple(count int) {
 		totaltime += result
 	}
 	avgtime := totaltime / time.Duration(len(results))
-	if g.ntp_log {
+	if g.loglevel.LogNTP {
 		fmt.Println("NTP: Arvage offset: " + avgtime.String())
 	}
 	g.ntp_offset = avgtime
 }
 
 func (g *IG) SyncTime(url string, timeout time.Duration) {
-	if g.ntp_log {
+	if g.loglevel.LogNTP {
 		fmt.Println("NTP: Starting syncing with NTP server :" + url)
 	}
 	options := ntp.QueryOptions{Timeout: timeout}
 	response, err := ntp.QueryWithOptions(url, options)
 	if err == nil {
-		if g.ntp_log {
+		if g.loglevel.LogNTP {
 			fmt.Println("NTP:  NTP server :" + url + "\tResult:" + response.ClockOffset.String() + " RTT:" + response.RTT.String())
 		}
 		g.ntp_servers.Set(url, *response)
 	} else {
-		if g.ntp_log {
+		if g.loglevel.LogNTP {
 			fmt.Println("NTP:  NTP server :" + url + "\tFailed :" + err.Error())
 		}
 		g.ntp_servers.Set(url, ntp.Response{
