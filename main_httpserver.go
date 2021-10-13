@@ -126,19 +126,19 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	PubKeyA, has := params["PubKey"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require PubKey."))
 		return
 	}
 	StateA, has := params["State"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require State."))
 		return
 	}
 	NIDA, has := params["NodeID"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require NodeID."))
 		return
 	}
 	NID2, err := strconv.ParseUint(NIDA[0], 10, 16)
@@ -154,7 +154,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	defer http_maps_lock.RUnlock()
 	if http_PeerID2PubKey[NodeID] != PubKey {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("NodeID and PunKey are not match"))
 		return
 	}
 
@@ -194,7 +194,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("Not found"))
+	w.Write([]byte("State not correct"))
 }
 
 func get_nhtable(w http.ResponseWriter, r *http.Request) {
@@ -202,19 +202,19 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	PubKeyA, has := params["PubKey"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require PubKey."))
 		return
 	}
 	StateA, has := params["State"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require State."))
 		return
 	}
 	NIDA, has := params["NodeID"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require NodeID."))
 		return
 	}
 	NID2, err := strconv.ParseUint(NIDA[0], 10, 16)
@@ -230,7 +230,7 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	defer http_maps_lock.RUnlock()
 	if http_PeerID2PubKey[NodeID] != PubKey {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("NodeID and PunKey are not match"))
 		return
 	}
 
@@ -244,7 +244,7 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("Not found"))
+	w.Write([]byte("State not correct"))
 }
 
 func get_info(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 	PasswordA, has := params["Password"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require Password"))
 		return
 	}
 	password := PasswordA[0]
@@ -292,7 +292,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	PasswordA, has := params["Password"]
 	if !has {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		w.Write([]byte("Require Password"))
 		return
 	}
 	password := PasswordA[0]
