@@ -44,6 +44,7 @@ dynamicroute:
       jittertolerance: 20
       jittertolerancemultiplier: 1.1
       nodereporttimeout: 40
+      timeoutcheckinterval: 5
       recalculatecooldown: 5
   ntpconfig:
     usentp: true

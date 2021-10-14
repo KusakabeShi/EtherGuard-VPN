@@ -431,6 +431,7 @@ curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9K
     1. jittertolerancemultiplier: 一樣是抖動容許誤差，但是高ping的話允許更多誤差  
                                     https://www.desmos.com/calculator/raoti16r5n
     1. nodereporttimeout: 收到的`Pong`封包的有效期限。太久沒收到就變回Infinity
+    1. timeoutcheckinterval: 固定間格檢查，有沒有人的Pong封包超過有效期限，要重算轉發表
 1. nexthoptable: 僅在`staticmode==true` 有效，手動設定的nexthoptable
 1. edgetemplate: 給`addpeer`API用的。參考這個設定檔，顯示一個範例設定檔給edge
 1. usepskforinteredge: 是否啟用edge間pre shares key通信。若啟用則幫edge們自動生成PSK

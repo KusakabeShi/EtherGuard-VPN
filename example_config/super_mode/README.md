@@ -428,6 +428,7 @@ Return value:
     1. jittertolerancemultiplier: the same is the jitter tolerance, but high ping allows more errors
                                     https://www.desmos.com/calculator/raoti16r5n
     1. nodereporttimeout: The timeout of the received `Pong` packet. Change back to Infinity after timeout.
+    1. timeoutcheckinterval: The interval to check if there any `Pong` packet timeouted, and recalculate the NhTable
 1. nexthoptable: only works in `staticmode==true`, set nexthoptable manually
 1. edgetemplate: for `addpeer` API. Refer to this configuration file and show a sample configuration file of the edge to the user
 1. usepskforinteredge: Whether to enable pre-share key communication between edges. If enabled, supernode will generate PSKs for edges  automatically

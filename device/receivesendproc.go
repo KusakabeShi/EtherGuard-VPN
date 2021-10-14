@@ -753,9 +753,11 @@ func (device *Device) RoutineRecalculateNhTable() {
 	}
 	if device.IsSuperNode {
 		for {
-			changed := device.graph.RecalculateNhTable(true)
-			if changed {
-				device.Event_server_NhTable_changed <- struct{}{}
+			if device.graph.CheckAnyShouldUpdate() {
+				changed := device.graph.RecalculateNhTable(true)
+				if changed {
+					device.Event_server_NhTable_changed <- struct{}{}
+				}
 			}
 			time.Sleep(device.graph.TimeoutCheckInterval)
 		}
@@ -765,7 +767,9 @@ func (device *Device) RoutineRecalculateNhTable() {
 		}
 		for {
 			if time.Now().After(device.graph.NhTableExpire) {
-				device.graph.RecalculateNhTable(false)
+				if device.graph.CheckAnyShouldUpdate() {
+					device.graph.RecalculateNhTable(false)
+				}
 			}
 			time.Sleep(device.graph.TimeoutCheckInterval)
 		}

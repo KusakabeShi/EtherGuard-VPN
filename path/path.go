@@ -110,6 +110,19 @@ func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool
 	}
 }
 
+func (g *IG) CheckAnyShouldUpdate() bool {
+	vert := g.Vertices()
+	for u, _ := range vert {
+		for v, _ := range vert {
+			newVal := g.Weight(u, v)
+			if g.ShouldUpdate(u, v, newVal) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 	if g.StaticMode {
 		if bytes.Equal(g.NhTableHash[:], make([]byte, 32)) {
