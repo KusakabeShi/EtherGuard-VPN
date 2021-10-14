@@ -279,7 +279,7 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content path.Regist
 			Node_id:   peer.ID,
 			Action:    path.Shutdown,
 			ErrorCode: 401,
-			ErrorMsg:  "Your node ID is not match with our registered nodeID",
+			ErrorMsg:  fmt.Sprintf("Your nodeID: %v is not match with registered nodeID: %v", content.Node_id, peer.ID),
 		}
 	}
 	if compareVersion(content.Version, device.Version) == false {
@@ -301,7 +301,7 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content path.Regist
 		header.SetTTL(device.DefaultTTL)
 		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
-		header.SetDst(peer.ID)
+		header.SetDst(config.SuperNodeMessage)
 		device.SendPacket(peer, path.UpdateError, buf, MessageTransportOffsetContent)
 		return nil
 	}
