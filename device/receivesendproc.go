@@ -386,12 +386,6 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			return nil
 		}
 		var peer_infos config.API_Peers
-		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
-			if device.LogLevel.LogControl {
-				fmt.Println("Control: Same PeerState Hash, skip download nhTable")
-			}
-			return nil
-		}
 
 		downloadurl := device.DRoute.SuperNode.APIUrl + "/peerinfo?NodeID=" + strconv.Itoa(int(device.ID)) + "&PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
 		if device.LogLevel.LogControl {
