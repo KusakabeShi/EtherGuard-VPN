@@ -400,7 +400,7 @@ func RoutinePushSettings(interval time.Duration) {
 			force = false
 		}
 		PushNhTable(force)
-		PushPeerinfo(false)
+		PushPeerinfo(force)
 		time.Sleep(path.S2TD(1))
 	}
 }
