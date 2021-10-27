@@ -246,10 +246,10 @@ func (g *IG) Weight(u, v config.Vertex, withAC bool) (ret float64) {
 	if time.Now().After(g.edges[u][v].time.Add(g.NodeReportTimeout)) {
 		return Infinity
 	}
-	if withAC {
-		ret = g.edges[u][v].ping + g.edges[u][v].additionalCost
-	}
 	ret = g.edges[u][v].ping
+	if withAC {
+		ret += g.edges[u][v].additionalCost
+	}
 	if ret >= Infinity {
 		return Infinity
 	}
@@ -268,10 +268,10 @@ func (g *IG) OldWeight(u, v config.Vertex, withAC bool) (ret float64) {
 	if _, ok := g.edges[u][v]; !ok {
 		return Infinity
 	}
-	if withAC {
-		ret = g.edges[u][v].ping_old + g.edges[u][v].additionalCost
-	}
 	ret = g.edges[u][v].ping_old
+	if withAC {
+		ret += g.edges[u][v].additionalCost
+	}
 	if ret >= Infinity {
 		return Infinity
 	}
