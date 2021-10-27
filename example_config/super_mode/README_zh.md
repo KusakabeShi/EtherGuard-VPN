@@ -287,8 +287,8 @@ curl "http://127.0.0.1:3000/api/peerstate?Password=passwd"
 範例:  
 ```
 curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
-                           -H "Content-Type: application/x-www-form-urlencoded" \
-                           -d "nodeid=100&name=Node_100&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "nodeid=100&name=Node_100&additionalcost=1000&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
 ```
 參數:
 1. URL query: Password: 新增peer用的密碼，在設定檔配置

@@ -307,44 +307,57 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	NID, err := strconv.ParseUint(r.Form.Get("nodeid"), 10, 16)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprint(err)))
+		w.Write([]byte(fmt.Sprintf("Paramater nodeid: Error parse uint16: \"%v\", %v", NID, err)))
 		return
 	}
 	NodeID := config.Vertex(NID)
+	if NodeID >= config.Special_NodeID {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Paramater nodeid: Can't use special nodeID."))
+		return
+	}
+
 	Name := r.Form.Get("name")
 	if len(Name) <= 0 || len(Name) >= 15 {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Name too long or too short."))
+		w.Write([]byte("Paramater name: Name too long or too short."))
+		return
+	}
+	AdditionalCostStr := r.Form.Get("additionalcost")
+	AdditionalCost, err := strconv.ParseFloat(AdditionalCostStr, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Paramater additionalcost: Error parse float64: \"%v\", %v", AdditionalCostStr, err)))
 		return
 	}
 	PubKey := r.Form.Get("pubkey")
 	_, err = device.Str2PubKey(PubKey)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprint(err)))
+		w.Write([]byte(fmt.Sprintf("Paramater pubkey: Error parse pubkey: \"%v\", %v", PubKey, err)))
 		return
 	}
 	PSKey := r.Form.Get("pskey")
 	_, err = device.Str2PSKey(PSKey)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprint(err)))
+		w.Write([]byte(fmt.Sprintf("Paramater pskey: Error parse pskey: \"%v\", %v", PSKey, err)))
 		return
 	}
 	for _, peerinfo := range http_sconfig.Peers {
 		if peerinfo.NodeID == NodeID {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("NodeID exists"))
+			w.Write([]byte("Paramater nodeid: NodeID exists"))
 			return
 		}
 		if peerinfo.Name == Name {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("Node name exists"))
+			w.Write([]byte("Paramater name: Node name exists"))
 			return
 		}
 		if peerinfo.PubKey == PubKey {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("PubKey exists"))
+			w.Write([]byte("Paramater pubkey: PubKey exists"))
 			return
 		}
 	}
@@ -352,40 +365,43 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 		NhTableStr := r.Form.Get("nexthoptable")
 		if NhTableStr == "" {
 			w.WriteHeader(http.StatusExpectationFailed)
-			w.Write([]byte("Your NextHopTable is in static mode.\nPlease provide your new NextHopTable in \"nexthoptable\" parmater in json format"))
+			w.Write([]byte("Paramater nexthoptable: Your NextHopTable is in static mode.\nPlease provide your new NextHopTable in \"nexthoptable\" parmater in json format"))
 			return
 		}
 		var NewNhTable config.NextHopTable
 		err := json.Unmarshal([]byte(NhTableStr), &NewNhTable)
 		if err != nil {
 			w.WriteHeader(http.StatusExpectationFailed)
-			w.Write([]byte(fmt.Sprintf("%v", err)))
+			w.Write([]byte(fmt.Sprintf("Paramater nexthoptable: \"%v\", %v", NhTableStr, err)))
 			return
 		}
 		err = checkNhTable(NewNhTable, append(http_sconfig.Peers, config.SuperPeerInfo{
-			NodeID: NodeID,
-			Name:   Name,
-			PubKey: PubKey,
-			PSKey:  PSKey,
+			NodeID:         NodeID,
+			Name:           Name,
+			PubKey:         PubKey,
+			PSKey:          PSKey,
+			AdditionalCost: AdditionalCost,
 		}))
 		if err != nil {
 			w.WriteHeader(http.StatusExpectationFailed)
-			w.Write([]byte(fmt.Sprintf("%v", err)))
+			w.Write([]byte(fmt.Sprintf("Paramater nexthoptable: \"%v\", %v", NhTableStr, err)))
 			return
 		}
 		http_graph.SetNHTable(NewNhTable, [32]byte{})
 	}
 	super_peeradd(config.SuperPeerInfo{
-		NodeID: NodeID,
-		Name:   Name,
-		PubKey: PubKey,
-		PSKey:  PSKey,
+		NodeID:         NodeID,
+		Name:           Name,
+		PubKey:         PubKey,
+		PSKey:          PSKey,
+		AdditionalCost: AdditionalCost,
 	})
 	http_sconfig.Peers = append(http_sconfig.Peers, config.SuperPeerInfo{
-		NodeID: NodeID,
-		Name:   Name,
-		PubKey: PubKey,
-		PSKey:  PSKey,
+		NodeID:         NodeID,
+		Name:           Name,
+		PubKey:         PubKey,
+		PSKey:          PSKey,
+		AdditionalCost: AdditionalCost,
 	})
 	configbytes, _ := yaml.Marshal(http_sconfig)
 	ioutil.WriteFile(http_sconfig_path, configbytes, 0644)

@@ -280,8 +280,8 @@ We can add new edges with this API without restart the supernode
 Exanple:  
 ```
 curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
-                           -H "Content-Type: application/x-www-form-urlencoded" \
-                           -d "nodeid=100&name=Node_100&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "nodeid=100&name=Node_100&additionalcost=1000&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
 ```
 
 Parameter:
