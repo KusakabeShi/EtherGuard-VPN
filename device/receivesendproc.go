@@ -647,7 +647,7 @@ func (device *Device) RoutineSetEndpoint() {
 				//Peer alives
 				continue
 			} else {
-				connurl := thepeer.endpoint_trylist.GetNextTry()
+				FastTry, connurl := thepeer.endpoint_trylist.GetNextTry()
 				if connurl == "" {
 					continue
 				}
@@ -657,8 +657,10 @@ func (device *Device) RoutineSetEndpoint() {
 					thepeer.endpoint_trylist.Delete(connurl)
 					continue
 				}
-				NextRun = true
-				go device.SendPing(thepeer, int(device.DRoute.ConnNextTry+1), 1, 1)
+				if FastTry {
+					NextRun = true
+					go device.SendPing(thepeer, int(device.DRoute.ConnNextTry+1), 1, 1)
+				}
 
 			}
 		}

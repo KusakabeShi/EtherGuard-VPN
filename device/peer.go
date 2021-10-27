@@ -107,10 +107,11 @@ func (et *endpoint_trylist) Delete(url string) {
 	delete(et.trymap_p2p, url)
 }
 
-func (et *endpoint_trylist) GetNextTry() string {
+func (et *endpoint_trylist) GetNextTry() (bool, string) {
 	et.RLock()
 	defer et.RUnlock()
 	var smallest *endpoint_tryitem
+	FastTry := true
 	for _, v := range et.trymap_super {
 		if smallest == nil || smallest.lastTry.After(v.lastTry) {
 			smallest = v
@@ -128,13 +129,16 @@ func (et *endpoint_trylist) GetNextTry() string {
 		}
 	}
 	if smallest == nil {
-		return ""
+		return false, ""
 	}
 	smallest.lastTry = time.Now()
 	if smallest.firstTry.After(time.Time{}) {
 		smallest.firstTry = time.Now()
 	}
-	return smallest.URL
+	if smallest.firstTry.Add(et.timeout).Before(time.Now()) {
+		FastTry = false
+	}
+	return FastTry, smallest.URL
 }
 
 type Peer struct {
