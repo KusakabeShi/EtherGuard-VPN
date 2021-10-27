@@ -83,7 +83,6 @@ type Device struct {
 
 	Event_server_register        chan path.RegisterMsg
 	Event_server_pong            chan path.PongMsg
-	Event_server_NhTable_changed chan struct{}
 	Event_save_config            chan struct{}
 
 	Event_Supernode_OK chan struct{}
@@ -91,16 +90,17 @@ type Device struct {
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
-	IsSuperNode bool
-	ID          config.Vertex
-	DefaultTTL  uint8
-	graph       *path.IG
-	l2fib       sync.Map
-	fibTimeout  float64
-	LogLevel    config.LoggerInfo
-	DRoute      config.DynamicRouteInfo
-	DupData     fixed_time_cache.Cache
-	Version     string
+	IsSuperNode    bool
+	ID             config.Vertex
+	DefaultTTL     uint8
+	graph          *path.IG
+	l2fib          sync.Map
+	fibTimeout     float64
+	LogLevel       config.LoggerInfo
+	DRoute         config.DynamicRouteInfo
+	DupData        fixed_time_cache.Cache
+	Version        string
+	AdditionalCost float64
 
 	pool struct {
 		messageBuffers   *WaitPool
@@ -362,14 +362,17 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
 		device.DefaultTTL = econfig.DefaultTTL
 		device.fibTimeout = econfig.L2FIBTimeout
+		device.AdditionalCost = device.DRoute.P2P.AdditionalCost
 		go device.RoutineSetEndpoint()
+		go device.RoutineDetectOfflineAndTryNextEndpoint()
 		go device.RoutineRegister()
 		go device.RoutineSendPing()
 		go device.RoutineSpreadAllMyNeighbor()
 		go device.RoutineResetConn()
 		go device.RoutineClearL2FIB()
+		go device.RoutineRecalculateNhTable()
 	}
-	go device.RoutineRecalculateNhTable()
+	
 	// create queues
 
 	device.queue.handshake = newHandshakeQueue()

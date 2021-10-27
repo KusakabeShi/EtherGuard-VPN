@@ -13,7 +13,7 @@ nodename: Node01
 defaultttl: 200
 l2fibtimeout: 3600
 privkey: 6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=
-listenport: 3001
+listenport: 0
 loglevel:
   loglevel: normal
   logtransit: true
@@ -40,6 +40,7 @@ dynamicroute:
   p2p:
     usep2p: false
     sendpeerinterval: 20
+    additionalcost: 0
     graphrecalculatesetting:
       staticmode: false
       jittertolerance: 20

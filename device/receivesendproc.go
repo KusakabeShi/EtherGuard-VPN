@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
-	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
 	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"github.com/KusakabeSi/EtherGuardVPN/tap"
 	"github.com/google/gopacket"
@@ -321,13 +320,15 @@ func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 	//peer.Lock()
 	//remove peer.endpoint_trylist
 	//peer.Unlock()
+
 	PongMSG := path.PongMsg{
-		Src_nodeID: content.Src_nodeID,
-		Dst_nodeID: device.ID,
-		Timediff:   device.graph.GetCurrentTime().Sub(content.Time),
+		Src_nodeID:     content.Src_nodeID,
+		Dst_nodeID:     device.ID,
+		Timediff:       device.graph.GetCurrentTime().Sub(content.Time),
+		AdditionalCost: device.AdditionalCost,
 	}
 	if device.DRoute.P2P.UseP2P && time.Now().After(device.graph.NhTableExpire) {
-		device.graph.UpdateLatency(content.Src_nodeID, device.ID, PongMSG.Timediff, true, false)
+		device.graph.UpdateLatency(content.Src_nodeID, device.ID, PongMSG.Timediff, device.AdditionalCost, true, false)
 	}
 	body, err := path.GetByte(&PongMSG)
 	if err != nil {
@@ -354,7 +355,7 @@ func (device *Device) process_ping(peer *Peer, content path.PingMsg) error {
 func (device *Device) process_pong(peer *Peer, content path.PongMsg) error {
 	if device.DRoute.P2P.UseP2P {
 		if time.Now().After(device.graph.NhTableExpire) {
-			device.graph.UpdateLatency(content.Src_nodeID, content.Dst_nodeID, content.Timediff, true, false)
+			device.graph.UpdateLatency(content.Src_nodeID, content.Dst_nodeID, content.Timediff, content.AdditionalCost, true, false)
 		}
 		if !peer.AskedForNeighbor {
 			QueryPeerMsg := path.QueryPeerMsg{
@@ -382,6 +383,12 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 		if peer.ID != config.SuperNodeMessage {
 			if device.LogLevel.LogControl {
 				fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
+			}
+			return nil
+		}
+		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Same PeerState Hash, skip download nhTable")
 			}
 			return nil
 		}
@@ -435,9 +442,6 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 		}
 
 		for PubKey, peerinfo := range peer_infos {
-			if len(peerinfo.Connurl) == 0 {
-				continue
-			}
 			sk, err := Str2PubKey(PubKey)
 			if err != nil {
 				device.log.Errorf("Error decode base64:", err)
@@ -448,14 +452,17 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 			}
 			thepeer := device.LookupPeer(sk)
 			if thepeer == nil { //not exist in local
+				if len(peerinfo.Connurl) == 0 {
+					continue
+				}
 				if device.LogLevel.LogControl {
 					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + PubKey)
 				}
-				if device.graph.Weight(device.ID, peerinfo.NodeID) == path.Infinity { // add node to graph
-					device.graph.UpdateLatency(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), true, false)
+				if device.graph.Weight(device.ID, peerinfo.NodeID, false) == path.Infinity { // add node to graph
+					device.graph.UpdateLatency(device.ID, peerinfo.NodeID, path.S2TD(path.Infinity), device.AdditionalCost, true, false)
 				}
-				if device.graph.Weight(peerinfo.NodeID, device.ID) == path.Infinity { // add node to graph
-					device.graph.UpdateLatency(peerinfo.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
+				if device.graph.Weight(peerinfo.NodeID, device.ID, false) == path.Infinity { // add node to graph
+					device.graph.UpdateLatency(peerinfo.NodeID, device.ID, path.S2TD(path.Infinity), device.AdditionalCost, true, false)
 				}
 				device.NewPeer(sk, peerinfo.NodeID, false)
 				thepeer = device.LookupPeer(sk)
@@ -469,14 +476,10 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content path.UpdatePeerM
 				thepeer.SetPSK(pk)
 			}
 
-			if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).Before(time.Now()) {
+			thepeer.endpoint_trylist.UpdateSuper(peerinfo.Connurl)
+			if !thepeer.IsPeerAlive() {
 				//Peer died, try to switch to this new endpoint
-				for url, _ := range peerinfo.Connurl {
-					thepeer.Lock()
-					thepeer.endpoint_trylist.LoadOrStore(url, time.Time{}) //another gorouting will process it
-					thepeer.Unlock()
-					send_signal = true
-				}
+				send_signal = true
 			}
 		}
 		device.peers.Peer_state = content.State_hash
@@ -564,8 +567,14 @@ func (device *Device) process_RequestPeerMsg(content path.QueryPeerMsg) error { 
 				continue
 			}
 			if peer.endpoint == nil {
+				// I don't have the infomation of this peer, skip
 				continue
 			}
+			if !peer.IsPeerAlive() {
+				// peer died, skip
+				continue
+			}
+
 			peer.handshake.mutex.RLock()
 			response := path.BoardcastPeerMsg{
 				Request_ID: content.Request_ID,
@@ -608,19 +617,17 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content path.Boardcas
 			if device.LogLevel.LogControl {
 				fmt.Println("Control: Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + pk.ToString())
 			}
-			if device.graph.Weight(device.ID, content.NodeID) == path.Infinity { // add node to graph
-				device.graph.UpdateLatency(device.ID, content.NodeID, path.S2TD(path.Infinity), true, false)
+			if device.graph.Weight(device.ID, content.NodeID, false) == path.Infinity { // add node to graph
+				device.graph.UpdateLatency(device.ID, content.NodeID, path.S2TD(path.Infinity), device.AdditionalCost, true, false)
 			}
-			if device.graph.Weight(content.NodeID, device.ID) == path.Infinity { // add node to graph
-				device.graph.UpdateLatency(content.NodeID, device.ID, path.S2TD(path.Infinity), true, false)
+			if device.graph.Weight(content.NodeID, device.ID, false) == path.Infinity { // add node to graph
+				device.graph.UpdateLatency(content.NodeID, device.ID, path.S2TD(path.Infinity), device.AdditionalCost, true, false)
 			}
 			device.NewPeer(pk, content.NodeID, false)
 		}
-		if thepeer.LastPingReceived.Add(path.S2TD(device.DRoute.PeerAliveTimeout)).Before(time.Now()) {
+		if !thepeer.IsPeerAlive() {
 			//Peer died, try to switch to this new endpoint
-			thepeer.Lock()
-			thepeer.endpoint_trylist.LoadOrStore(content.ConnURL, time.Time{}) //another gorouting will process it
-			thepeer.Unlock()
+			thepeer.endpoint_trylist.UpdateP2P(content.ConnURL) //another gorouting will process it
 			device.event_tryendpoint <- struct{}{}
 		}
 
@@ -640,46 +647,19 @@ func (device *Device) RoutineSetEndpoint() {
 				//Peer alives
 				continue
 			} else {
-				thepeer.RLock()
-				thepeer.endpoint_trylist.Sort(func(a *orderedmap.Pair, b *orderedmap.Pair) bool {
-					return a.Value().(time.Time).Before(b.Value().(time.Time))
-				})
-				trylist := thepeer.endpoint_trylist.Keys()
-				thepeer.RUnlock()
-				for _, key := range trylist { // try next endpoint
-					connurl := key
-					thepeer.RLock()
-					val, hasval := thepeer.endpoint_trylist.Get(key)
-					thepeer.RUnlock()
-					if !hasval {
-						continue
-					}
-					trytime := val.(time.Time)
-					if trytime.Sub(time.Time{}) != time.Duration(0) && time.Now().Sub(trytime) > path.S2TD(device.DRoute.ConnTimeOut) { // tried before, but no response
-						thepeer.Lock()
-						thepeer.endpoint_trylist.Delete(key)
-						thepeer.Unlock()
-					} else {
-						if device.LogLevel.LogControl {
-							fmt.Println("Control: Set endpoint to " + connurl + " for NodeID:" + thepeer.ID.ToString())
-						}
-						err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, thepeer.StaticConn) //trying to bind first url in the list and wait device.DRoute.P2P.PeerAliveTimeout seconds
-						if err != nil {
-							device.log.Errorf("Bind " + connurl + " failed!")
-							thepeer.Lock()
-							thepeer.endpoint_trylist.Delete(connurl)
-							thepeer.Unlock()
-							continue
-						}
-						NextRun = true
-						thepeer.Lock()
-						thepeer.endpoint_trylist.Set(key, time.Now())
-						thepeer.Unlock()
-						//Send Ping message to it
-						go device.SendPing(thepeer, int(device.DRoute.ConnNextTry+1), 1, 1)
-						break
-					}
+				connurl := thepeer.endpoint_trylist.GetNextTry()
+				if connurl == "" {
+					continue
 				}
+				err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
+				if err != nil {
+					device.log.Errorf("Bind " + connurl + " failed!")
+					thepeer.endpoint_trylist.Delete(connurl)
+					continue
+				}
+				NextRun = true
+				go device.SendPing(thepeer, int(device.DRoute.ConnNextTry+1), 1, 1)
+
 			}
 		}
 	ClearChanLoop:
@@ -691,9 +671,25 @@ func (device *Device) RoutineSetEndpoint() {
 			}
 		}
 		time.Sleep(path.S2TD(device.DRoute.ConnNextTry))
+		if device.LogLevel.LogInternal {
+			fmt.Printf("Internal: RoutineSetEndpoint: NextRun:%v\n", NextRun)
+		}
 		if NextRun {
 			device.event_tryendpoint <- struct{}{}
 		}
+	}
+}
+
+func (device *Device) RoutineDetectOfflineAndTryNextEndpoint() {
+	if !(device.DRoute.P2P.UseP2P || device.DRoute.SuperNode.UseSuperNode) {
+		return
+	}
+	if device.DRoute.ConnTimeOut == 0 {
+		return
+	}
+	for {
+		device.event_tryendpoint <- struct{}{}
+		time.Sleep(path.S2TD(device.DRoute.ConnTimeOut))
 	}
 }
 
@@ -745,29 +741,19 @@ func (device *Device) RoutineRecalculateNhTable() {
 	if device.graph.TimeoutCheckInterval == 0 {
 		return
 	}
-	if device.IsSuperNode {
-		for {
-			if device.graph.CheckAnyShouldUpdate() {
-				changed := device.graph.RecalculateNhTable(true)
-				if changed {
-					device.Event_server_NhTable_changed <- struct{}{}
-				}
-			}
-			time.Sleep(device.graph.TimeoutCheckInterval)
-		}
-	} else {
-		if !device.DRoute.P2P.UseP2P {
-			return
-		}
-		for {
-			if time.Now().After(device.graph.NhTableExpire) {
-				if device.graph.CheckAnyShouldUpdate() {
-					device.graph.RecalculateNhTable(false)
-				}
-			}
-			time.Sleep(device.graph.TimeoutCheckInterval)
-		}
+
+	if !device.DRoute.P2P.UseP2P {
+		return
 	}
+	for {
+		if time.Now().After(device.graph.NhTableExpire) {
+			if device.graph.CheckAnyShouldUpdate() {
+				device.graph.RecalculateNhTable(false)
+			}
+		}
+		time.Sleep(device.graph.TimeoutCheckInterval)
+	}
+
 }
 
 func (device *Device) RoutineSpreadAllMyNeighbor() {

@@ -7,6 +7,7 @@ loglevel:
   logtransit: true
   logcontrol: true
   lognormal: true
+  loginternal: true
   logntp: false
 repushconfiginterval: 30
 passwords:
@@ -32,7 +33,9 @@ peers:
   name: Node_01
   pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
   pskey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
+  additionalcost: 1000
 - nodeid: 2
   name: Node_02
   pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
   pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
+  additionalcost: 1000

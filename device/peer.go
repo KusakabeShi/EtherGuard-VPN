@@ -18,9 +18,124 @@ import (
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
+	"github.com/KusakabeSi/EtherGuardVPN/path"
 	"gopkg.in/yaml.v2"
 )
+
+type endpoint_tryitem struct {
+	URL      string
+	lastTry  time.Time
+	firstTry time.Time
+}
+
+type endpoint_trylist struct {
+	sync.RWMutex
+	timeout      time.Duration
+	peer         *Peer
+	trymap_super map[string]*endpoint_tryitem
+	trymap_p2p   map[string]*endpoint_tryitem
+}
+
+func NewEndpoint_trylist(peer *Peer, timeout time.Duration) *endpoint_trylist {
+	return &endpoint_trylist{
+		timeout:      timeout,
+		peer:         peer,
+		trymap_super: make(map[string]*endpoint_tryitem),
+		trymap_p2p:   make(map[string]*endpoint_tryitem),
+	}
+}
+
+func (et *endpoint_trylist) UpdateSuper(urls map[string]float64) {
+	et.Lock()
+	defer et.Unlock()
+	newmap_super := make(map[string]*endpoint_tryitem)
+	if len(urls) == 0 {
+		if et.peer.device.LogLevel.LogInternal {
+			fmt.Println(fmt.Sprintf("Internal: Peer %v : Reset trylist(super) %v", et.peer.ID.ToString(), "nil"))
+		}
+	}
+	for url, it := range urls {
+		_, err := conn.LookupIP(url, 0)
+		if err != nil {
+			if et.peer.device.LogLevel.LogInternal {
+				fmt.Println(fmt.Sprintf("Internal: Peer %v : Update trylist(super) %v error: %v", et.peer.ID.ToString(), url, err))
+			}
+			continue
+		}
+		if val, ok := et.trymap_super[url]; ok {
+			if et.peer.device.LogLevel.LogInternal {
+				fmt.Println(fmt.Sprintf("Internal: Peer %v : Update trylist(super) %v", et.peer.ID.ToString(), url))
+			}
+			newmap_super[url] = val
+		} else {
+			if et.peer.device.LogLevel.LogInternal {
+				fmt.Println(fmt.Sprintf("Internal: Peer %v : New trylist(super) %v", et.peer.ID.ToString(), url))
+			}
+			newmap_super[url] = &endpoint_tryitem{
+				URL:      url,
+				lastTry:  time.Time{}.Add(path.S2TD(it)),
+				firstTry: time.Time{},
+			}
+		}
+	}
+	et.trymap_super = newmap_super
+}
+
+func (et *endpoint_trylist) UpdateP2P(url string) {
+	_, err := conn.LookupIP(url, 0)
+	if err != nil {
+		return
+	}
+	et.Lock()
+	defer et.Unlock()
+	if _, ok := et.trymap_p2p[url]; !ok {
+		if et.peer.device.LogLevel.LogInternal {
+			fmt.Println(fmt.Sprintf("Internal: Peer %v : Add trylist(p2p) %v", et.peer.ID.ToString(), url))
+		}
+		et.trymap_p2p[url] = &endpoint_tryitem{
+			URL:      url,
+			lastTry:  time.Now(),
+			firstTry: time.Time{},
+		}
+	}
+}
+
+func (et *endpoint_trylist) Delete(url string) {
+	et.Lock()
+	defer et.Unlock()
+	delete(et.trymap_super, url)
+	delete(et.trymap_p2p, url)
+}
+
+func (et *endpoint_trylist) GetNextTry() string {
+	et.RLock()
+	defer et.RUnlock()
+	var smallest *endpoint_tryitem
+	for _, v := range et.trymap_super {
+		if smallest == nil || smallest.lastTry.After(v.lastTry) {
+			smallest = v
+		}
+	}
+	for url, v := range et.trymap_p2p {
+		if v.firstTry.After(time.Time{}) && v.firstTry.Add(et.timeout).Before(time.Now()) {
+			if et.peer.device.LogLevel.LogInternal {
+				fmt.Println(fmt.Sprintf("Internal: Peer %v : Delete trylist(p2p) %v", et.peer.ID.ToString(), url))
+			}
+			delete(et.trymap_p2p, url)
+		}
+		if smallest.lastTry.After(v.lastTry) {
+			smallest = v
+		}
+	}
+	if smallest == nil {
+		return ""
+	}
+	smallest.lastTry = time.Now()
+	if smallest.firstTry.After(time.Time{}) {
+		smallest.firstTry = time.Now()
+	}
+	return smallest.URL
+}
 
 type Peer struct {
 	isRunning        AtomicBool
@@ -29,7 +144,7 @@ type Peer struct {
 	handshake        Handshake
 	device           *Device
 	endpoint         conn.Endpoint
-	endpoint_trylist orderedmap.OrderedMap //map[string]time.Time
+	endpoint_trylist *endpoint_trylist
 	LastPingReceived time.Time
 	stopping         sync.WaitGroup // routines pending stop
 
@@ -110,8 +225,8 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 	}
 
 	// create peer
-	if device.LogLevel.LogControl {
-		fmt.Println("Control: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
+	if device.LogLevel.LogInternal {
+		fmt.Println("Internal: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
 	}
 	peer := new(Peer)
 	peer.Lock()
@@ -119,7 +234,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
-	peer.endpoint_trylist = *orderedmap.New()
+	peer.endpoint_trylist = NewEndpoint_trylist(peer, path.S2TD(device.DRoute.PeerAliveTimeout))
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
@@ -160,6 +275,17 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 	}
 
 	return peer, nil
+}
+
+func (peer *Peer) IsPeerAlive() bool {
+	PeerAliveTimeout := path.S2TD(peer.device.DRoute.PeerAliveTimeout)
+	if peer.endpoint == nil {
+		return false
+	}
+	if peer.LastPingReceived.Add(PeerAliveTimeout).Before(time.Now()) {
+		return false
+	}
+	return true
 }
 
 func (peer *Peer) SendBuffer(buffer []byte) error {
@@ -328,6 +454,9 @@ func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) er
 	peer.ConnURL = connurl
 	peer.ConnAF = af
 
+	if peer.device.LogLevel.LogInternal {
+		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
+	}
 	var err error
 	connurl, err = conn.LookupIP(connurl, af)
 	if err != nil {

@@ -38,11 +38,12 @@ func printExampleEdgeConf() {
 			SendAddr:      "127.0.0.1:5001",
 			L2HeaderMode:  "nochg",
 		},
-		NodeID:     1,
-		NodeName:   "Node01",
-		DefaultTTL: 200,
-		PrivKey:    "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
-		ListenPort: 3001,
+		NodeID:       1,
+		NodeName:     "Node01",
+		DefaultTTL:   200,
+		L2FIBTimeout: 3600,
+		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
+		ListenPort:   3001,
 		LogLevel: config.LoggerInfo{
 			LogLevel:    "error",
 			LogTransit:  true,
@@ -76,6 +77,7 @@ func printExampleEdgeConf() {
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
 					NodeReportTimeout:         40,
+					TimeoutCheckInterval:      5,
 					RecalculateCoolDown:       5,
 				},
 			},
@@ -122,18 +124,18 @@ func printExampleEdgeConf() {
 	}
 	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel)
 
-	g.UpdateLatency(1, 2, path.S2TD(0.5), false, false)
-	g.UpdateLatency(2, 1, path.S2TD(0.5), false, false)
-	g.UpdateLatency(2, 3, path.S2TD(0.5), false, false)
-	g.UpdateLatency(3, 2, path.S2TD(0.5), false, false)
-	g.UpdateLatency(2, 4, path.S2TD(0.5), false, false)
-	g.UpdateLatency(4, 2, path.S2TD(0.5), false, false)
-	g.UpdateLatency(3, 4, path.S2TD(0.5), false, false)
-	g.UpdateLatency(4, 3, path.S2TD(0.5), false, false)
-	g.UpdateLatency(5, 3, path.S2TD(0.5), false, false)
-	g.UpdateLatency(3, 5, path.S2TD(0.5), false, false)
-	g.UpdateLatency(6, 4, path.S2TD(0.5), false, false)
-	g.UpdateLatency(4, 6, path.S2TD(0.5), false, false)
+	g.UpdateLatency(1, 2, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(2, 1, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(2, 3, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(3, 2, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(2, 4, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(4, 2, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(3, 4, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(4, 3, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(5, 3, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(3, 5, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(6, 4, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(4, 6, path.S2TD(0.5), 0, false, false)
 	_, next, _ := g.FloydWarshall(false)
 	tconfig.NextHopTable = next
 	toprint, _ := yaml.Marshal(tconfig)

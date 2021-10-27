@@ -73,10 +73,11 @@ type PeerInfo struct {
 }
 
 type SuperPeerInfo struct {
-	NodeID Vertex
-	Name   string
-	PubKey string
-	PSKey  string
+	NodeID         Vertex
+	Name           string
+	PubKey         string
+	PSKey          string
+	AdditionalCost float64
 }
 
 type LoggerInfo struct {
@@ -135,6 +136,7 @@ type SuperInfo struct {
 type P2Pinfo struct {
 	UseP2P                  bool
 	SendPeerInterval        float64
+	AdditionalCost          float64
 	GraphRecalculateSetting GraphRecalculateSetting
 }
 
@@ -153,7 +155,7 @@ type NextHopTable map[Vertex]map[Vertex]*Vertex
 type API_Peerinfo struct {
 	NodeID  Vertex
 	PSKey   string
-	Connurl map[string]int
+	Connurl map[string]float64
 }
 
 type API_Peers map[string]API_Peerinfo // map[PubKey]API_Peerinfo

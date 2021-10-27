@@ -23,9 +23,10 @@ func (g *IG) GetCurrentTime() time.Time {
 }
 
 type Latency struct {
-	ping     float64
-	ping_old float64
-	time     time.Time
+	ping           float64
+	ping_old       float64
+	additionalCost float64
+	time           time.Time
 }
 
 type Fullroute struct {
@@ -94,7 +95,7 @@ func (g *IG) GetWeightType(x float64) (y float64) {
 }
 
 func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool {
-	oldval := math.Abs(g.OldWeight(u, v) * 1000)
+	oldval := math.Abs(g.OldWeight(u, v, false) * 1000)
 	newval = math.Abs(newval * 1000)
 	if g.IsSuperMode {
 		if g.JitterTolerance > 0.001 && g.JitterToleranceMultiplier >= 1 {
@@ -114,9 +115,11 @@ func (g *IG) CheckAnyShouldUpdate() bool {
 	vert := g.Vertices()
 	for u, _ := range vert {
 		for v, _ := range vert {
-			newVal := g.Weight(u, v)
-			if g.ShouldUpdate(u, v, newVal) {
-				return true
+			if u != v {
+				newVal := g.Weight(u, v, false)
+				if g.ShouldUpdate(u, v, newVal) {
+					return true
+				}
 			}
 		}
 	}
@@ -130,7 +133,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 		}
 		return
 	}
-	if !g.ShouldCalculate() {
+	if !g.CheckAnyShouldUpdate() {
 		return
 	}
 	if g.recalculateTime.Add(g.RecalculateCoolDown).Before(time.Now()) {
@@ -169,7 +172,7 @@ func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (ch
 	return
 }
 
-func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, recalculate bool, checkchange bool) (changed bool) {
+func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, additionalCost float64, recalculate bool, checkchange bool) (changed bool) {
 	g.edgelock.Lock()
 	g.Vert[u] = true
 	g.Vert[v] = true
@@ -184,11 +187,13 @@ func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, recalculate boo
 	if _, ok := g.edges[u][v]; ok {
 		g.edges[u][v].ping = w
 		g.edges[u][v].time = time.Now()
+		g.edges[u][v].additionalCost = additionalCost / 1000
 	} else {
 		g.edges[u][v] = &Latency{
-			ping:     w,
-			ping_old: Infinity,
-			time:     time.Now(),
+			ping:           w,
+			ping_old:       Infinity,
+			time:           time.Now(),
+			additionalCost: additionalCost / 1000,
 		}
 	}
 	g.edgelock.Unlock()
@@ -225,7 +230,7 @@ func (g *IG) Next(u, v config.Vertex) *config.Vertex {
 	return g.nhTable[u][v]
 }
 
-func (g *IG) Weight(u, v config.Vertex) (ret float64) {
+func (g *IG) Weight(u, v config.Vertex, withAC bool) (ret float64) {
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	//defer func() { fmt.Println(u, v, ret) }()
@@ -241,10 +246,17 @@ func (g *IG) Weight(u, v config.Vertex) (ret float64) {
 	if time.Now().After(g.edges[u][v].time.Add(g.NodeReportTimeout)) {
 		return Infinity
 	}
-	return g.edges[u][v].ping
+	if withAC {
+		ret = g.edges[u][v].ping + g.edges[u][v].additionalCost
+	}
+	ret = g.edges[u][v].ping
+	if ret >= Infinity {
+		return Infinity
+	}
+	return
 }
 
-func (g *IG) OldWeight(u, v config.Vertex) (ret float64) {
+func (g *IG) OldWeight(u, v config.Vertex, withAC bool) (ret float64) {
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	if u == v {
@@ -256,22 +268,14 @@ func (g *IG) OldWeight(u, v config.Vertex) (ret float64) {
 	if _, ok := g.edges[u][v]; !ok {
 		return Infinity
 	}
-	return g.edges[u][v].ping_old
-}
-
-func (g *IG) ShouldCalculate() bool {
-	vert := g.Vertices()
-	for u, _ := range vert {
-		for v, _ := range vert {
-			if u != v {
-				w := g.Weight(u, v)
-				if g.ShouldUpdate(u, v, w) {
-					return true
-				}
-			}
-		}
+	if withAC {
+		ret = g.edges[u][v].ping_old + g.edges[u][v].additionalCost
 	}
-	return false
+	ret = g.edges[u][v].ping_old
+	if ret >= Infinity {
+		return Infinity
+	}
+	return
 }
 
 func (g *IG) SetWeight(u, v config.Vertex, weight float64) {
@@ -302,7 +306,7 @@ func (g *IG) RemoveAllNegativeValue() {
 	vert := g.Vertices()
 	for u, _ := range vert {
 		for v, _ := range vert {
-			if g.Weight(u, v) < 0 {
+			if g.Weight(u, v, true) < 0 {
 				if g.loglevel.LogInternal {
 					fmt.Printf("Internal: Remove negative value : edge[%v][%v] = 0\n", u, v)
 				}
@@ -332,13 +336,14 @@ func (g *IG) FloydWarshall(again bool) (dist config.DistTable, next config.NextH
 		}
 		dist[u][u] = 0
 		for _, v := range g.Neighbors(u) {
-			w := g.Weight(u, v)
+			w := g.Weight(u, v, true)
+			wo := g.Weight(u, v, false)
 			if w < Infinity {
 				v := v
 				dist[u][v] = w
 				next[u][v] = &v
 			}
-			g.SetOldWeight(u, v, w)
+			g.SetOldWeight(u, v, wo)
 		}
 	}
 	for k, _ := range vert {
@@ -406,7 +411,7 @@ func (g *IG) GetDtst() config.DistTable {
 	return g.dlTable
 }
 
-func (g *IG) GetEdges(isOld bool) (edges map[config.Vertex]map[config.Vertex]float64) {
+func (g *IG) GetEdges(isOld bool, withAC bool) (edges map[config.Vertex]map[config.Vertex]float64) {
 	vert := g.Vertices()
 	edges = make(map[config.Vertex]map[config.Vertex]float64, len(vert))
 	for src, _ := range vert {
@@ -414,9 +419,9 @@ func (g *IG) GetEdges(isOld bool) (edges map[config.Vertex]map[config.Vertex]flo
 		for dst, _ := range vert {
 			if src != dst {
 				if isOld {
-					edges[src][dst] = g.OldWeight(src, dst)
+					edges[src][dst] = g.OldWeight(src, dst, withAC)
 				} else {
-					edges[src][dst] = g.Weight(src, dst)
+					edges[src][dst] = g.Weight(src, dst, withAC)
 				}
 			}
 		}
@@ -498,7 +503,7 @@ func Solve(filePath string, pe bool) error {
 			val := a2n(sval)
 			dst := a2v(verts[index+1])
 			if src != dst && val != Infinity {
-				g.UpdateLatency(src, dst, S2TD(val), false, false)
+				g.UpdateLatency(src, dst, S2TD(val), 0, false, false)
 			}
 		}
 	}

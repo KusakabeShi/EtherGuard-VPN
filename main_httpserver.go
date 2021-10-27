@@ -31,15 +31,16 @@ var (
 	http_PeerInfo_hash [32]byte
 	http_NhTableStr    []byte
 	http_PeerInfo      config.API_Peers
+	http_super_chains  *path.SUPER_Events
 
 	http_passwords       config.Passwords
 	http_StateExpire     time.Time
 	http_StateString_tmp []byte
 
-	http_maps_lock     sync.RWMutex
-	http_PeerID2PubKey map[config.Vertex]string
-	http_PeerState     map[string]*PeerState //the state hash reported by peer
-	http_PeerIPs       map[string]*HttpPeerLocalIP
+	http_maps_lock   sync.RWMutex
+	http_PeerID2Info map[config.Vertex]config.SuperPeerInfo
+	http_PeerState   map[string]*PeerState //the state hash reported by peer
+	http_PeerIPs     map[string]*HttpPeerLocalIP
 
 	http_sconfig *config.SuperConfig
 
@@ -87,7 +88,7 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo config.API_Peers, Stat
 		api_peerinfo[peerinfo.PubKey] = config.API_Peerinfo{
 			NodeID:  peerinfo.NodeID,
 			PSKey:   peerinfo.PSKey,
-			Connurl: make(map[string]int),
+			Connurl: make(map[string]float64),
 		}
 		http_maps_lock.RLock()
 		if http_PeerState[peerinfo.PubKey].LastSeen.Add(path.S2TD(http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
@@ -152,7 +153,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	NodeID := config.Vertex(NID2)
 	http_maps_lock.RLock()
 	defer http_maps_lock.RUnlock()
-	if http_PeerID2PubKey[NodeID] != PubKey {
+	if http_PeerID2Info[NodeID].PubKey != PubKey {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("NodeID and PunKey are not match"))
 		return
@@ -228,7 +229,7 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	NodeID := config.Vertex(NID2)
 	http_maps_lock.RLock()
 	defer http_maps_lock.RUnlock()
-	if http_PeerID2PubKey[NodeID] != PubKey {
+	if http_PeerID2Info[NodeID].PubKey != PubKey {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("NodeID and PunKey are not match"))
 		return
@@ -266,8 +267,8 @@ func get_info(w http.ResponseWriter, r *http.Request) {
 			PeerInfo: make(map[config.Vertex]HttpPeerInfo),
 			NhTable:  http_graph.GetNHTable(false),
 			Infinity: path.Infinity,
-			Edges:    http_graph.GetEdges(false),
-			Edges_Nh: http_graph.GetEdges(true),
+			Edges:    http_graph.GetEdges(false, false),
+			Edges_Nh: http_graph.GetEdges(true, true),
 			Dist:     http_graph.GetDtst(),
 		}
 		http_maps_lock.RLock()

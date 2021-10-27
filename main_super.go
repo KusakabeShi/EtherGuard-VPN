@@ -70,9 +70,12 @@ func printExampleSuperConf() {
 		PrivKeyV6:  "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
 		ListenPort: 3000,
 		LogLevel: config.LoggerInfo{
-			LogLevel:   "normal",
-			LogTransit: true,
-			LogControl: true,
+			LogLevel:    "normal",
+			LogTransit:  true,
+			LogControl:  true,
+			LogNormal:   false,
+			LogInternal: true,
+			LogNTP:      false,
 		},
 		RePushConfigInterval: 30,
 		Passwords: config.Passwords{
@@ -85,6 +88,7 @@ func printExampleSuperConf() {
 			JitterTolerance:           5,
 			JitterToleranceMultiplier: 1.01,
 			NodeReportTimeout:         40,
+			TimeoutCheckInterval:      5,
 			RecalculateCoolDown:       5,
 		},
 		NextHopTable: config.NextHopTable{
@@ -99,16 +103,18 @@ func printExampleSuperConf() {
 		UsePSKForInterEdge: true,
 		Peers: []config.SuperPeerInfo{
 			{
-				NodeID: 1,
-				Name:   "Node_01",
-				PubKey: "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
-				PSKey:  "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
+				NodeID:         1,
+				Name:           "Node_01",
+				PubKey:         "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
+				PSKey:          "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
+				AdditionalCost: 0,
 			},
 			{
-				NodeID: 2,
-				Name:   "Node_02",
-				PubKey: "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
-				PSKey:  "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
+				NodeID:         2,
+				Name:           "Node_02",
+				PubKey:         "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
+				PSKey:          "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
+				AdditionalCost: 0,
 			},
 		},
 	}
@@ -165,14 +171,13 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	http_sconfig_path = configPath
 	http_PeerState = make(map[string]*PeerState)
 	http_PeerIPs = make(map[string]*HttpPeerLocalIP)
-	http_PeerID2PubKey = make(map[config.Vertex]string)
+	http_PeerID2Info = make(map[config.Vertex]config.SuperPeerInfo)
 	http_HashSalt = []byte(config.RandomStr(32, "Salt generate failed"))
 	http_passwords = sconfig.Passwords
 
-	super_chains := path.SUPER_Events{
-		Event_server_pong:            make(chan path.PongMsg, 1<<5),
-		Event_server_register:        make(chan path.RegisterMsg, 1<<5),
-		Event_server_NhTable_changed: make(chan struct{}, 1<<4),
+	http_super_chains = &path.SUPER_Events{
+		Event_server_pong:     make(chan path.PongMsg, 1<<5),
+		Event_server_register: make(chan path.RegisterMsg, 1<<5),
 	}
 	http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, config.NTPinfo{}, sconfig.LogLevel)
 	http_graph.SetNHTable(http_sconfig.NextHopTable, [32]byte{})
@@ -183,10 +188,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 	}
 	thetap4, _ := tap.CreateDummyTAP()
-	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewDefaultBind(true, false, bindmode), logger4, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
+	http_device4 = device.NewDevice(thetap4, config.SuperNodeMessage, conn.NewDefaultBind(true, false, bindmode), logger4, http_graph, true, configPath, nil, &sconfig, http_super_chains, Version)
 	defer http_device4.Close()
 	thetap6, _ := tap.CreateDummyTAP()
-	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewDefaultBind(false, true, bindmode), logger6, http_graph, true, configPath, nil, &sconfig, &super_chains, Version)
+	http_device6 = device.NewDevice(thetap6, config.SuperNodeMessage, conn.NewDefaultBind(false, true, bindmode), logger6, http_graph, true, configPath, nil, &sconfig, http_super_chains, Version)
 	defer http_device6.Close()
 	if sconfig.PrivKeyV4 != "" {
 		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)
@@ -235,8 +240,9 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	signal.Notify(term, syscall.SIGTERM)
 	signal.Notify(term, os.Interrupt)
 
-	go Event_server_event_hendler(http_graph, super_chains)
+	go Event_server_event_hendler(http_graph, http_super_chains)
 	go RoutinePushSettings(path.S2TD(sconfig.RePushConfigInterval))
+	go RoutineTimeoutCheck()
 	go HttpServer(sconfig.ListenPort, "/api")
 
 	select {
@@ -288,7 +294,7 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 		}
 	}
 	http_maps_lock.Lock()
-	http_PeerID2PubKey[peerconf.NodeID] = peerconf.PubKey
+	http_PeerID2Info[peerconf.NodeID] = peerconf
 	http_PeerState[peerconf.PubKey] = &PeerState{}
 	http_PeerIPs[peerconf.PubKey] = &HttpPeerLocalIP{}
 	http_maps_lock.Unlock()
@@ -297,7 +303,7 @@ func super_peeradd(peerconf config.SuperPeerInfo) error {
 
 func super_peerdel(toDelete config.Vertex) {
 	http_maps_lock.RLock()
-	PubKey := http_PeerID2PubKey[toDelete]
+	PubKey := http_PeerID2Info[toDelete].PubKey
 	http_maps_lock.RUnlock()
 	UpdateErrorMsg := path.UpdateErrorMsg{
 		Node_id:   toDelete,
@@ -328,20 +334,20 @@ func super_peerdel(toDelete config.Vertex) {
 	http_maps_lock.Lock()
 	delete(http_PeerState, PubKey)
 	delete(http_PeerIPs, PubKey)
-	delete(http_PeerID2PubKey, toDelete)
+	delete(http_PeerID2Info, toDelete)
 	http_maps_lock.Unlock()
 }
 
-func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
+func Event_server_event_hendler(graph *path.IG, events *path.SUPER_Events) {
 	for {
 		select {
 		case reg_msg := <-events.Event_server_register:
 			var should_push_peer bool
 			var should_push_nh bool
 			http_maps_lock.RLock()
-			http_PeerState[http_PeerID2PubKey[reg_msg.Node_id]].LastSeen = time.Now()
 			if reg_msg.Node_id < config.Special_NodeID {
-				PubKey := http_PeerID2PubKey[reg_msg.Node_id]
+				http_PeerState[http_PeerID2Info[reg_msg.Node_id].PubKey].LastSeen = time.Now()
+				PubKey := http_PeerID2Info[reg_msg.Node_id].PubKey
 				if bytes.Equal(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:]) == false {
 					copy(http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:])
 					should_push_nh = true
@@ -363,17 +369,17 @@ func Event_server_event_hendler(graph *path.IG, events path.SUPER_Events) {
 			if should_push_nh {
 				PushNhTable(false)
 			}
-		case <-events.Event_server_NhTable_changed:
-			NhTable := graph.GetNHTable(true)
-			NhTablestr, _ := json.Marshal(NhTable)
-			md5_hash_raw := md5.Sum(http_NhTableStr)
-			new_hash_str := hex.EncodeToString(md5_hash_raw[:])
-			new_hash_str_byte := []byte(new_hash_str)
-			copy(http_NhTable_Hash[:], new_hash_str_byte)
-			http_NhTableStr = NhTablestr
-			PushNhTable(false)
 		case pong_msg := <-events.Event_server_pong:
-			changed := graph.UpdateLatency(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, true, true)
+			var changed bool
+			http_maps_lock.RLock()
+			if pong_msg.Src_nodeID < config.Special_NodeID && pong_msg.Dst_nodeID < config.Special_NodeID {
+				changed = graph.UpdateLatency(pong_msg.Src_nodeID, pong_msg.Dst_nodeID, pong_msg.Timediff, http_PeerID2Info[pong_msg.Dst_nodeID].AdditionalCost, true, true)
+			} else {
+				if http_graph.CheckAnyShouldUpdate() {
+					changed = http_graph.RecalculateNhTable(true)
+				}
+			}
+			http_maps_lock.RUnlock()
 			if changed {
 				NhTable := graph.GetNHTable(true)
 				NhTablestr, _ := json.Marshal(NhTable)
@@ -402,6 +408,21 @@ func RoutinePushSettings(interval time.Duration) {
 		PushNhTable(force)
 		PushPeerinfo(force)
 		time.Sleep(path.S2TD(1))
+	}
+}
+
+func RoutineTimeoutCheck() {
+	for {
+		http_super_chains.Event_server_register <- path.RegisterMsg{
+			Node_id: config.SuperNodeMessage,
+			Version: "dummy",
+		}
+		http_super_chains.Event_server_pong <- path.PongMsg{
+			RequestID:  0,
+			Src_nodeID: config.SuperNodeMessage,
+			Dst_nodeID: config.SuperNodeMessage,
+		}
+		time.Sleep(http_graph.TimeoutCheckInterval)
 	}
 }
 

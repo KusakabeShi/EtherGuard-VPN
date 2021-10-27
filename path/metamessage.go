@@ -140,10 +140,11 @@ func ParsePingMsg(bin []byte) (StructPlace PingMsg, err error) {
 }
 
 type PongMsg struct {
-	RequestID  uint32
-	Src_nodeID config.Vertex
-	Dst_nodeID config.Vertex
-	Timediff   time.Duration
+	RequestID      uint32
+	Src_nodeID     config.Vertex
+	Dst_nodeID     config.Vertex
+	Timediff       time.Duration
+	AdditionalCost float64
 }
 
 func (c *PongMsg) ToString() string {
@@ -194,7 +195,6 @@ func ParseBoardcastPeerMsg(bin []byte) (StructPlace BoardcastPeerMsg, err error)
 }
 
 type SUPER_Events struct {
-	Event_server_pong            chan PongMsg
-	Event_server_register        chan RegisterMsg
-	Event_server_NhTable_changed chan struct{}
+	Event_server_pong     chan PongMsg
+	Event_server_register chan RegisterMsg
 }
