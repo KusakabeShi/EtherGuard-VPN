@@ -10,6 +10,7 @@ interface:
   l2headermode: kbdbg
 nodeid: 2
 nodename: Node02
+postscript: example_config/echo.sh test
 defaultttl: 200
 l2fibtimeout: 3600
 privkey: OH8BsVUU2Rqzeu9B2J5GPG8PUmxWfX8uVvNFZKhVF3o=

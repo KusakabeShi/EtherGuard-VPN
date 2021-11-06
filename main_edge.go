@@ -11,9 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"syscall"
+
+	"github.com/google/shlex"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
@@ -40,6 +43,7 @@ func printExampleEdgeConf() {
 		},
 		NodeID:       1,
 		NodeName:     "Node01",
+		PostScript:   "",
 		DefaultTTL:   200,
 		L2FIBTimeout: 3600,
 		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
@@ -318,8 +322,25 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		startUAPI(NodeName, logger, the_device, errs)
 	}
 
-	// wait for program to terminate
+	if econfig.PostScript != "" {
+		cmdarg, err := shlex.Split(econfig.PostScript)
+		if err != nil {
+			return fmt.Errorf("Error parse PostScript %v\n", err)
+		}
+		if econfig.LogLevel.LogInternal {
+			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
+		}
+		cmd := exec.Command(cmdarg[0], cmdarg[1:]...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("exec.Command(%v) failed with %v\n", cmdarg, err)
+		}
+		if econfig.LogLevel.LogInternal {
+			fmt.Printf("PostScript output: %s\n", string(out))
+		}
+	}
 
+	// wait for program to terminate
 	signal.Notify(term, syscall.SIGTERM)
 	signal.Notify(term, os.Interrupt)
 

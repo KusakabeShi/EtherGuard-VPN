@@ -8,6 +8,7 @@ require (
 	github.com/KusakabeSi/go-cache v0.0.0-20210823132304-22b5b1d22b41
 	github.com/beevik/ntp v0.3.0
 	github.com/google/gopacket v1.1.19
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/sirupsen/logrus v1.6.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1

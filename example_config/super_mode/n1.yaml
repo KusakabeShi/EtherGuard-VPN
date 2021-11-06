@@ -9,6 +9,7 @@ interface:
   sendaddr: 127.0.0.1:5001
   l2headermode: kbdbg
 nodeid: 1
+postscript: example_config/echo.sh test
 nodename: Node01
 defaultttl: 200
 l2fibtimeout: 3600

@@ -70,6 +70,7 @@ Usage of ./etherguard-go:
          5. `tap`: Read/Write to tap device from linux.  
             Paramaters: `name`,`macaddrprefix`,`vppifaceid`,`mtu`
     2. `name` : Device name
+    3. `postscript`: run script after etherguard initialized.
     3. `vppifaceid`: Interface ID。Muse be unique in same VPP runtime
     4. `vppbridgeid`: VPP Bridge ID. Fill 0 if you don't use it.
     5. `macaddrprefix`: Mac address Prefix.  

@@ -91,6 +91,7 @@ Usage of ./etherguard-go-vpp:
         3. `noL2`: 拔掉L2 Header的模式。  
            但是本VPN會查詢L2用作選路，所以會變成一律廣播
 2. `nodeid`: 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
+3. `postscript`: etherguard初始化完畢之後要跑的腳本.
 3. `nodename`: 節點名稱
 4. `defaultttl`: 預設ttl(etherguard層使用，和乙太層不共通)
 5. `l2fibtimeout`: MacAddr-> NodeID 查找表的 timeout(秒)

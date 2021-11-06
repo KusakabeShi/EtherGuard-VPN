@@ -20,6 +20,7 @@ type EdgeConfig struct {
 	Interface         InterfaceConf
 	NodeID            Vertex
 	NodeName          string
+	PostScript        string
 	DefaultTTL        uint8
 	L2FIBTimeout      float64
 	PrivKey           string
@@ -33,6 +34,7 @@ type EdgeConfig struct {
 
 type SuperConfig struct {
 	NodeName                string
+	PostScript              string
 	PrivKeyV4               string
 	PrivKeyV6               string
 	ListenPort              int

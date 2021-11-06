@@ -16,10 +16,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/google/shlex"
 
 	"github.com/KusakabeSi/EtherGuardVPN/config"
 	"github.com/KusakabeSi/EtherGuardVPN/conn"
@@ -66,6 +69,7 @@ func printExampleSuperConf() {
 
 	sconfig := config.SuperConfig{
 		NodeName:   "NodeSuper",
+		PostScript: "",
 		PrivKeyV4:  "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
 		PrivKeyV6:  "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
 		ListenPort: 3000,
@@ -240,14 +244,32 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 		defer uapi6.Close()
 	}
-	signal.Notify(term, syscall.SIGTERM)
-	signal.Notify(term, os.Interrupt)
 
 	go Event_server_event_hendler(http_graph, http_super_chains)
 	go RoutinePushSettings(path.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
 	go HttpServer(sconfig.ListenPort, "/api")
 
+	if sconfig.PostScript != "" {
+		cmdarg, err := shlex.Split(sconfig.PostScript)
+		if err != nil {
+			return fmt.Errorf("Error parse PostScript %v\n", err)
+		}
+		if sconfig.LogLevel.LogInternal {
+			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
+		}
+		cmd := exec.Command(cmdarg[0], cmdarg[1:]...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("exec.Command(%v) failed with %v\n", cmdarg, err)
+		}
+		if sconfig.LogLevel.LogInternal {
+			fmt.Printf("PostScript output: %s\n", string(out))
+		}
+	}
+
+	signal.Notify(term, syscall.SIGTERM)
+	signal.Notify(term, os.Interrupt)
 	select {
 	case <-term:
 	case <-errs:
