@@ -245,11 +245,11 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 	// map public key
 	_, ok := device.peers.keyMap[pk]
 	if ok {
-		return nil, errors.New("adding existing peer pubkey:" + fmt.Sprint(pk))
+		return nil, fmt.Errorf("adding existing peer pubkey: %v", pk.ToString())
 	}
 	_, ok = device.peers.IDMap[id]
 	if ok {
-		return nil, errors.New("adding existing peer id:" + fmt.Sprint(id))
+		return nil, fmt.Errorf("adding existing peer id: %v", id)
 	}
 	peer.ID = id
 

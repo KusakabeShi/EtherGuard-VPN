@@ -290,6 +290,7 @@ Parameter:
     1. nodeid: Node ID
     1. pubkey: Public Key
     1. pskey: Pre shared Key
+    1. additionalcost:  Additional cost for packet transfer. Unit: ms
     1. nexthoptable: If the `graphrecalculatesetting` of your super node is in static mode, you need to provide a new `NextHopTable` in json format in this parameter.
 
 Return value:
@@ -437,6 +438,7 @@ Return value:
     1. name: Peer name (displayed on the front end)
     1. pubkey: peer public key
     1. pskey: preshared key The PSK that this peer connects to this Supernode
+    1. additionalcost: Additional cost for packet transfer. Unit: ms
 
 ## V4 V6 Two Keys
 Why we split IPv4 and IPv6 into two session? 

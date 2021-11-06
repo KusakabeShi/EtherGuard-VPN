@@ -218,7 +218,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 
 	for _, peerconf := range sconfig.Peers {
-		super_peeradd(peerconf)
+		err := super_peeradd(peerconf)
+		if err != nil {
+			return err
+		}
 	}
 	logger4.Verbosef("Device4 started")
 	logger6.Verbosef("Device6 started")
@@ -258,38 +261,42 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 func super_peeradd(peerconf config.SuperPeerInfo) error {
 	pk, err := device.Str2PubKey(peerconf.PubKey)
 	if err != nil {
-		fmt.Println("Error decode base64 ", err)
-		return err
+		return fmt.Errorf("Error decode base64 :%v", err)
+	}
+	if peerconf.AdditionalCost < 0 {
+		return fmt.Errorf("AdditionalCost can't smaller than zero!")
 	}
 	if http_sconfig.PrivKeyV4 != "" {
+		var psk device.NoisePresharedKey
+		if peerconf.PSKey != "" {
+			psk, err = device.Str2PSKey(peerconf.PSKey)
+			if err != nil {
+				return fmt.Errorf("Error decode base64 :%v", err)
+			}
+		}
 		peer4, err := http_device4.NewPeer(pk, peerconf.NodeID, false)
 		if err != nil {
-			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-			return err
+			return fmt.Errorf("Error create peer id :%v", err)
 		}
 		peer4.StaticConn = false
 		if peerconf.PSKey != "" {
-			psk, err := device.Str2PSKey(peerconf.PSKey)
-			if err != nil {
-				fmt.Println("Error decode base64 ", err)
-				return err
-			}
 			peer4.SetPSK(psk)
 		}
 	}
 	if http_sconfig.PrivKeyV6 != "" {
+		var psk device.NoisePresharedKey
+		if peerconf.PSKey != "" {
+			psk, err = device.Str2PSKey(peerconf.PSKey)
+			if err != nil {
+				return fmt.Errorf("Error decode base64 :%v", err)
+			}
+		}
 		peer6, err := http_device6.NewPeer(pk, peerconf.NodeID, false)
 		if err != nil {
-			fmt.Printf("Error create peer id %v\n", peerconf.NodeID)
-			return err
+			return fmt.Errorf("Error create peer id :%v", err)
 		}
 		peer6.StaticConn = false
 		if peerconf.PSKey != "" {
-			psk, err := device.Str2PSKey(peerconf.PSKey)
-			if err != nil {
-				fmt.Println("Error decode base64 ", err)
-				return err
-			}
 			peer6.SetPSK(psk)
 		}
 	}

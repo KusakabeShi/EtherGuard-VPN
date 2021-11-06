@@ -389,13 +389,18 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 		}
 		http_graph.SetNHTable(NewNhTable, [32]byte{})
 	}
-	super_peeradd(config.SuperPeerInfo{
+	err = super_peeradd(config.SuperPeerInfo{
 		NodeID:         NodeID,
 		Name:           Name,
 		PubKey:         PubKey,
 		PSKey:          PSKey,
 		AdditionalCost: AdditionalCost,
 	})
+	if err != nil {
+		w.WriteHeader(http.StatusExpectationFailed)
+		w.Write([]byte(fmt.Sprintf("Error creating peer: %v", err)))
+		return
+	}
 	http_sconfig.Peers = append(http_sconfig.Peers, config.SuperPeerInfo{
 		NodeID:         NodeID,
 		Name:           Name,
@@ -460,7 +465,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	}
 	if toDelete == config.Broadcast {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Wrong password"))
+		w.Write([]byte("Wrong password or private key."))
 		return
 	}
 
@@ -477,7 +482,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	configbytes, _ := yaml.Marshal(http_sconfig)
 	ioutil.WriteFile(http_sconfig_path, configbytes, 0644)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(toDelete.ToString() + " deleted."))
+	w.Write([]byte("Node ID: " + toDelete.ToString() + " deleted."))
 	return
 }
 

@@ -173,6 +173,9 @@ func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (ch
 }
 
 func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, additionalCost float64, recalculate bool, checkchange bool) (changed bool) {
+	if additionalCost < 0 {
+		additionalCost = 0
+	}
 	g.edgelock.Lock()
 	g.Vert[u] = true
 	g.Vert[v] = true

@@ -296,6 +296,7 @@ curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
     1. nodeid: Node ID
     1. pubkey: Public Key
     1. pskey: Preshared Key
+    1. additionalcost: 此節點進行封包轉發的額外成本。單位: 毫秒
     1. nexthoptable: 如果你的super node的`graphrecalculatesetting`是static mode，那麼你需要在這提供一張新的`NextHopTable`，json格式
 
 返回值:
@@ -440,6 +441,7 @@ curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9K
     1.   name: Peer名稱(顯示在前端)
     1.   pubkey: peer 公鑰
     1.   pskey: preshared key 該peer和本Supernode連線的PSK
+    1.   additionalcost: 此節點進行封包轉發的額外成本。單位: 毫秒
 
 
 ## V4 V6 兩個公鑰
