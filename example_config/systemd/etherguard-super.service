@@ -1,0 +1,18 @@
+#/etc/systemd/system/etherguard-super.service
+[Unit]
+Description=Etherguard supernode
+After=network.target
+# wg-quick.service
+
+[Service]
+User=nobody
+Group=nogroup
+WorkingDirectory=/etc/eggo
+Type=simple
+#ExecStartPre=+chgrp nogroup /var/run/wireguard
+#ExecStartPre=+chmod 775 /var/run/wireguard
+ExecStart=etherguard-go -config /etc/eggo/super.yaml -mode super -no-uapi
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

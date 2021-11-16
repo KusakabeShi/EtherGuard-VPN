@@ -1,0 +1,16 @@
+#/etc/systemd/system/etherguard-edge.service
+[Unit]
+Description=Etherguard edgenode
+After=network.target
+# wg-quick.service
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/etc/eggo
+Type=simple
+ExecStart=etherguard-go -config /etc/eggo/edge.yaml -mode edge
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
