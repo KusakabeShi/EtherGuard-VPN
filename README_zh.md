@@ -107,7 +107,8 @@ Usage of ./etherguard-go-vpp:
 7. `dynamicroute`: 動態路由相關的設定。時間類設定單位都是秒
     1. `sendpinginterval`: 發送Ping訊息的間隔
     2. `dupchecktimeout`: 重複封包檢查的timeout。完全相同的封包收第二次會被丟棄
-    3. `conntimeout`: 鄰居應該要發Ping過來，超過就視為鄰居掛了
+    1. `peeralivetimeout`: 每次收到封包就重置，超過時間沒收到就標記該peer離線
+    3. `conntimeout`: 檢查peer離線的間格，如果標記離線，就切換下一個endpoint(supernode可能傳了多個endpoint過來)
     4. `savenewpeers`: 是否把下載來的鄰居資訊存到本地設定檔裡面
     5. `supernode`: 參見[Super模式](example_config/super_mode/README_zh.md)
     6. `p2p` 參見 [P2P模式](example_config/p2p_mode/README_zh.md)

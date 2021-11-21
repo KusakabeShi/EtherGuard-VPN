@@ -99,7 +99,8 @@ Usage of ./etherguard-go:
 7. `dynamicroute`: Log for dynamic route.
     1. `sendpinginterval`: Send `Ping` interval
     2. `dupchecktimeout`: Duplication chack timeout.
-    3. `conntimeout`: Connection timeout.
+    1. `peeralivetimeout`: Reset the timer while received a packet. Mark the peer offlline while exceed this time.
+    3. `conntimeout`: The interval that check peer offline or not. If peer was marked offine, it will switch to next endpoint.
     4. `savenewpeers`: Save peer info to local file.
     5. `supernode`: See [Super Mode](example_config/super_mode/README.md)
     6. `p2p` See [P2P Mode](example_config/p2p_mode/README.md)

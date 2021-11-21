@@ -60,7 +60,6 @@ Pong封包是一種`ControlMsg`，使用**flood廣播**盡量讓每個節點都�
 P2P模式也有幾個參數
 1. usep2p: 是否啟用P2P模式
 1. sendpeerinterval: 廣播BoardcastPeer的間格
-1. peeralivetimeout: 每次收到封包就重置，超過時間沒收到就視為該peer離線
 1. graphrecalculatesetting: 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
     1. staticmode: 關閉Floyd-Warshall演算法，只使用一開始載入的nexthoptable。P2P單純用來打洞
     1. jittertolerance: 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算
