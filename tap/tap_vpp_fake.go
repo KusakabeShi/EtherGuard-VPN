@@ -1,4 +1,4 @@
-//+build novpp
+//+build !vpp
 
 package tap
 

@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
@@ -450,7 +453,7 @@ func (tap *NativeTap) Close() error {
 	return err2
 }
 
-func CreateTAP(iconfig config.InterfaceConf,NodeID config.Vertex) (Device, error) {
+func CreateTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (Device, error) {
 	nfd, err := unix.Open(cloneDevicePath, os.O_RDWR, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -490,10 +493,10 @@ func CreateTAP(iconfig config.InterfaceConf,NodeID config.Vertex) (Device, error
 		return nil, err
 	}
 
-	return CreateTAPFromFile(fd, iconfig,NodeID)
+	return CreateTAPFromFile(fd, iconfig, NodeID)
 }
 
-func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf,NodeID config.Vertex) (Device, error) {
+func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf, NodeID config.Vertex) (Device, error) {
 	tap := &NativeTap{
 		tapFile:                 file,
 		events:                  make(chan Event, 5),

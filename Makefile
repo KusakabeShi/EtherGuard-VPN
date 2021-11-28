@@ -20,7 +20,7 @@ etherguard-go: $(wildcard *.go) $(wildcard */*.go)
 	go mod download && \
 	go mod tidy && \
 	go mod vendor && \
-	go build -v -tags novpp -o "$@"
+	go build -v -o "$@"
 
 vpp:
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
@@ -37,7 +37,7 @@ etherguard-go-vpp: $(wildcard *.go) $(wildcard */*.go)
 	go mod tidy && \
 	go mod vendor && \
 	patch -p0 -i govpp_remove_crcstring_check.patch && \
-	go build -v -o "$@"
+	go build -v -tags vpp -o "$@"
 
 install: etherguard-go
 	@install -v -d "$(DESTDIR)$(BINDIR)" && install -v -m 0755 "$<" "$(DESTDIR)$(BINDIR)/etherguard-go"

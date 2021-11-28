@@ -1,5 +1,3 @@
-// +build !windows
-
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
@@ -57,10 +55,10 @@ func printExampleEdgeConf() {
 			LogNTP:      false,
 		},
 		DynamicRoute: config.DynamicRouteInfo{
-			SendPingInterval: 20,
-			PeerAliveTimeout: 30,
+			SendPingInterval: 16,
+			PeerAliveTimeout: 70,
 			DupCheckTimeout:  40,
-			ConnTimeOut:      30,
+			ConnTimeOut:      20,
 			ConnNextTry:      5,
 			SaveNewPeers:     true,
 			SuperNode: config.SuperInfo{
