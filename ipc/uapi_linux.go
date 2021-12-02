@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"golang.org/x/sys/unix"
-	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
+	"github.com/KusakabeSi/EtherGuard-VPN/rwcancel"
 )
 
 type UAPIListener struct {

@@ -16,9 +16,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -256,9 +256,9 @@ func (device *Device) RoutineReadFromTUN() {
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
 		if tap.IsNotUnicast(dstMacAddr) {
-			dst_nodeID = config.Broadcast
+			dst_nodeID = mtypes.Broadcast
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
-			dst_nodeID = config.Broadcast
+			dst_nodeID = mtypes.Broadcast
 		} else {
 			dst_nodeID = val.(*IdAndTime).ID
 		}
@@ -275,7 +275,7 @@ func (device *Device) RoutineReadFromTUN() {
 			continue
 		}
 
-		if dst_nodeID != config.Broadcast {
+		if dst_nodeID != mtypes.Broadcast {
 			var peer *Peer
 			next_id := device.graph.Next(device.ID, dst_nodeID)
 			if next_id != nil {
@@ -297,7 +297,7 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 			}
 		} else {
-			device.BoardcastPacket(make(map[config.Vertex]bool, 0), elem.Type, elem.packet, offset)
+			device.BoardcastPacket(make(map[mtypes.Vertex]bool, 0), elem.Type, elem.packet, offset)
 		}
 
 	}

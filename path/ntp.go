@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
+	orderedmap "github.com/KusakabeSi/EtherGuard-VPN/orderdmap"
 	"github.com/beevik/ntp"
 )
 

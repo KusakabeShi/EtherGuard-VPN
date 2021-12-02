@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 const EgHeaderLen = 7
@@ -43,17 +43,17 @@ func NewEgHeader(pac []byte) (e EgHeader, err error) {
 	return
 }
 
-func (e EgHeader) GetDst() config.Vertex {
-	return config.Vertex(binary.BigEndian.Uint16(e.buf[0:2]))
+func (e EgHeader) GetDst() mtypes.Vertex {
+	return mtypes.Vertex(binary.BigEndian.Uint16(e.buf[0:2]))
 }
-func (e EgHeader) SetDst(node_ID config.Vertex) {
+func (e EgHeader) SetDst(node_ID mtypes.Vertex) {
 	binary.BigEndian.PutUint16(e.buf[0:2], uint16(node_ID))
 }
 
-func (e EgHeader) GetSrc() config.Vertex {
-	return config.Vertex(binary.BigEndian.Uint16(e.buf[2:4]))
+func (e EgHeader) GetSrc() mtypes.Vertex {
+	return mtypes.Vertex(binary.BigEndian.Uint16(e.buf[2:4]))
 }
-func (e EgHeader) SetSrc(node_ID config.Vertex) {
+func (e EgHeader) SetSrc(node_ID mtypes.Vertex) {
 	binary.BigEndian.PutUint16(e.buf[2:4], uint16(node_ID))
 }
 

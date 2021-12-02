@@ -5,7 +5,7 @@ package tap
 import (
 	"errors"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 const (
@@ -18,7 +18,7 @@ type VppTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateVppTAP(iconfig config.InterfaceConf, NodeID config.Vertex, loglevel string) (tapdev Device, err error) {
+func CreateVppTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex, loglevel string) (tapdev Device, err error) {
 	return nil, errors.New("VPP support disabled.")
 }
 

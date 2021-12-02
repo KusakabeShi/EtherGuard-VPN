@@ -16,19 +16,19 @@ import (
 
 	"github.com/google/shlex"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/device"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
+	"github.com/KusakabeSi/EtherGuard-VPN/device"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 	yaml "gopkg.in/yaml.v2"
 )
 
 func printExampleEdgeConf() {
-	v1 := config.Vertex(1)
-	v2 := config.Vertex(2)
-	tconfig := config.EdgeConfig{
-		Interface: config.InterfaceConf{
+	v1 := mtypes.Vertex(1)
+	v2 := mtypes.Vertex(2)
+	tconfig := mtypes.EdgeConfig{
+		Interface: mtypes.InterfaceConf{
 			Itype:         "stdio",
 			Name:          "tap1",
 			VPPIfaceID:    5,
@@ -46,7 +46,7 @@ func printExampleEdgeConf() {
 		L2FIBTimeout: 3600,
 		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort:   3001,
-		LogLevel: config.LoggerInfo{
+		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "error",
 			LogTransit:  true,
 			LogControl:  true,
@@ -54,14 +54,14 @@ func printExampleEdgeConf() {
 			LogInternal: true,
 			LogNTP:      false,
 		},
-		DynamicRoute: config.DynamicRouteInfo{
+		DynamicRoute: mtypes.DynamicRouteInfo{
 			SendPingInterval: 16,
 			PeerAliveTimeout: 70,
 			DupCheckTimeout:  40,
 			ConnTimeOut:      20,
 			ConnNextTry:      5,
 			SaveNewPeers:     true,
-			SuperNode: config.SuperInfo{
+			SuperNode: mtypes.SuperInfo{
 				UseSuperNode:         true,
 				PSKey:                "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
 				ConnURLV4:            "127.0.0.1:3000",
@@ -70,11 +70,13 @@ func printExampleEdgeConf() {
 				PubKeyV6:             "HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=",
 				APIUrl:               "http://127.0.0.1:3000/api",
 				SuperNodeInfoTimeout: 50,
+				SkipLocalIP:          false,
+				HttpPostInterval:     15,
 			},
-			P2P: config.P2Pinfo{
+			P2P: mtypes.P2Pinfo{
 				UseP2P:           true,
 				SendPeerInterval: 20,
-				GraphRecalculateSetting: config.GraphRecalculateSetting{
+				GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
 					StaticMode:                false,
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
@@ -83,7 +85,7 @@ func printExampleEdgeConf() {
 					RecalculateCoolDown:       5,
 				},
 			},
-			NTPconfig: config.NTPinfo{
+			NTPconfig: mtypes.NTPinfo{
 				UseNTP:           true,
 				MaxServerUse:     5,
 				SyncTimeInterval: 3600,
@@ -105,16 +107,16 @@ func printExampleEdgeConf() {
 					"time.windows.com"},
 			},
 		},
-		NextHopTable: config.NextHopTable{
-			config.Vertex(1): {
-				config.Vertex(2): &v2,
+		NextHopTable: mtypes.NextHopTable{
+			mtypes.Vertex(1): {
+				mtypes.Vertex(2): &v2,
 			},
-			config.Vertex(2): {
-				config.Vertex(1): &v1,
+			mtypes.Vertex(2): {
+				mtypes.Vertex(1): &v1,
 			},
 		},
 		ResetConnInterval: 86400,
-		Peers: []config.PeerInfo{
+		Peers: []mtypes.PeerInfo{
 			{
 				NodeID:   2,
 				PubKey:   "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
@@ -126,18 +128,18 @@ func printExampleEdgeConf() {
 	}
 	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel)
 
-	g.UpdateLatency(1, 2, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(2, 1, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(2, 3, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(3, 2, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(2, 4, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(4, 2, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(3, 4, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(4, 3, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(5, 3, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(3, 5, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(6, 4, path.S2TD(0.5), 0, false, false)
-	g.UpdateLatency(4, 6, path.S2TD(0.5), 0, false, false)
+	g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(2, 3, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(3, 2, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(2, 4, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(4, 2, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(3, 4, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(4, 3, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(5, 3, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(3, 5, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(6, 4, 0.5, 99999, 0, false, false)
+	g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
 	_, next, _ := g.FloydWarshall(false)
 	tconfig.NextHopTable = next
 	toprint, _ := yaml.Marshal(tconfig)
@@ -150,7 +152,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		printExampleEdgeConf()
 		return nil
 	}
-	var econfig config.EdgeConfig
+	var econfig mtypes.EdgeConfig
 	//printExampleConf()
 	//return
 
@@ -271,7 +273,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				fmt.Println("Error decode base64 ", err)
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
+			peer, err := the_device.NewPeer(pk, mtypes.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}
@@ -292,7 +294,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				fmt.Println("Error decode base64 ", err)
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, config.SuperNodeMessage, true)
+			peer, err := the_device.NewPeer(pk, mtypes.SuperNodeMessage, true)
 			if err != nil {
 				return err
 			}
@@ -329,6 +331,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
 		}
 		cmd := exec.Command(cmdarg[0], cmdarg[1:]...)
+
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("exec.Command(%v) failed with %v\n", cmdarg, err)
@@ -345,9 +348,11 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	select {
 	case <-term:
 	case <-errs:
-	case <-the_device.Wait():
+	case errcode := <-the_device.Wait():
+		if errcode != 0 {
+			return syscall.Errno(errcode)
+		}
 	}
-
 	logger.Verbosef("Shutting down")
 	return
 }

@@ -38,6 +38,9 @@ dynamicroute:
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     supernodeinfotimeout: 50
+    httppostinterval: 15
+    skiplocalip: false
+
   p2p:
     usep2p: false
     sendpeerinterval: 20

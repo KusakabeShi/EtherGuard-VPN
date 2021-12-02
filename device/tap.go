@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 )
 
 const DefaultMTU = 1420

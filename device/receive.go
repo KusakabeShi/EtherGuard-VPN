@@ -20,10 +20,10 @@ import (
 	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 )
 
 type QueueHandshakeElement struct {
@@ -421,12 +421,17 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		}
 		var EgHeader path.EgHeader
 		var err error
-		var src_nodeID config.Vertex
-		var dst_nodeID config.Vertex
+		var src_nodeID mtypes.Vertex
+		var dst_nodeID mtypes.Vertex
 		var packet_type path.Usage
 		should_process := false
 		should_receive := false
 		should_transfer := false
+		currentTime := time.Now()
+		storeTime := currentTime.Add(time.Second)
+		if currentTime.After((*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time))) {
+			peer.LastPacketReceivedAdd1Sec.Store(&storeTime)
+		}
 		elem.Lock()
 		if elem.packet == nil {
 			// decryption failed
@@ -463,26 +468,24 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		dst_nodeID = EgHeader.GetDst()
 		elem.packet = elem.packet[:EgHeader.GetPacketLength()+path.EgHeaderLen] // EG header + true packet
 		packet_type = elem.Type
-		peer.LastPingReceived = time.Now()
 
 		if device.IsSuperNode {
-			peer.LastPingReceived = time.Now()
 			switch dst_nodeID {
-			case config.ControlMessage:
+			case mtypes.ControlMessage:
 				should_process = true
-			case config.SuperNodeMessage:
+			case mtypes.SuperNodeMessage:
 				should_process = true
 			default:
 				device.log.Errorf("Invalid dst_nodeID received. Check your code for bug")
 			}
 		} else {
 			switch dst_nodeID {
-			case config.Broadcast:
+			case mtypes.Broadcast:
 				should_receive = true
 				should_transfer = true
-			case config.SuperNodeMessage:
+			case mtypes.SuperNodeMessage:
 				should_process = true
-			case config.ControlMessage:
+			case mtypes.ControlMessage:
 				packet := elem.packet[path.EgHeaderLen:] //true packet
 				if device.CheckNoDup(packet) {
 					should_process = true
@@ -514,10 +517,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
 				EgHeader.SetTTL(l2ttl - 1)
-				if dst_nodeID == config.Broadcast { //Regular transfer algorithm
+				if dst_nodeID == mtypes.Broadcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
-				} else if dst_nodeID == config.ControlMessage { // Control Message will try send to every know node regardless the connectivity
-					skip_list := make(map[config.Vertex]bool)
+				} else if dst_nodeID == mtypes.ControlMessage { // Control Message will try send to every know node regardless the connectivity
+					skip_list := make(map[mtypes.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
 					device.SpreadPacket(skip_list, elem.Type, elem.packet, MessageTransportOffsetContent)

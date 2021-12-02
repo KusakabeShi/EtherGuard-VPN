@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 type SockServerTap struct {
@@ -17,14 +17,14 @@ type SockServerTap struct {
 	connRx   *net.Conn
 	connTx   *net.Conn
 	static   bool
-	loglevel config.LoggerInfo
+	loglevel mtypes.LoggerInfo
 
 	closed bool
 	events chan Event
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateSockTAP(iconfig config.InterfaceConf, protocol string, NodeID config.Vertex, loglevel config.LoggerInfo) (tapdev Device, err error) {
+func CreateSockTAP(iconfig mtypes.InterfaceConf, protocol string, NodeID mtypes.Vertex, loglevel mtypes.LoggerInfo) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	tap := &SockServerTap{

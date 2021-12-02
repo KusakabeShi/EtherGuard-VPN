@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/chacha20poly1305"
 )

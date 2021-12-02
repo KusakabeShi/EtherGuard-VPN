@@ -9,18 +9,19 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"github.com/KusakabeSi/EtherGuardVPN/ratelimiter"
-	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/ratelimiter"
+	"github.com/KusakabeSi/EtherGuard-VPN/rwcancel"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 	fixed_time_cache "github.com/KusakabeSi/go-cache"
 )
 
@@ -67,7 +68,7 @@ type Device struct {
 	peers struct {
 		sync.RWMutex // protects keyMap
 		keyMap       map[NoisePublicKey]*Peer
-		IDMap        map[config.Vertex]*Peer
+		IDMap        map[mtypes.Vertex]*Peer
 		SuperPeer    map[NoisePublicKey]*Peer
 		Peer_state   [32]byte
 		LocalV4      net.IP
@@ -77,13 +78,13 @@ type Device struct {
 	ResetConnInterval float64
 
 	EdgeConfigPath  string
-	EdgeConfig      *config.EdgeConfig
+	EdgeConfig      *mtypes.EdgeConfig
 	SuperConfigPath string
-	SuperConfig     *config.SuperConfig
+	SuperConfig     *mtypes.SuperConfig
 
-	Event_server_register        chan path.RegisterMsg
-	Event_server_pong            chan path.PongMsg
-	Event_save_config            chan struct{}
+	Event_server_register chan mtypes.RegisterMsg
+	Event_server_pong     chan mtypes.PongMsg
+	Event_save_config     chan struct{}
 
 	Event_Supernode_OK chan struct{}
 
@@ -91,16 +92,19 @@ type Device struct {
 	cookieChecker CookieChecker
 
 	IsSuperNode    bool
-	ID             config.Vertex
+	ID             mtypes.Vertex
 	DefaultTTL     uint8
 	graph          *path.IG
 	l2fib          sync.Map
 	fibTimeout     float64
-	LogLevel       config.LoggerInfo
-	DRoute         config.DynamicRouteInfo
+	LogLevel       mtypes.LoggerInfo
+	DRoute         mtypes.DynamicRouteInfo
 	DupData        fixed_time_cache.Cache
 	Version        string
 	AdditionalCost float64
+
+	HttpPostCount uint64
+	JWTSecret     mtypes.JWTSecret
 
 	pool struct {
 		messageBuffers   *WaitPool
@@ -120,12 +124,12 @@ type Device struct {
 	}
 
 	ipcMutex sync.RWMutex
-	closed   chan struct{}
+	closed   chan int
 	log      *Logger
 }
 
 type IdAndTime struct {
-	ID   config.Vertex
+	ID   mtypes.Vertex
 	Time time.Time
 }
 
@@ -172,7 +176,7 @@ func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	// remove from peer map
 	id := peer.ID
 	delete(device.peers.keyMap, key)
-	if id == config.SuperNodeMessage {
+	if id == mtypes.SuperNodeMessage {
 		delete(device.peers.SuperPeer, key)
 	} else {
 		delete(device.peers.IDMap, id)
@@ -320,10 +324,10 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 	return nil
 }
 
-func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, configpath string, econfig *config.EdgeConfig, sconfig *config.SuperConfig, superevents *path.SUPER_Events, version string) *Device {
+func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *Logger, graph *path.IG, IsSuperNode bool, configpath string, econfig *mtypes.EdgeConfig, sconfig *mtypes.SuperConfig, superevents *mtypes.SUPER_Events, version string) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
-	device.closed = make(chan struct{})
+	device.closed = make(chan int)
 	device.log = logger
 	device.net.bind = bind
 	device.tap.device = tapDevice
@@ -334,12 +338,13 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	}
 	device.tap.mtu = int32(mtu)
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
-	device.peers.IDMap = make(map[config.Vertex]*Peer)
+	device.peers.IDMap = make(map[mtypes.Vertex]*Peer)
 	device.peers.SuperPeer = make(map[NoisePublicKey]*Peer)
 	device.IsSuperNode = IsSuperNode
 	device.ID = id
 	device.graph = graph
 	device.Version = version
+	device.JWTSecret = mtypes.ByteSlice2Byte32(mtypes.RandomBytes(32, []byte(fmt.Sprintf("%v", time.Now()))))
 
 	device.rate.limiter.Init()
 	device.indexTable.Init()
@@ -371,8 +376,9 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 		go device.RoutineResetConn()
 		go device.RoutineClearL2FIB()
 		go device.RoutineRecalculateNhTable()
+		go device.RoutinePostPeerInfo()
 	}
-	
+
 	// create queues
 
 	device.queue.handshake = newHandshakeQueue()
@@ -398,9 +404,9 @@ func NewDevice(tapDevice tap.Device, id config.Vertex, bind conn.Bind, logger *L
 	return device
 }
 
-func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex, err error) {
+func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID mtypes.Vertex, err error) {
 	if device.IsSuperNode {
-		var peerlist []config.SuperPeerInfo
+		var peerlist []mtypes.SuperPeerInfo
 		if device.SuperConfig == nil {
 			return 0, errors.New("Superconfig is nil")
 		}
@@ -412,7 +418,7 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID config.Vertex,
 			}
 		}
 	} else {
-		var peerlist []config.PeerInfo
+		var peerlist []mtypes.PeerInfo
 		if device.EdgeConfig == nil {
 			return 0, errors.New("EdgeConfig is nil")
 		}
@@ -491,7 +497,7 @@ func Str2PSKey(k string) (pk NoisePresharedKey, err error) {
 	return
 }
 
-func (device *Device) GetConnurl(v config.Vertex) string {
+func (device *Device) GetConnurl(v mtypes.Vertex) string {
 	if peer, has := device.peers.IDMap[v]; has {
 		if peer.endpoint != nil {
 			return peer.endpoint.DstToString()
@@ -500,7 +506,7 @@ func (device *Device) GetConnurl(v config.Vertex) string {
 	return ""
 }
 
-func (device *Device) RemovePeerByID(id config.Vertex) {
+func (device *Device) RemovePeerByID(id mtypes.Vertex) {
 	device.peers.Lock()
 	defer device.peers.Unlock()
 	peer, ok := device.peers.IDMap[id]
@@ -529,7 +535,7 @@ func (device *Device) RemoveAllPeers() {
 	}
 
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
-	device.peers.IDMap = make(map[config.Vertex]*Peer)
+	device.peers.IDMap = make(map[mtypes.Vertex]*Peer)
 }
 
 func (device *Device) Close() {
@@ -562,7 +568,7 @@ func (device *Device) Close() {
 	close(device.closed)
 }
 
-func (device *Device) Wait() chan struct{} {
+func (device *Device) Wait() chan int {
 	return device.closed
 }
 

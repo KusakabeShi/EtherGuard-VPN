@@ -3,8 +3,8 @@
 package device
 
 import (
-	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
+	"github.com/KusakabeSi/EtherGuard-VPN/rwcancel"
 )
 
 func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {

@@ -12,7 +12,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/KusakabeSi/EtherGuardVPN/replay"
+	"github.com/KusakabeSi/EtherGuard-VPN/replay"
 )
 
 /* Due to limitations in Go and /x/crypto there is currently

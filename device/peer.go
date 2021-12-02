@@ -16,9 +16,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/conn"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,16 +45,19 @@ func NewEndpoint_trylist(peer *Peer, timeout time.Duration) *endpoint_trylist {
 	}
 }
 
-func (et *endpoint_trylist) UpdateSuper(urls map[string]float64) {
+func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool) {
 	et.Lock()
 	defer et.Unlock()
 	newmap_super := make(map[string]*endpoint_tryitem)
-	if len(urls) == 0 {
+	if urls.IsEmpty() {
 		if et.peer.device.LogLevel.LogInternal {
 			fmt.Println(fmt.Sprintf("Internal: Peer %v : Reset trylist(super) %v", et.peer.ID.ToString(), "nil"))
 		}
 	}
-	for url, it := range urls {
+	for url, it := range urls.GetList(UseLocalIP) {
+		if url == "" {
+			continue
+		}
 		_, err := conn.LookupIP(url, 0)
 		if err != nil {
 			if et.peer.device.LogLevel.LogInternal {
@@ -149,10 +152,13 @@ type Peer struct {
 	device           *Device
 	endpoint         conn.Endpoint
 	endpoint_trylist *endpoint_trylist
-	LastPingReceived time.Time
+
+	LastPacketReceivedAdd1Sec atomic.Value // *time.Time
+
+	SingleWayLatency float64
 	stopping         sync.WaitGroup // routines pending stop
 
-	ID               config.Vertex
+	ID               mtypes.Vertex
 	AskedForNeighbor bool
 	StaticConn       bool //if true, this peer will not write to config file when roaming, and the endpoint will be reset periodically
 	ConnURL          string
@@ -197,15 +203,15 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool) (*Peer, error) {
+func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool) (*Peer, error) {
 	if isSuper == false {
-		if id < config.Special_NodeID {
+		if id < mtypes.Special_NodeID {
 			//pass check
 		} else {
 			return nil, errors.New(fmt.Sprint("ID ", uint32(id), " is a special NodeID"))
 		}
 	} else {
-		if id == config.SuperNodeMessage {
+		if id == mtypes.SuperNodeMessage {
 			//pass check
 		} else {
 			return nil, errors.New(fmt.Sprint("ID", uint32(id), "is not a supernode NodeID"))
@@ -233,12 +239,14 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 		fmt.Println("Internal: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
 	}
 	peer := new(Peer)
+	peer.LastPacketReceivedAdd1Sec.Store(&time.Time{})
 	peer.Lock()
 	defer peer.Unlock()
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
 	peer.endpoint_trylist = NewEndpoint_trylist(peer, path.S2TD(device.DRoute.PeerAliveTimeout))
+	peer.SingleWayLatency = path.Infinity
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
@@ -264,7 +272,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id config.Vertex, isSuper bool)
 	peer.endpoint = nil
 
 	// add
-	if id == config.SuperNodeMessage { // To communicate with supernode
+	if id == mtypes.SuperNodeMessage { // To communicate with supernode
 		device.peers.SuperPeer[pk] = peer
 		device.peers.keyMap[pk] = peer
 	} else { // Regular peer, other edgenodes
@@ -286,7 +294,7 @@ func (peer *Peer) IsPeerAlive() bool {
 	if peer.endpoint == nil {
 		return false
 	}
-	if peer.LastPingReceived.Add(PeerAliveTimeout).Before(time.Now()) {
+	if peer.LastPacketReceivedAdd1Sec.Load().(*time.Time).Add(PeerAliveTimeout).Before(time.Now()) {
 		return false
 	}
 	return true
@@ -444,7 +452,7 @@ func (peer *Peer) Stop() {
 }
 
 func (peer *Peer) SetPSK(psk NoisePresharedKey) {
-	if peer.device.IsSuperNode == false && peer.ID < config.Special_NodeID && peer.device.DRoute.P2P.UseP2P == true {
+	if peer.device.IsSuperNode == false && peer.ID < mtypes.Special_NodeID && peer.device.DRoute.P2P.UseP2P == true {
 		peer.device.log.Verbosef("Preshared keys disabled in P2P mode.")
 		return
 	}
@@ -482,7 +490,7 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 		return
 	}
 	peer.Lock()
-	if peer.ID == config.SuperNodeMessage {
+	if peer.ID == mtypes.SuperNodeMessage {
 		conn, err := net.Dial("udp", endpoint.DstToString())
 		defer conn.Close()
 		if err == nil {
@@ -545,7 +553,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 		}
 	}
 	if !foundInFile {
-		device.EdgeConfig.Peers = append(device.EdgeConfig.Peers, config.PeerInfo{
+		device.EdgeConfig.Peers = append(device.EdgeConfig.Peers, mtypes.PeerInfo{
 			NodeID:   peer.ID,
 			PubKey:   pubkeystr,
 			PSKey:    pskstr,

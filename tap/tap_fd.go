@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 type FdTap struct {
@@ -20,7 +20,7 @@ type FdTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateFdTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (tapdev Device, err error) {
+func CreateFdTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (tapdev Device, err error) {
 	// Setup TUN Config
 	fdRXstr, has := os.LookupEnv("EG_FD_RX")
 	if !has {

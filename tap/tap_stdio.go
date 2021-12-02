@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 type L2MODE uint8
@@ -51,7 +51,7 @@ func Mac2charForm(m []byte) byte {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateStdIOTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (tapdev Device, err error) {
+func CreateStdIOTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	if err != nil {

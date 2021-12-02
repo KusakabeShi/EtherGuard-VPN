@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 /* SPDX-License-Identifier: MIT
@@ -13,10 +14,11 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"syscall"
 
-	"github.com/KusakabeSi/EtherGuardVPN/ipc"
-	"github.com/KusakabeSi/EtherGuardVPN/path"
-	"github.com/KusakabeSi/EtherGuardVPN/tap"
+	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
+	"github.com/KusakabeSi/EtherGuard-VPN/path"
+	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -56,7 +58,7 @@ var (
 func main() {
 	flag.Parse()
 	if *version == true {
-		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuardVPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
+		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuard-VPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
 		return
 	}
 	if *help == true {
@@ -81,8 +83,14 @@ func main() {
 		flag.Usage()
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error :%v\n", err)
-		os.Exit(1)
+		switch err.(type) {
+		case syscall.Errno:
+			errno, _ := err.(syscall.Errno)
+			os.Exit(int(errno))
+		default:
+			fmt.Fprintf(os.Stderr, "Error :%v\n", err)
+			os.Exit(1)
+		}
 	}
 	return
 }

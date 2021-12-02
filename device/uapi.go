@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/ipc"
+	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
 )
 
 type IPCError struct {

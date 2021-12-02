@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	orderedmap "github.com/KusakabeSi/EtherGuardVPN/orderdmap"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	orderedmap "github.com/KusakabeSi/EtherGuard-VPN/orderdmap"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -26,36 +26,35 @@ type Latency struct {
 	ping           float64
 	ping_old       float64
 	additionalCost float64
-	time           time.Time
+	validUntil     time.Time
 }
 
 type Fullroute struct {
-	Next config.NextHopTable `yaml:"NextHopTable"`
-	Dist config.DistTable    `yaml:"DistanceTable"`
+	Next mtypes.NextHopTable `yaml:"NextHopTable"`
+	Dist mtypes.DistTable    `yaml:"DistanceTable"`
 }
 
 // IG is a graph of integers that satisfies the Graph interface.
 type IG struct {
-	Vert                      map[config.Vertex]bool
-	edges                     map[config.Vertex]map[config.Vertex]*Latency
+	Vert                      map[mtypes.Vertex]bool
+	edges                     map[mtypes.Vertex]map[mtypes.Vertex]*Latency
 	edgelock                  *sync.RWMutex
 	StaticMode                bool
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
-	NodeReportTimeout         time.Duration
 	SuperNodeInfoTimeout      time.Duration
 	RecalculateCoolDown       time.Duration
 	TimeoutCheckInterval      time.Duration
 	recalculateTime           time.Time
-	dlTable                   config.DistTable
-	nhTable                   config.NextHopTable
+	dlTable                   mtypes.DistTable
+	nhTable                   mtypes.NextHopTable
 	NhTableHash               [32]byte
 	NhTableExpire             time.Time
 	IsSuperMode               bool
-	loglevel                  config.LoggerInfo
+	loglevel                  mtypes.LoggerInfo
 
 	ntp_wg      sync.WaitGroup
-	ntp_info    config.NTPinfo
+	ntp_info    mtypes.NTPinfo
 	ntp_offset  time.Duration
 	ntp_servers orderedmap.OrderedMap // serverurl:lentancy
 }
@@ -64,19 +63,18 @@ func S2TD(secs float64) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-func NewGraph(num_node int, IsSuperMode bool, theconfig config.GraphRecalculateSetting, ntpinfo config.NTPinfo, loglevel config.LoggerInfo) *IG {
+func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateSetting, ntpinfo mtypes.NTPinfo, loglevel mtypes.LoggerInfo) *IG {
 	g := IG{
 		edgelock:                  &sync.RWMutex{},
 		StaticMode:                theconfig.StaticMode,
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
-		NodeReportTimeout:         S2TD(theconfig.NodeReportTimeout),
 		RecalculateCoolDown:       S2TD(theconfig.RecalculateCoolDown),
 		TimeoutCheckInterval:      S2TD(theconfig.TimeoutCheckInterval),
 		ntp_info:                  ntpinfo,
 	}
-	g.Vert = make(map[config.Vertex]bool, num_node)
-	g.edges = make(map[config.Vertex]map[config.Vertex]*Latency, num_node)
+	g.Vert = make(map[mtypes.Vertex]bool, num_node)
+	g.edges = make(map[mtypes.Vertex]map[mtypes.Vertex]*Latency, num_node)
 	g.IsSuperMode = IsSuperMode
 	g.loglevel = loglevel
 	g.InitNTP()
@@ -94,7 +92,7 @@ func (g *IG) GetWeightType(x float64) (y float64) {
 	return y
 }
 
-func (g *IG) ShouldUpdate(u config.Vertex, v config.Vertex, newval float64) bool {
+func (g *IG) ShouldUpdate(u mtypes.Vertex, v mtypes.Vertex, newval float64) bool {
 	oldval := math.Abs(g.OldWeight(u, v, false) * 1000)
 	newval = math.Abs(newval * 1000)
 	if g.IsSuperMode {
@@ -157,7 +155,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 	return
 }
 
-func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (changed bool) { //Waiting for test
+func (g *IG) RemoveVirt(v mtypes.Vertex, recalculate bool, checkchange bool) (changed bool) { //Waiting for test
 	g.edgelock.Lock()
 	delete(g.Vert, v)
 	delete(g.edges, v)
@@ -172,31 +170,49 @@ func (g *IG) RemoveVirt(v config.Vertex, recalculate bool, checkchange bool) (ch
 	return
 }
 
-func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, additionalCost float64, recalculate bool, checkchange bool) (changed bool) {
-	if additionalCost < 0 {
-		additionalCost = 0
-	}
+func (g *IG) UpdateLatency(src mtypes.Vertex, dst mtypes.Vertex, val float64, TimeToAlive float64, SuperAdditionalCost float64, recalculate bool, checkchange bool) (changed bool) {
+	return g.UpdateLatencyMulti([]mtypes.PongMsg{{
+		Src_nodeID:     src,
+		Dst_nodeID:     dst,
+		Timediff:       val,
+		AdditionalCost: SuperAdditionalCost,
+		TimeToAlive:    TimeToAlive,
+	}}, recalculate, checkchange)
+}
+
+func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, checkchange bool) (changed bool) {
+
 	g.edgelock.Lock()
-	g.Vert[u] = true
-	g.Vert[v] = true
-	w := float64(dt) / float64(time.Second)
-	if _, ok := g.edges[u]; !ok {
-		g.recalculateTime = time.Time{}
-		g.edges[u] = make(map[config.Vertex]*Latency)
-	}
-	g.edgelock.Unlock()
-	should_update := g.ShouldUpdate(u, v, w)
-	g.edgelock.Lock()
-	if _, ok := g.edges[u][v]; ok {
-		g.edges[u][v].ping = w
-		g.edges[u][v].time = time.Now()
-		g.edges[u][v].additionalCost = additionalCost / 1000
-	} else {
-		g.edges[u][v] = &Latency{
-			ping:           w,
-			ping_old:       Infinity,
-			time:           time.Now(),
-			additionalCost: additionalCost / 1000,
+	should_update := false
+	for _, pong_msg := range pong_info {
+		u := pong_msg.Src_nodeID
+		v := pong_msg.Dst_nodeID
+		w := pong_msg.Timediff
+		additionalCost := pong_msg.AdditionalCost
+		if additionalCost < 0 {
+			additionalCost = 0
+		}
+		g.Vert[u] = true
+		g.Vert[v] = true
+		if _, ok := g.edges[u]; !ok {
+			g.recalculateTime = time.Time{}
+			g.edges[u] = make(map[mtypes.Vertex]*Latency)
+		}
+		g.edgelock.Unlock()
+		should_update = should_update || g.ShouldUpdate(u, v, w)
+		g.edgelock.Lock()
+
+		if _, ok := g.edges[u][v]; ok {
+			g.edges[u][v].ping = w
+			g.edges[u][v].validUntil = time.Now().Add(mtypes.S2TD(pong_msg.TimeToAlive))
+			g.edges[u][v].additionalCost = additionalCost / 1000
+		} else {
+			g.edges[u][v] = &Latency{
+				ping:           w,
+				ping_old:       Infinity,
+				validUntil:     time.Now().Add(mtypes.S2TD(pong_msg.TimeToAlive)),
+				additionalCost: additionalCost / 1000,
+			}
 		}
 	}
 	g.edgelock.Unlock()
@@ -205,8 +221,8 @@ func (g *IG) UpdateLatency(u, v config.Vertex, dt time.Duration, additionalCost 
 	}
 	return
 }
-func (g *IG) Vertices() map[config.Vertex]bool {
-	vr := make(map[config.Vertex]bool)
+func (g *IG) Vertices() map[mtypes.Vertex]bool {
+	vr := make(map[mtypes.Vertex]bool)
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	for k, v := range g.Vert { //copy a new list
@@ -214,7 +230,7 @@ func (g *IG) Vertices() map[config.Vertex]bool {
 	}
 	return vr
 }
-func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
+func (g IG) Neighbors(v mtypes.Vertex) (vs []mtypes.Vertex) {
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	for k := range g.edges[v] { //copy a new list
@@ -223,7 +239,7 @@ func (g IG) Neighbors(v config.Vertex) (vs []config.Vertex) {
 	return vs
 }
 
-func (g *IG) Next(u, v config.Vertex) *config.Vertex {
+func (g *IG) Next(u, v mtypes.Vertex) *mtypes.Vertex {
 	if _, ok := g.nhTable[u]; !ok {
 		return nil
 	}
@@ -233,7 +249,7 @@ func (g *IG) Next(u, v config.Vertex) *config.Vertex {
 	return g.nhTable[u][v]
 }
 
-func (g *IG) Weight(u, v config.Vertex, withAC bool) (ret float64) {
+func (g *IG) Weight(u, v mtypes.Vertex, withAC bool) (ret float64) {
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	//defer func() { fmt.Println(u, v, ret) }()
@@ -246,7 +262,7 @@ func (g *IG) Weight(u, v config.Vertex, withAC bool) (ret float64) {
 	if _, ok := g.edges[u][v]; !ok {
 		return Infinity
 	}
-	if time.Now().After(g.edges[u][v].time.Add(g.NodeReportTimeout)) {
+	if time.Now().After(g.edges[u][v].validUntil) {
 		return Infinity
 	}
 	ret = g.edges[u][v].ping
@@ -259,7 +275,7 @@ func (g *IG) Weight(u, v config.Vertex, withAC bool) (ret float64) {
 	return
 }
 
-func (g *IG) OldWeight(u, v config.Vertex, withAC bool) (ret float64) {
+func (g *IG) OldWeight(u, v mtypes.Vertex, withAC bool) (ret float64) {
 	g.edgelock.RLock()
 	defer g.edgelock.RUnlock()
 	if u == v {
@@ -281,7 +297,7 @@ func (g *IG) OldWeight(u, v config.Vertex, withAC bool) (ret float64) {
 	return
 }
 
-func (g *IG) SetWeight(u, v config.Vertex, weight float64) {
+func (g *IG) SetWeight(u, v mtypes.Vertex, weight float64) {
 	g.edgelock.Lock()
 	defer g.edgelock.Unlock()
 	if _, ok := g.edges[u]; !ok {
@@ -293,7 +309,7 @@ func (g *IG) SetWeight(u, v config.Vertex, weight float64) {
 	g.edges[u][v].ping = weight
 }
 
-func (g *IG) SetOldWeight(u, v config.Vertex, weight float64) {
+func (g *IG) SetOldWeight(u, v mtypes.Vertex, weight float64) {
 	g.edgelock.Lock()
 	defer g.edgelock.Unlock()
 	if _, ok := g.edges[u]; !ok {
@@ -319,7 +335,7 @@ func (g *IG) RemoveAllNegativeValue() {
 	}
 }
 
-func (g *IG) FloydWarshall(again bool) (dist config.DistTable, next config.NextHopTable, err error) {
+func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, next mtypes.NextHopTable, err error) {
 	if g.loglevel.LogInternal {
 		if !again {
 			fmt.Println("Internal: Start Floyd Warshall algorithm")
@@ -329,11 +345,11 @@ func (g *IG) FloydWarshall(again bool) (dist config.DistTable, next config.NextH
 		}
 	}
 	vert := g.Vertices()
-	dist = make(config.DistTable)
-	next = make(config.NextHopTable)
+	dist = make(mtypes.DistTable)
+	next = make(mtypes.NextHopTable)
 	for u, _ := range vert {
-		dist[u] = make(map[config.Vertex]float64)
-		next[u] = make(map[config.Vertex]*config.Vertex)
+		dist[u] = make(map[mtypes.Vertex]float64)
+		next[u] = make(map[mtypes.Vertex]*mtypes.Vertex)
 		for v, _ := range vert {
 			dist[u][v] = Infinity
 		}
@@ -372,8 +388,8 @@ func (g *IG) FloydWarshall(again bool) (dist config.DistTable, next config.NextH
 				dist, next, _ = g.FloydWarshall(true)
 				return
 			} else {
-				dist = make(config.DistTable)
-				next = make(config.NextHopTable)
+				dist = make(mtypes.DistTable)
+				next = make(mtypes.NextHopTable)
 				err = errors.New("negative cycle detected again!")
 				if g.loglevel.LogInternal {
 					fmt.Println("Internal: Error: Negative cycle detected again")
@@ -385,11 +401,11 @@ func (g *IG) FloydWarshall(again bool) (dist config.DistTable, next config.NextH
 	return
 }
 
-func Path(u, v config.Vertex, next config.NextHopTable) (path []config.Vertex) {
+func Path(u, v mtypes.Vertex, next mtypes.NextHopTable) (path []mtypes.Vertex) {
 	if next[u][v] == nil {
-		return []config.Vertex{}
+		return []mtypes.Vertex{}
 	}
-	path = []config.Vertex{u}
+	path = []mtypes.Vertex{u}
 	for u != v {
 		u = *next[u][v]
 		path = append(path, u)
@@ -397,28 +413,28 @@ func Path(u, v config.Vertex, next config.NextHopTable) (path []config.Vertex) {
 	return path
 }
 
-func (g *IG) SetNHTable(nh config.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
+func (g *IG) SetNHTable(nh mtypes.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
 	g.nhTable = nh
 	g.NhTableHash = table_hash
 	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
 }
 
-func (g *IG) GetNHTable(recalculate bool) config.NextHopTable {
+func (g *IG) GetNHTable(recalculate bool) mtypes.NextHopTable {
 	if recalculate && time.Now().After(g.NhTableExpire) {
 		g.RecalculateNhTable(false)
 	}
 	return g.nhTable
 }
 
-func (g *IG) GetDtst() config.DistTable {
+func (g *IG) GetDtst() mtypes.DistTable {
 	return g.dlTable
 }
 
-func (g *IG) GetEdges(isOld bool, withAC bool) (edges map[config.Vertex]map[config.Vertex]float64) {
+func (g *IG) GetEdges(isOld bool, withAC bool) (edges map[mtypes.Vertex]map[mtypes.Vertex]float64) {
 	vert := g.Vertices()
-	edges = make(map[config.Vertex]map[config.Vertex]float64, len(vert))
+	edges = make(map[mtypes.Vertex]map[mtypes.Vertex]float64, len(vert))
 	for src, _ := range vert {
-		edges[src] = make(map[config.Vertex]float64, len(vert))
+		edges[src] = make(map[mtypes.Vertex]float64, len(vert))
 		for dst, _ := range vert {
 			if src != dst {
 				if isOld {
@@ -432,16 +448,16 @@ func (g *IG) GetEdges(isOld bool, withAC bool) (edges map[config.Vertex]map[conf
 	return
 }
 
-func (g *IG) GetBoardcastList(id config.Vertex) (tosend map[config.Vertex]bool) {
-	tosend = make(map[config.Vertex]bool)
+func (g *IG) GetBoardcastList(id mtypes.Vertex) (tosend map[mtypes.Vertex]bool) {
+	tosend = make(map[mtypes.Vertex]bool)
 	for _, element := range g.nhTable[id] {
 		tosend[*element] = true
 	}
 	return
 }
 
-func (g *IG) GetBoardcastThroughList(self_id config.Vertex, in_id config.Vertex, src_id config.Vertex) (tosend map[config.Vertex]bool) {
-	tosend = make(map[config.Vertex]bool)
+func (g *IG) GetBoardcastThroughList(self_id mtypes.Vertex, in_id mtypes.Vertex, src_id mtypes.Vertex) (tosend map[mtypes.Vertex]bool) {
+	tosend = make(map[mtypes.Vertex]bool)
 	for check_id, _ := range g.GetBoardcastList(self_id) {
 		for _, path_node := range Path(src_id, check_id, g.nhTable) {
 			if path_node == self_id && check_id != in_id {
@@ -474,12 +490,12 @@ func a2n(s string) (ret float64) {
 	return
 }
 
-func a2v(s string) config.Vertex {
+func a2v(s string) mtypes.Vertex {
 	ret, err := strconv.ParseUint(s, 10, 16)
 	if err != nil {
 		panic(err)
 	}
-	return config.Vertex(ret)
+	return mtypes.Vertex(ret)
 }
 
 func Solve(filePath string, pe bool) error {
@@ -488,9 +504,9 @@ func Solve(filePath string, pe bool) error {
 		return nil
 	}
 
-	g := NewGraph(3, false, config.GraphRecalculateSetting{
+	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{
 		NodeReportTimeout: 9999,
-	}, config.NTPinfo{}, config.LoggerInfo{LogInternal: true})
+	}, mtypes.NTPinfo{}, mtypes.LoggerInfo{LogInternal: true})
 	inputb, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -506,7 +522,7 @@ func Solve(filePath string, pe bool) error {
 			val := a2n(sval)
 			dst := a2v(verts[index+1])
 			if src != dst && val != Infinity {
-				g.UpdateLatency(src, dst, S2TD(val), 0, false, false)
+				g.UpdateLatency(src, dst, val, 99999, 0, false, false)
 			}
 		}
 	}

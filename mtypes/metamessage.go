@@ -1,15 +1,14 @@
-package path
+package mtypes
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
-	"net"
 	"strconv"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/golang-jwt/jwt"
 )
 
 func GetByte(structIn interface{}) (bb []byte, err error) {
@@ -23,12 +22,12 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 }
 
 type RegisterMsg struct {
-	Node_id       config.Vertex
+	Node_id       Vertex
 	Version       string
 	PeerStateHash [32]byte
 	NhStateHash   [32]byte
-	LocalV4       net.UDPAddr
-	LocalV6       net.UDPAddr
+	JWTSecret     JWTSecret
+	HttpPostCount uint64
 }
 
 func Hash2Str(h []byte) string {
@@ -41,7 +40,7 @@ func Hash2Str(h []byte) string {
 }
 
 func (c *RegisterMsg) ToString() string {
-	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+Hash2Str(c.PeerStateHash[:]), " NhHash:"+Hash2Str(c.NhStateHash[:]), " LocalV4:"+c.LocalV4.String(), " LocalV6:"+c.LocalV6.String())
+	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+Hash2Str(c.PeerStateHash[:]), " NhHash:"+Hash2Str(c.NhStateHash[:]))
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -52,31 +51,34 @@ func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
 	return
 }
 
-type ErrorAction int
+type ServerCommand int
 
 const (
-	NoAction ErrorAction = iota
+	NoAction ServerCommand = iota
 	Shutdown
+	ThrowError
 	Panic
 )
 
-func (a *ErrorAction) ToString() string {
+func (a *ServerCommand) ToString() string {
 	if *a == Shutdown {
-		return "shutdown"
+		return "Shutdown"
+	} else if *a == ThrowError {
+		return "ThrowError"
 	} else if *a == Panic {
-		return "panic"
+		return "Panic"
 	}
-	return "unknow"
+	return "Unknown"
 }
 
-type UpdateErrorMsg struct {
-	Node_id   config.Vertex
-	Action    ErrorAction
+type ServerCommandMsg struct {
+	Node_id   Vertex
+	Action    ServerCommand
 	ErrorCode int
 	ErrorMsg  string
 }
 
-func ParseUpdateErrorMsg(bin []byte) (StructPlace UpdateErrorMsg, err error) {
+func ParseUpdateErrorMsg(bin []byte) (StructPlace ServerCommandMsg, err error) {
 	var b bytes.Buffer
 	b.Write(bin)
 	d := gob.NewDecoder(&b)
@@ -84,8 +86,8 @@ func ParseUpdateErrorMsg(bin []byte) (StructPlace UpdateErrorMsg, err error) {
 	return
 }
 
-func (c *UpdateErrorMsg) ToString() string {
-	return "UpdateErrorMsg Node_id:" + c.Node_id.ToString() + " Action:" + c.Action.ToString() + " ErrorCode:" + strconv.Itoa(c.ErrorCode) + " ErrorMsg " + c.ErrorMsg
+func (c *ServerCommandMsg) ToString() string {
+	return "ServerCommandMsg Node_id:" + c.Node_id.ToString() + " Action:" + c.Action.ToString() + " ErrorCode:" + strconv.Itoa(int(c.ErrorCode)) + " ErrorMsg " + c.ErrorMsg
 }
 
 type UpdatePeerMsg struct {
@@ -122,7 +124,7 @@ func ParseUpdateNhTableMsg(bin []byte) (StructPlace UpdateNhTableMsg, err error)
 
 type PingMsg struct {
 	RequestID    uint32
-	Src_nodeID   config.Vertex
+	Src_nodeID   Vertex
 	Time         time.Time
 	RequestReply int
 }
@@ -141,14 +143,15 @@ func ParsePingMsg(bin []byte) (StructPlace PingMsg, err error) {
 
 type PongMsg struct {
 	RequestID      uint32
-	Src_nodeID     config.Vertex
-	Dst_nodeID     config.Vertex
-	Timediff       time.Duration
+	Src_nodeID     Vertex
+	Dst_nodeID     Vertex
+	Timediff       float64
+	TimeToAlive    float64
 	AdditionalCost float64
 }
 
 func (c *PongMsg) ToString() string {
-	return "PongMsg SID:" + c.Src_nodeID.ToString() + " DID:" + c.Dst_nodeID.ToString() + " Timediff:" + c.Timediff.String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
+	return "PongMsg SID:" + c.Src_nodeID.ToString() + " DID:" + c.Dst_nodeID.ToString() + " Timediff:" + S2TD(c.Timediff).String() + " TTL:" + S2TD(c.TimeToAlive).String() + " RequestID:" + strconv.Itoa(int(c.RequestID))
 }
 
 func ParsePongMsg(bin []byte) (StructPlace PongMsg, err error) {
@@ -177,7 +180,7 @@ func ParseQueryPeerMsg(bin []byte) (StructPlace QueryPeerMsg, err error) {
 
 type BoardcastPeerMsg struct {
 	Request_ID uint32
-	NodeID     config.Vertex
+	NodeID     Vertex
 	PubKey     [32]byte
 	ConnURL    string
 }
@@ -192,6 +195,26 @@ func ParseBoardcastPeerMsg(bin []byte) (StructPlace BoardcastPeerMsg, err error)
 	d := gob.NewDecoder(&b)
 	err = d.Decode(&StructPlace)
 	return
+}
+
+type API_report_peerinfo struct {
+	Pongs    []PongMsg
+	LocalV4s map[string]float64
+	LocalV6s map[string]float64
+}
+
+func ParseAPI_report_peerinfo(bin []byte) (StructPlace API_report_peerinfo, err error) {
+	var b bytes.Buffer
+	b.Write(bin)
+	d := gob.NewDecoder(&b)
+	err = d.Decode(&StructPlace)
+	return
+}
+
+type API_report_peerinfo_jwt_claims struct {
+	PostCount uint64
+	BodyHash  string
+	jwt.StandardClaims
 }
 
 type SUPER_Events struct {

@@ -24,8 +24,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
-	"github.com/KusakabeSi/EtherGuardVPN/rwcancel"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
+	"github.com/KusakabeSi/EtherGuard-VPN/rwcancel"
 )
 
 const (
@@ -453,7 +453,7 @@ func (tap *NativeTap) Close() error {
 	return err2
 }
 
-func CreateTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (Device, error) {
+func CreateTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (Device, error) {
 	nfd, err := unix.Open(cloneDevicePath, os.O_RDWR, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -496,7 +496,7 @@ func CreateTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (Device, erro
 	return CreateTAPFromFile(fd, iconfig, NodeID)
 }
 
-func CreateTAPFromFile(file *os.File, iconfig config.InterfaceConf, NodeID config.Vertex) (Device, error) {
+func CreateTAPFromFile(file *os.File, iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (Device, error) {
 	tap := &NativeTap{
 		tapFile:                 file,
 		events:                  make(chan Event, 5),

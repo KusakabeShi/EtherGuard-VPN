@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
 type UdpSockTap struct {
@@ -19,7 +19,7 @@ type UdpSockTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateUDPSockTAP(iconfig config.InterfaceConf, NodeID config.Vertex) (tapdev Device, err error) {
+func CreateUDPSockTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (tapdev Device, err error) {
 	// Setup TUN Config
 
 	tap := &UdpSockTap{

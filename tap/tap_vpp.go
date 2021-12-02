@@ -22,7 +22,7 @@ import (
 	"git.fd.io/govpp.git/extras/libmemif"
 	"golang.org/x/sys/unix"
 
-	"github.com/KusakabeSi/EtherGuardVPN/config"
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	logger "github.com/sirupsen/logrus"
 )
 

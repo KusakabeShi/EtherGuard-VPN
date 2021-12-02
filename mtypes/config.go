@@ -1,7 +1,6 @@
-package config
+package mtypes
 
 import (
-	"crypto/rand"
 	"math"
 	"strconv"
 )
@@ -13,7 +12,8 @@ const (
 	Broadcast        Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
 	ControlMessage   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
 	SuperNodeMessage Vertex = math.MaxUint16 - iota
-	Special_NodeID   Vertex = SuperNodeMessage
+	BrokenMessage    Vertex = math.MaxUint16 - iota
+	Special_NodeID   Vertex = BrokenMessage
 )
 
 type EdgeConfig struct {
@@ -132,6 +132,8 @@ type SuperInfo struct {
 	ConnURLV6            string
 	PubKeyV6             string
 	APIUrl               string
+	SkipLocalIP          bool
+	HttpPostInterval     float64
 	SuperNodeInfoTimeout float64
 }
 
@@ -154,26 +156,52 @@ type GraphRecalculateSetting struct {
 type DistTable map[Vertex]map[Vertex]float64
 type NextHopTable map[Vertex]map[Vertex]*Vertex
 
+type API_connurl struct {
+	ExternalV4 map[string]float64
+	ExternalV6 map[string]float64
+	LocalV4    map[string]float64
+	LocalV6    map[string]float64
+}
+
+func (Connurl *API_connurl) IsEmpty() bool {
+	return len(Connurl.ExternalV4)+len(Connurl.ExternalV6)+len(Connurl.LocalV4)+len(Connurl.LocalV6) == 0
+}
+
+func (Connurl *API_connurl) GetList(UseLocal bool) (ret map[string]float64) {
+	ret = make(map[string]float64)
+	if UseLocal {
+		if Connurl.LocalV4 != nil {
+			for k, v := range Connurl.LocalV4 {
+				ret[k] = v
+			}
+		}
+		if Connurl.LocalV6 != nil {
+			for k, v := range Connurl.LocalV6 {
+				ret[k] = v
+			}
+		}
+	}
+	if Connurl.ExternalV4 != nil {
+		for k, v := range Connurl.ExternalV4 {
+			ret[k] = v
+		}
+	}
+	if Connurl.ExternalV6 != nil {
+		for k, v := range Connurl.ExternalV6 {
+			ret[k] = v
+		}
+	}
+	return
+}
+
 type API_Peerinfo struct {
 	NodeID  Vertex
 	PSKey   string
-	Connurl map[string]float64
+	Connurl *API_connurl
 }
 
 type API_Peers map[string]API_Peerinfo // map[PubKey]API_Peerinfo
 
+type JWTSecret [32]byte
+
 const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-func RandomStr(length int, defaults string) string {
-	bytes := make([]byte, length)
-
-	if _, err := rand.Read(bytes); err != nil {
-		return defaults
-	}
-
-	for i, b := range bytes {
-		bytes[i] = chars[b%byte(len(chars))]
-	}
-
-	return string(bytes)
-}

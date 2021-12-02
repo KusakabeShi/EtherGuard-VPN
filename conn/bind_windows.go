@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/KusakabeSi/EtherGuardVPN/conn/winrio"
+	"github.com/KusakabeSi/EtherGuard-VPN/conn/winrio"
 )
 
 const (
