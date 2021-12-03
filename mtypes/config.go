@@ -80,6 +80,7 @@ type SuperPeerInfo struct {
 	PubKey         string
 	PSKey          string
 	AdditionalCost float64
+	SkipLocalIP    bool
 }
 
 type LoggerInfo struct {
@@ -110,6 +111,7 @@ type DynamicRouteInfo struct {
 	DupCheckTimeout  float64
 	ConnTimeOut      float64
 	ConnNextTry      float64
+	AdditionalCost   float64
 	SaveNewPeers     bool
 	SuperNode        SuperInfo
 	P2P              P2Pinfo
@@ -140,7 +142,6 @@ type SuperInfo struct {
 type P2Pinfo struct {
 	UseP2P                  bool
 	SendPeerInterval        float64
-	AdditionalCost          float64
 	GraphRecalculateSetting GraphRecalculateSetting
 }
 

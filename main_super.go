@@ -109,14 +109,14 @@ func printExampleSuperConf() {
 				Name:           "Node_01",
 				PubKey:         "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
 				PSKey:          "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
-				AdditionalCost: 0,
+				AdditionalCost: 10,
 			},
 			{
 				NodeID:         2,
 				Name:           "Node_02",
 				PubKey:         "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
 				PSKey:          "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
-				AdditionalCost: 0,
+				AdditionalCost: 10,
 			},
 		},
 	}
@@ -244,7 +244,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 
 	go Event_server_event_hendler(httpobj.http_graph, httpobj.http_super_chains)
-	go RoutinePushSettings(path.S2TD(sconfig.RePushConfigInterval))
+	go RoutinePushSettings(mtypes.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
 	go HttpServer(sconfig.ListenPort, "/api")
 
@@ -358,7 +358,7 @@ func super_peerdel_notify(toDelete mtypes.Vertex, PubKey string) {
 
 		peer6 := httpobj.http_device6.LookupPeerByStr(PubKey)
 		httpobj.http_device6.SendPacket(peer6, path.UpdateError, buf, device.MessageTransportOffsetContent)
-		time.Sleep(path.S2TD(0.1))
+		time.Sleep(mtypes.S2TD(0.1))
 	}
 	httpobj.http_device4.RemovePeerByID(toDelete)
 	httpobj.http_device6.RemovePeerByID(toDelete)
@@ -439,7 +439,7 @@ func RoutinePushSettings(interval time.Duration) {
 		}
 		PushNhTable(force)
 		PushPeerinfo(force)
-		time.Sleep(path.S2TD(1))
+		time.Sleep(mtypes.S2TD(1))
 	}
 }
 
@@ -475,7 +475,7 @@ func PushNhTable(force bool) {
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
-		isAlive := peerstate.LastSeen.Add(path.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
 		if !isAlive {
 			continue
 		}
@@ -507,7 +507,7 @@ func PushPeerinfo(force bool) {
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
-		isAlive := peerstate.LastSeen.Add(path.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
 		if !isAlive {
 			continue
 		}

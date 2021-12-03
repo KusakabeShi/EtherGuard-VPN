@@ -59,18 +59,14 @@ type IG struct {
 	ntp_servers orderedmap.OrderedMap // serverurl:lentancy
 }
 
-func S2TD(secs float64) time.Duration {
-	return time.Duration(secs * float64(time.Second))
-}
-
 func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateSetting, ntpinfo mtypes.NTPinfo, loglevel mtypes.LoggerInfo) *IG {
 	g := IG{
 		edgelock:                  &sync.RWMutex{},
 		StaticMode:                theconfig.StaticMode,
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
-		RecalculateCoolDown:       S2TD(theconfig.RecalculateCoolDown),
-		TimeoutCheckInterval:      S2TD(theconfig.TimeoutCheckInterval),
+		RecalculateCoolDown:       mtypes.S2TD(theconfig.RecalculateCoolDown),
+		TimeoutCheckInterval:      mtypes.S2TD(theconfig.TimeoutCheckInterval),
 		ntp_info:                  ntpinfo,
 	}
 	g.Vert = make(map[mtypes.Vertex]bool, num_node)

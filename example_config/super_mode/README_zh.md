@@ -412,6 +412,8 @@ curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9K
 1. `pubkeyv6`: Super node的IPv6工鑰
 1. `apiurl`: Super node的HTTP(S) API連線地址
 1. `supernodeinfotimeout`: Supernode Timeout
+1. `httppostinterval`: 15
+1. `skiplocalip`: 打洞時，一律使用supernode蒐集到的外部ip，不使用edge自行回報的local ip
 
 ### Super node本身的設定檔
 

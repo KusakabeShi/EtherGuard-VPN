@@ -75,7 +75,6 @@ type Device struct {
 		LocalV6      net.IP
 	}
 	event_tryendpoint chan struct{}
-	ResetConnInterval float64
 
 	EdgeConfigPath  string
 	EdgeConfig      *mtypes.EdgeConfig
@@ -91,17 +90,13 @@ type Device struct {
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
-	IsSuperNode    bool
-	ID             mtypes.Vertex
-	DefaultTTL     uint8
-	graph          *path.IG
-	l2fib          sync.Map
-	fibTimeout     float64
-	LogLevel       mtypes.LoggerInfo
-	DRoute         mtypes.DynamicRouteInfo
-	DupData        fixed_time_cache.Cache
-	Version        string
-	AdditionalCost float64
+	IsSuperNode bool
+	ID          mtypes.Vertex
+	graph       *path.IG
+	l2fib       sync.Map
+	LogLevel    mtypes.LoggerInfo
+	DupData     fixed_time_cache.Cache
+	Version     string
 
 	HttpPostCount uint64
 	JWTSecret     mtypes.JWTSecret
@@ -350,24 +345,22 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 	device.indexTable.Init()
 	device.PopulatePools()
 	if IsSuperNode {
+		device.SuperConfigPath = configpath
+		device.SuperConfig = sconfig
+		device.EdgeConfig = &mtypes.EdgeConfig{}
 		device.Event_server_pong = superevents.Event_server_pong
 		device.Event_server_register = superevents.Event_server_register
 		device.LogLevel = sconfig.LogLevel
-		device.SuperConfig = sconfig
-		device.SuperConfigPath = configpath
 	} else {
 		device.EdgeConfigPath = configpath
 		device.EdgeConfig = econfig
-		device.DRoute = econfig.DynamicRoute
-		device.DupData = *fixed_time_cache.NewCache(path.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, path.S2TD(60))
+		device.SuperConfig = &mtypes.SuperConfig{}
+		device.DupData = *fixed_time_cache.NewCache(mtypes.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, mtypes.S2TD(60))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Event_save_config = make(chan struct{}, 1<<5)
 		device.Event_Supernode_OK = make(chan struct{}, 4)
 		device.LogLevel = econfig.LogLevel
-		device.ResetConnInterval = device.EdgeConfig.ResetConnInterval
-		device.DefaultTTL = econfig.DefaultTTL
-		device.fibTimeout = econfig.L2FIBTimeout
-		device.AdditionalCost = device.DRoute.P2P.AdditionalCost
+
 		go device.RoutineSetEndpoint()
 		go device.RoutineDetectOfflineAndTryNextEndpoint()
 		go device.RoutineRegister()

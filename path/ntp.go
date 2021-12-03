@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	orderedmap "github.com/KusakabeSi/EtherGuard-VPN/orderdmap"
 	"github.com/beevik/ntp"
 )
@@ -43,7 +44,7 @@ func (g *IG) RoutineSyncTime() {
 	}
 	for {
 		g.SyncTimeMultiple(g.ntp_info.MaxServerUse)
-		time.Sleep(S2TD(g.ntp_info.SyncTimeInterval))
+		time.Sleep(mtypes.S2TD(g.ntp_info.SyncTimeInterval))
 	}
 }
 
@@ -70,7 +71,7 @@ func (g *IG) SyncTimeMultiple(count int) {
 	}
 	for _, url := range url2sync {
 		g.ntp_wg.Add(1)
-		go g.SyncTime(url, S2TD(g.ntp_info.NTPTimeout))
+		go g.SyncTime(url, mtypes.S2TD(g.ntp_info.NTPTimeout))
 	}
 	g.ntp_wg.Wait()
 	g.ntp_servers.Sort(func(a *orderedmap.Pair, b *orderedmap.Pair) bool {

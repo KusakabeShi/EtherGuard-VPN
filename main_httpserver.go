@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -157,7 +158,7 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo mtypes.API_Peers, Stat
 			PSKey:   peerinfo.PSKey,
 			Connurl: &mtypes.API_connurl{},
 		}
-		if httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Add(path.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
+		if httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now()) {
 			connV4 := httpobj.http_device4.GetConnurl(peerinfo.NodeID)
 			connV6 := httpobj.http_device6.GetConnurl(peerinfo.NodeID)
 			if connV4 != "" {
@@ -166,8 +167,10 @@ func get_api_peers(old_State_hash [32]byte) (api_peerinfo mtypes.API_Peers, Stat
 			if connV6 != "" {
 				api_peerinfo[peerinfo.PubKey].Connurl.ExternalV6 = map[string]float64{connV6: 6}
 			}
-			api_peerinfo[peerinfo.PubKey].Connurl.LocalV4 = httpobj.http_PeerIPs[peerinfo.PubKey].LocalIPv4
-			api_peerinfo[peerinfo.PubKey].Connurl.LocalV6 = httpobj.http_PeerIPs[peerinfo.PubKey].LocalIPv6
+			if !peerinfo.SkipLocalIP {
+				api_peerinfo[peerinfo.PubKey].Connurl.LocalV4 = httpobj.http_PeerIPs[peerinfo.PubKey].LocalIPv4
+				api_peerinfo[peerinfo.PubKey].Connurl.LocalV6 = httpobj.http_PeerIPs[peerinfo.PubKey].LocalIPv6
+			}
 		}
 
 	}
@@ -199,7 +202,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	defer httpobj.RUnlock()
 	if httpobj.http_PeerID2Info[NodeID].PubKey != PubKey {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("NodeID and PunKey are not match"))
+		w.Write([]byte("Paramater NodeID: NodeID and PubKey are not match"))
 		return
 	}
 
@@ -228,6 +231,10 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 				} else {
 					peerinfo.PSKey = ""
 				}
+				if httpobj.http_PeerID2Info[NodeID].SkipLocalIP { // Clear all local IP
+					peerinfo.Connurl.LocalV4 = make(map[string]float64)
+					peerinfo.Connurl.LocalV6 = make(map[string]float64)
+				}
 				http_PeerInfo_2peer[PeerPubKey] = peerinfo
 			}
 			api_peerinfo_str_byte, _ := json.Marshal(&http_PeerInfo_2peer)
@@ -239,7 +246,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("State not correct"))
+	w.Write([]byte("Paramater State: State not correct"))
 }
 
 func get_nhtable(w http.ResponseWriter, r *http.Request) {
@@ -451,26 +458,33 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	}
 
 	r.ParseForm()
-	NodeID, err := extractParamsVertex(r.Form, "nodeid", w)
+	NodeID, err := extractParamsVertex(r.Form, "NodeID", w)
 	if err != nil {
 		return
 	}
-	Name, err := extractParamsStr(r.Form, "name", w)
-	if err != nil {
-		return
-	}
-
-	AdditionalCost, err := extractParamsFloat(r.Form, "additionalcost", 64, w)
+	Name, err := extractParamsStr(r.Form, "Name", w)
 	if err != nil {
 		return
 	}
 
-	PubKey, err := extractParamsStr(r.Form, "pubkey", w)
+	AdditionalCost, err := extractParamsFloat(r.Form, "AdditionalCost", 64, w)
 	if err != nil {
 		return
 	}
 
-	PSKey, err := extractParamsStr(r.Form, "pskey", nil)
+	PubKey, err := extractParamsStr(r.Form, "PubKey", w)
+	if err != nil {
+		return
+	}
+
+	SkipLocalIPS, err := extractParamsStr(r.Form, "SkipLocalIP", w)
+	if err != nil {
+		return
+	}
+
+	SkipLocalIP := strings.EqualFold(SkipLocalIPS, "true")
+
+	PSKey, err := extractParamsStr(r.Form, "PSKey", nil)
 
 	httpobj.Lock()
 	defer httpobj.Unlock()
@@ -478,32 +492,32 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	for _, peerinfo := range httpobj.http_sconfig.Peers {
 		if peerinfo.NodeID == NodeID {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("Paramater nodeid: NodeID exists"))
+			w.Write([]byte("Paramater NodeID: NodeID exists"))
 			return
 		}
 		if peerinfo.Name == Name {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("Paramater name: Node name exists"))
+			w.Write([]byte("Paramater Name: Node name exists"))
 			return
 		}
 		if peerinfo.PubKey == PubKey {
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte("Paramater pubkey: PubKey exists"))
+			w.Write([]byte("Paramater PubKey: PubKey exists"))
 			return
 		}
 	}
 	if httpobj.http_sconfig.GraphRecalculateSetting.StaticMode == true {
-		NhTableStr := r.Form.Get("nexthoptable")
+		NhTableStr := r.Form.Get("NextHopTable")
 		if NhTableStr == "" {
 			w.WriteHeader(http.StatusExpectationFailed)
-			w.Write([]byte("Paramater nexthoptable: Your NextHopTable is in static mode.\nPlease provide your new NextHopTable in \"nexthoptable\" parmater in json format"))
+			w.Write([]byte("Paramater NextHopTable: Your NextHopTable is in static mode.\nPlease provide your new NextHopTable in \"NextHopTable\" parmater in json format"))
 			return
 		}
 		var NewNhTable mtypes.NextHopTable
 		err := json.Unmarshal([]byte(NhTableStr), &NewNhTable)
 		if err != nil {
 			w.WriteHeader(http.StatusExpectationFailed)
-			w.Write([]byte(fmt.Sprintf("Paramater nexthoptable: \"%v\", %v", NhTableStr, err)))
+			w.Write([]byte(fmt.Sprintf("Paramater NextHopTable: \"%v\", %v", NhTableStr, err)))
 			return
 		}
 		err = checkNhTable(NewNhTable, append(httpobj.http_sconfig.Peers, mtypes.SuperPeerInfo{
@@ -512,6 +526,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 			PubKey:         PubKey,
 			PSKey:          PSKey,
 			AdditionalCost: AdditionalCost,
+			SkipLocalIP:    SkipLocalIP,
 		}))
 		if err != nil {
 			w.WriteHeader(http.StatusExpectationFailed)
@@ -526,6 +541,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 		PubKey:         PubKey,
 		PSKey:          PSKey,
 		AdditionalCost: AdditionalCost,
+		SkipLocalIP:    SkipLocalIP,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusExpectationFailed)
@@ -538,6 +554,7 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 		PubKey:         PubKey,
 		PSKey:          PSKey,
 		AdditionalCost: AdditionalCost,
+		SkipLocalIP:    SkipLocalIP,
 	})
 	mtypesBytes, _ := yaml.Marshal(httpobj.http_sconfig)
 	ioutil.WriteFile(httpobj.http_sconfig_path, mtypesBytes, 0644)
@@ -545,6 +562,8 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	httpobj.http_econfig_tmp.NodeName = Name
 	httpobj.http_econfig_tmp.PrivKey = "Your_Private_Key"
 	httpobj.http_econfig_tmp.DynamicRoute.SuperNode.PSKey = PSKey
+	httpobj.http_econfig_tmp.DynamicRoute.AdditionalCost = AdditionalCost
+	httpobj.http_econfig_tmp.DynamicRoute.SuperNode.SkipLocalIP = SkipLocalIP
 	ret_str_byte, _ := yaml.Marshal(&httpobj.http_econfig_tmp)
 	w.WriteHeader(http.StatusOK)
 	w.Write(ret_str_byte)

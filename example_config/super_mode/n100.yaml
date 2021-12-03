@@ -16,7 +16,7 @@ l2fibtimeout: 3600
 privkey: IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ=
 listenport: 0
 loglevel:
-  loglevel: normal
+  loglevel: error
   logtransit: true
   logcontrol: true
   lognormal: true
@@ -28,6 +28,7 @@ dynamicroute:
   dupchecktimeout: 40
   conntimeout: 20
   connnexttry: 5
+  additionalcost: 10
   savenewpeers: true
   supernode:
     usesupernode: true
@@ -43,7 +44,6 @@ dynamicroute:
   p2p:
     usep2p: false
     sendpeerinterval: 20
-    additionalcost: 0
     graphrecalculatesetting:
       staticmode: false
       jittertolerance: 20

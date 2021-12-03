@@ -266,7 +266,7 @@ func (device *Device) RoutineReadFromTUN() {
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
 		EgBody.SetPacketLength(uint16(packet_len))
-		EgBody.SetTTL(device.DefaultTTL)
+		EgBody.SetTTL(device.EdgeConfig.DefaultTTL)
 		elem.Type = path.NormalPacket
 		if packet_len <= 12 {
 			if device.LogLevel.LogNormal {

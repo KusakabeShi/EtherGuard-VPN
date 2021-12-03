@@ -76,7 +76,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 			}
 			newmap_super[url] = &endpoint_tryitem{
 				URL:      url,
-				lastTry:  time.Time{}.Add(path.S2TD(it)),
+				lastTry:  time.Time{}.Add(mtypes.S2TD(it)),
 				firstTry: time.Time{},
 			}
 		}
@@ -245,7 +245,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
-	peer.endpoint_trylist = NewEndpoint_trylist(peer, path.S2TD(device.DRoute.PeerAliveTimeout))
+	peer.endpoint_trylist = NewEndpoint_trylist(peer, mtypes.S2TD(device.EdgeConfig.DynamicRoute.PeerAliveTimeout))
 	peer.SingleWayLatency = path.Infinity
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
@@ -290,7 +290,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 }
 
 func (peer *Peer) IsPeerAlive() bool {
-	PeerAliveTimeout := path.S2TD(peer.device.DRoute.PeerAliveTimeout)
+	PeerAliveTimeout := mtypes.S2TD(peer.device.EdgeConfig.DynamicRoute.PeerAliveTimeout)
 	if peer.endpoint == nil {
 		return false
 	}
@@ -452,7 +452,7 @@ func (peer *Peer) Stop() {
 }
 
 func (peer *Peer) SetPSK(psk NoisePresharedKey) {
-	if peer.device.IsSuperNode == false && peer.ID < mtypes.Special_NodeID && peer.device.DRoute.P2P.UseP2P == true {
+	if peer.device.IsSuperNode == false && peer.ID < mtypes.Special_NodeID && peer.device.EdgeConfig.DynamicRoute.P2P.UseP2P == true {
 		peer.device.log.Verbosef("Preshared keys disabled in P2P mode.")
 		return
 	}
@@ -528,7 +528,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 	if peer.StaticConn == true { //static conn do not write new endpoint to config
 		return
 	}
-	if !device.DRoute.P2P.UseP2P { //Must in p2p mode
+	if !device.EdgeConfig.DynamicRoute.P2P.UseP2P { //Must in p2p mode
 		return
 	}
 	if peer.endpoint != nil && peer.endpoint.DstIP().Equal(endpoint.DstIP()) { //endpoint changed
@@ -565,7 +565,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 }
 
 func (device *Device) SaveConfig() {
-	if device.DRoute.SaveNewPeers {
+	if device.EdgeConfig.DynamicRoute.SaveNewPeers {
 		configbytes, _ := yaml.Marshal(device.EdgeConfig)
 		ioutil.WriteFile(device.EdgeConfigPath, configbytes, 0644)
 	}

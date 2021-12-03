@@ -21,7 +21,7 @@ graphrecalculatesetting:
   jittertolerancemultiplier: 1.01
   nodereporttimeout: 70
   timeoutcheckinterval: 5
-  recalculatecooldown: 1
+  recalculatecooldown: 5
 nexthoptable:
   1:
     2: 2
@@ -34,14 +34,11 @@ peers:
   name: Node_01
   pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
   pskey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
-  additionalcost: 1000
+  additionalcost: 10
+  skiplocalip: false
 - nodeid: 2
   name: Node_02
   pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
   pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
-  additionalcost: 1000
-- nodeid: 100
-  name: Node_100
-  pubkey: 6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM=
-  pskey: ""
-  additionalcost: 1000
+  additionalcost: 10
+  skiplocalip: false
