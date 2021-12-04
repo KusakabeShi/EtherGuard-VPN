@@ -1,5 +1,5 @@
 nodename: NodeSuper
-postscript: ""
+postscript: example_config/echo.sh test
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000

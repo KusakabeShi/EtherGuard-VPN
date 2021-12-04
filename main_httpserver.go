@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"net/http"
@@ -79,12 +80,12 @@ type HttpPeerInfo struct {
 }
 
 type PeerState struct {
-	NhTableState    string
-	PeerInfoState   string
-	SuperParamState string
-	JETSecret       mtypes.JWTSecret
-	httpPostCount   uint64
-	LastSeen        time.Time
+	NhTableState    atomic.Value // string
+	PeerInfoState   atomic.Value // string
+	SuperParamState atomic.Value // string
+	JETSecret       atomic.Value // mtypes.JWTSecret
+	httpPostCount   atomic.Value // uint64
+	LastSeen        atomic.Value // time.Time
 }
 
 type client struct {
@@ -160,7 +161,7 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 			PSKey:   peerinfo.PSKey,
 			Connurl: &mtypes.API_connurl{},
 		}
-		if httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now()) {
+		if httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now()) {
 			connV4 := httpobj.http_device4.GetConnurl(peerinfo.NodeID)
 			connV6 := httpobj.http_device6.GetConnurl(peerinfo.NodeID)
 			if connV4 != "" {
@@ -239,7 +240,7 @@ func get_superparams(w http.ResponseWriter, r *http.Request) {
 		AdditionalCost:   httpobj.http_PeerID2Info[NodeID].AdditionalCost,
 	}
 	SuperParamStr, _ := json.Marshal(SuperParams)
-	httpobj.http_PeerState[PubKey].SuperParamState = State
+	httpobj.http_PeerState[PubKey].SuperParamState.Store(State)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(SuperParamStr))
@@ -291,7 +292,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do something
-	httpobj.http_PeerState[PubKey].PeerInfoState = State
+	httpobj.http_PeerState[PubKey].PeerInfoState.Store(State)
 	http_PeerInfo_2peer := make(mtypes.API_Peers)
 
 	for PeerPubKey, peerinfo := range httpobj.http_PeerInfo {
@@ -372,7 +373,7 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpobj.http_PeerState[PubKey].NhTableState = State
+	httpobj.http_PeerState[PubKey].NhTableState.Store(State)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(httpobj.http_NhTableStr))
@@ -404,7 +405,7 @@ func get_peerstate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, peerinfo := range httpobj.http_sconfig.Peers {
-			LastSeenStr := httpobj.http_PeerState[peerinfo.PubKey].LastSeen.String()
+			LastSeenStr := httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Load().(time.Time).String()
 			hs.PeerInfo[peerinfo.NodeID] = HttpPeerInfo{
 				Name:     peerinfo.Name,
 				LastSeen: LastSeenStr,
@@ -470,7 +471,8 @@ func post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return JWTSecret[:], nil
+		JWTSecretB := JWTSecret.Load().(mtypes.JWTSecret)
+		return JWTSecretB[:], nil
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -486,7 +488,7 @@ func post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	client_PostCount := token_claims.PostCount
 	client_body_hash := token_claims.BodyHash
 
-	if client_PostCount < httpPostCount {
+	if client_PostCount < httpPostCount.Load().(uint64) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("Request body: postcount too small: %v", httpPostCount)))
 		return
@@ -514,7 +516,7 @@ func post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 
 	httpobj.http_PeerIPs[PubKey].LocalIPv4 = client_report.LocalV4s
 	httpobj.http_PeerIPs[PubKey].LocalIPv6 = client_report.LocalV6s
-	httpobj.http_PeerState[PubKey].httpPostCount = client_PostCount + 1
+	httpobj.http_PeerState[PubKey].httpPostCount.Store(client_PostCount + 1)
 
 	applied_pones := make([]mtypes.PongMsg, 0, len(client_report.Pongs))
 	for _, pong_msg := range client_report.Pongs {
