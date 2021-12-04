@@ -6,7 +6,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -80,6 +79,9 @@ func printExampleSuperConf() {
 			LogNTP:      false,
 		},
 		RePushConfigInterval: 30,
+		PeerAliveTimeout:     70,
+		HttpPostInterval:     50,
+		SendPingInterval:     15,
 		Passwords: mtypes.Passwords{
 			ShowState: "passwd",
 			AddPeer:   "passwd_addpeer",
@@ -89,7 +91,6 @@ func printExampleSuperConf() {
 			StaticMode:                false,
 			JitterTolerance:           5,
 			JitterToleranceMultiplier: 1.01,
-			NodeReportTimeout:         70,
 			TimeoutCheckInterval:      5,
 			RecalculateCoolDown:       5,
 		},
@@ -148,6 +149,20 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	if len(NodeName) > 32 {
 		return errors.New("Node name can't longer than 32 :" + NodeName)
 	}
+	if sconfig.PeerAliveTimeout <= 0 {
+		return fmt.Errorf("PeerAliveTimeout must > 0 : %v", sconfig.PeerAliveTimeout)
+	}
+	if sconfig.HttpPostInterval <= 0 {
+		return fmt.Errorf("HttpPostInterval must > 0 : %v", sconfig.HttpPostInterval)
+	} else if sconfig.HttpPostInterval > sconfig.PeerAliveTimeout {
+		return fmt.Errorf("HttpPostInterval must <= PeerAliveTimeout : %v", sconfig.HttpPostInterval)
+	}
+	if sconfig.SendPingInterval <= 0 {
+		return fmt.Errorf("SendPingInterval must > 0 : %v", sconfig.SendPingInterval)
+	}
+	if sconfig.RePushConfigInterval <= 0 {
+		return fmt.Errorf("RePushConfigInterval must > 0 : %v", sconfig.RePushConfigInterval)
+	}
 
 	var logLevel int
 	switch sconfig.LogLevel.LogLevel {
@@ -182,7 +197,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		Event_server_register: make(chan mtypes.RegisterMsg, 1<<5),
 	}
 	httpobj.http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, mtypes.NTPinfo{}, sconfig.LogLevel)
-	httpobj.http_graph.SetNHTable(httpobj.http_sconfig.NextHopTable, [32]byte{})
+	httpobj.http_graph.SetNHTable(httpobj.http_sconfig.NextHopTable)
 	if sconfig.GraphRecalculateSetting.StaticMode {
 		err = checkNhTable(httpobj.http_sconfig.NextHopTable, sconfig.Peers)
 		if err != nil {
@@ -242,7 +257,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 		defer uapi6.Close()
 	}
-
+	prepare_superparams(*httpobj.http_sconfig)
 	go Event_server_event_hendler(httpobj.http_graph, httpobj.http_super_chains)
 	go RoutinePushSettings(mtypes.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
@@ -276,6 +291,21 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 	logger4.Verbosef("Shutting down")
 	return
+}
+
+func prepare_superparams(sconfig mtypes.SuperConfig) {
+	SuperParams := mtypes.API_SuperParams{
+		SendPingInterval: sconfig.SendPingInterval,
+		HttpPostInterval: sconfig.HttpPostInterval,
+		PeerAliveTimeout: sconfig.PeerAliveTimeout,
+		AdditionalCost:   -1,
+	}
+	SuperParamStr, _ := json.Marshal(SuperParams)
+	httpobj.http_SuperParamsStr = SuperParamStr
+	md5_hash_raw := md5.Sum(append(httpobj.http_SuperParamsStr, httpobj.http_HashSalt...))
+	new_hash_str := hex.EncodeToString(md5_hash_raw[:])
+
+	httpobj.http_SuperParams_Hash = new_hash_str
 }
 
 func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
@@ -337,14 +367,14 @@ func super_peerdel(toDelete mtypes.Vertex) {
 }
 
 func super_peerdel_notify(toDelete mtypes.Vertex, PubKey string) {
-	UpdateErrorMsg := mtypes.ServerCommandMsg{
-		Node_id:   toDelete,
-		Action:    mtypes.Shutdown,
-		ErrorCode: int(syscall.ENOENT),
-		ErrorMsg:  "You've been removed from supernode.",
+	ServerUpdateMsg := mtypes.ServerUpdateMsg{
+		Node_id: toDelete,
+		Action:  mtypes.Shutdown,
+		Code:    int(syscall.ENOENT),
+		Params:  "You've been removed from supernode.",
 	}
 	for i := 0; i < 10; i++ {
-		body, _ := mtypes.GetByte(&UpdateErrorMsg)
+		body, _ := mtypes.GetByte(&ServerUpdateMsg)
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
 		header.SetSrc(mtypes.SuperNodeMessage)
@@ -354,10 +384,10 @@ func super_peerdel_notify(toDelete mtypes.Vertex, PubKey string) {
 		header.SetDst(toDelete)
 
 		peer4 := httpobj.http_device4.LookupPeerByStr(PubKey)
-		httpobj.http_device4.SendPacket(peer4, path.UpdateError, buf, device.MessageTransportOffsetContent)
+		httpobj.http_device4.SendPacket(peer4, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 
 		peer6 := httpobj.http_device6.LookupPeerByStr(PubKey)
-		httpobj.http_device6.SendPacket(peer6, path.UpdateError, buf, device.MessageTransportOffsetContent)
+		httpobj.http_device6.SendPacket(peer6, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 		time.Sleep(mtypes.S2TD(0.1))
 	}
 	httpobj.http_device4.RemovePeerByID(toDelete)
@@ -378,12 +408,12 @@ func Event_server_event_hendler(graph *path.IG, events *mtypes.SUPER_Events) {
 				httpobj.http_PeerState[PubKey].LastSeen = time.Now()
 				httpobj.http_PeerState[PubKey].JETSecret = reg_msg.JWTSecret
 				httpobj.http_PeerState[PubKey].httpPostCount = reg_msg.HttpPostCount
-				if bytes.Equal(httpobj.http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:]) == false {
-					copy(httpobj.http_PeerState[PubKey].NhTableState[:], reg_msg.NhStateHash[:])
+				if httpobj.http_PeerState[PubKey].NhTableState == reg_msg.NhStateHash == false {
+					httpobj.http_PeerState[PubKey].NhTableState = reg_msg.NhStateHash
 					should_push_nh = true
 				}
-				if bytes.Equal(httpobj.http_PeerState[PubKey].PeerInfoState[:], reg_msg.PeerStateHash[:]) == false {
-					copy(httpobj.http_PeerState[PubKey].PeerInfoState[:], reg_msg.PeerStateHash[:])
+				if httpobj.http_PeerState[PubKey].PeerInfoState == reg_msg.PeerStateHash == false {
+					httpobj.http_PeerState[PubKey].PeerInfoState = reg_msg.PeerStateHash
 					should_push_peer = true
 				}
 			}
@@ -414,11 +444,9 @@ func Event_server_event_hendler(graph *path.IG, events *mtypes.SUPER_Events) {
 			if changed {
 				NhTable := graph.GetNHTable(true)
 				NhTablestr, _ := json.Marshal(NhTable)
-				md5_hash_raw := md5.Sum(append(httpobj.http_NhTableStr, httpobj.http_HashSalt...))
+				md5_hash_raw := md5.Sum(append(NhTablestr, httpobj.http_HashSalt...))
 				new_hash_str := hex.EncodeToString(md5_hash_raw[:])
-				new_hash_str_byte := []byte(new_hash_str)
-				copy(httpobj.http_NhTable_Hash[:], new_hash_str_byte)
-				copy(graph.NhTableHash[:], new_hash_str_byte)
+				httpobj.http_NhTable_Hash = new_hash_str
 				httpobj.http_NhTableStr = NhTablestr
 				PushNhTable(false)
 			}
@@ -438,7 +466,8 @@ func RoutinePushSettings(interval time.Duration) {
 			force = false
 		}
 		PushNhTable(force)
-		PushPeerinfo(force)
+		PushPeerinfo(false)
+		PushServerParams(false)
 		time.Sleep(mtypes.S2TD(1))
 	}
 }
@@ -460,8 +489,11 @@ func RoutineTimeoutCheck() {
 
 func PushNhTable(force bool) {
 	// No lock
-	body, err := mtypes.GetByte(mtypes.UpdateNhTableMsg{
-		State_hash: httpobj.http_NhTable_Hash,
+	body, err := mtypes.GetByte(mtypes.ServerUpdateMsg{
+		Node_id: mtypes.SuperNodeMessage,
+		Action:  mtypes.UpdateNhTable,
+		Code:    0,
+		Params:  string(httpobj.http_NhTable_Hash[:]),
 	})
 	if err != nil {
 		fmt.Println("Error get byte")
@@ -475,16 +507,16 @@ func PushNhTable(force bool) {
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
-		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
 		if !isAlive {
 			continue
 		}
 		if force || peerstate.NhTableState != httpobj.http_NhTable_Hash {
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-				httpobj.http_device4.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-				httpobj.http_device6.SendPacket(peer, path.UpdateNhTable, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}
@@ -492,8 +524,11 @@ func PushNhTable(force bool) {
 
 func PushPeerinfo(force bool) {
 	//No lock
-	body, err := mtypes.GetByte(mtypes.UpdatePeerMsg{
-		State_hash: httpobj.http_PeerInfo_hash,
+	body, err := mtypes.GetByte(mtypes.ServerUpdateMsg{
+		Node_id: mtypes.SuperNodeMessage,
+		Action:  mtypes.UpdatePeer,
+		Code:    0,
+		Params:  string(httpobj.http_PeerInfo_hash[:]),
 	})
 	if err != nil {
 		fmt.Println("Error get byte")
@@ -507,16 +542,51 @@ func PushPeerinfo(force bool) {
 	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
-		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.GraphRecalculateSetting.NodeReportTimeout)).After(time.Now())
+		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
 		if !isAlive {
 			continue
 		}
 		if force || peerstate.PeerInfoState != httpobj.http_PeerInfo_hash {
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device4.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device6.SendPacket(peer, path.UpdatePeer, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+			}
+		}
+	}
+}
+
+func PushServerParams(force bool) {
+	//No lock
+	body, err := mtypes.GetByte(mtypes.ServerUpdateMsg{
+		Node_id: mtypes.SuperNodeMessage,
+		Action:  mtypes.UpdateSuperParams,
+		Code:    0,
+		Params:  string(httpobj.http_SuperParams_Hash[:]),
+	})
+	if err != nil {
+		fmt.Println("Error get byte")
+		return
+	}
+	buf := make([]byte, path.EgHeaderLen+len(body))
+	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+	header.SetDst(mtypes.SuperNodeMessage)
+	header.SetPacketLength(uint16(len(body)))
+	header.SetSrc(mtypes.SuperNodeMessage)
+	header.SetTTL(0)
+	copy(buf[path.EgHeaderLen:], body)
+	for pkstr, peerstate := range httpobj.http_PeerState {
+		isAlive := peerstate.LastSeen.Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
+		if !isAlive {
+			continue
+		}
+		if force || peerstate.SuperParamState != httpobj.http_SuperParams_Hash {
+			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil {
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+			}
+			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil {
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}

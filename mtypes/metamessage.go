@@ -22,12 +22,13 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 }
 
 type RegisterMsg struct {
-	Node_id       Vertex
-	Version       string
-	PeerStateHash [32]byte
-	NhStateHash   [32]byte
-	JWTSecret     JWTSecret
-	HttpPostCount uint64
+	Node_id             Vertex
+	Version             string
+	PeerStateHash       string
+	NhStateHash         string
+	SuperParamStateHash string
+	JWTSecret           JWTSecret
+	HttpPostCount       uint64
 }
 
 func Hash2Str(h []byte) string {
@@ -40,7 +41,7 @@ func Hash2Str(h []byte) string {
 }
 
 func (c *RegisterMsg) ToString() string {
-	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+Hash2Str(c.PeerStateHash[:]), " NhHash:"+Hash2Str(c.NhStateHash[:]))
+	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+c.PeerStateHash, " NhHash:"+c.NhStateHash, " SuperParamHash:"+c.SuperParamStateHash)
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {
@@ -58,27 +59,38 @@ const (
 	Shutdown
 	ThrowError
 	Panic
+	UpdatePeer
+	UpdateNhTable
+	UpdateSuperParams
 )
 
 func (a *ServerCommand) ToString() string {
-	if *a == Shutdown {
+	switch *a {
+	case Shutdown:
 		return "Shutdown"
-	} else if *a == ThrowError {
+	case ThrowError:
 		return "ThrowError"
-	} else if *a == Panic {
+	case Panic:
 		return "Panic"
+	case UpdatePeer:
+		return "UpdatePeer"
+	case UpdateNhTable:
+		return "UpdateNhTable"
+	case UpdateSuperParams:
+		return "UpdateSuperParams"
+	default:
+		return "Unknown"
 	}
-	return "Unknown"
 }
 
-type ServerCommandMsg struct {
-	Node_id   Vertex
-	Action    ServerCommand
-	ErrorCode int
-	ErrorMsg  string
+type ServerUpdateMsg struct {
+	Node_id Vertex
+	Action  ServerCommand
+	Code    int
+	Params  string
 }
 
-func ParseUpdateErrorMsg(bin []byte) (StructPlace ServerCommandMsg, err error) {
+func ParseServerUpdateMsg(bin []byte) (StructPlace ServerUpdateMsg, err error) {
 	var b bytes.Buffer
 	b.Write(bin)
 	d := gob.NewDecoder(&b)
@@ -86,40 +98,8 @@ func ParseUpdateErrorMsg(bin []byte) (StructPlace ServerCommandMsg, err error) {
 	return
 }
 
-func (c *ServerCommandMsg) ToString() string {
-	return "ServerCommandMsg Node_id:" + c.Node_id.ToString() + " Action:" + c.Action.ToString() + " ErrorCode:" + strconv.Itoa(int(c.ErrorCode)) + " ErrorMsg " + c.ErrorMsg
-}
-
-type UpdatePeerMsg struct {
-	State_hash [32]byte
-}
-
-func (c *UpdatePeerMsg) ToString() string {
-	return "UpdatePeerMsg State_hash:" + string(c.State_hash[:])
-}
-
-func ParseUpdatePeerMsg(bin []byte) (StructPlace UpdatePeerMsg, err error) {
-	var b bytes.Buffer
-	b.Write(bin)
-	d := gob.NewDecoder(&b)
-	err = d.Decode(&StructPlace)
-	return
-}
-
-type UpdateNhTableMsg struct {
-	State_hash [32]byte
-}
-
-func (c *UpdateNhTableMsg) ToString() string {
-	return "UpdateNhTableMsg State_hash:" + string(c.State_hash[:])
-}
-
-func ParseUpdateNhTableMsg(bin []byte) (StructPlace UpdateNhTableMsg, err error) {
-	var b bytes.Buffer
-	b.Write(bin)
-	d := gob.NewDecoder(&b)
-	err = d.Decode(&StructPlace)
-	return
+func (c *ServerUpdateMsg) ToString() string {
+	return "ServerUpdateMsg Node_id:" + c.Node_id.ToString() + " Action:" + c.Action.ToString() + " Code:" + strconv.Itoa(int(c.Code)) + " Params: " + c.Params
 }
 
 type PingMsg struct {

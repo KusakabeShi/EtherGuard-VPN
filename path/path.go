@@ -1,7 +1,6 @@
 package path
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -48,7 +47,7 @@ type IG struct {
 	recalculateTime           time.Time
 	dlTable                   mtypes.DistTable
 	nhTable                   mtypes.NextHopTable
-	NhTableHash               [32]byte
+	changed                   bool
 	NhTableExpire             time.Time
 	IsSuperMode               bool
 	loglevel                  mtypes.LoggerInfo
@@ -122,7 +121,7 @@ func (g *IG) CheckAnyShouldUpdate() bool {
 
 func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 	if g.StaticMode {
-		if bytes.Equal(g.NhTableHash[:], make([]byte, 32)) {
+		if g.changed {
 			changed = checkchange
 		}
 		return
@@ -159,7 +158,7 @@ func (g *IG) RemoveVirt(v mtypes.Vertex, recalculate bool, checkchange bool) (ch
 		delete(g.edges[u], v)
 	}
 	g.edgelock.Unlock()
-	g.NhTableHash = [32]byte{}
+	g.changed = true
 	if recalculate {
 		changed = g.RecalculateNhTable(checkchange)
 	}
@@ -409,9 +408,9 @@ func Path(u, v mtypes.Vertex, next mtypes.NextHopTable) (path []mtypes.Vertex) {
 	return path
 }
 
-func (g *IG) SetNHTable(nh mtypes.NextHopTable, table_hash [32]byte) { // set nhTable from supernode
+func (g *IG) SetNHTable(nh mtypes.NextHopTable) { // set nhTable from supernode
 	g.nhTable = nh
-	g.NhTableHash = table_hash
+	g.changed = true
 	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
 }
 
@@ -500,9 +499,7 @@ func Solve(filePath string, pe bool) error {
 		return nil
 	}
 
-	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{
-		NodeReportTimeout: 9999,
-	}, mtypes.NTPinfo{}, mtypes.LoggerInfo{LogInternal: true})
+	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{	}, mtypes.NTPinfo{}, mtypes.LoggerInfo{LogInternal: true})
 	inputb, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err

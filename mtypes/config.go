@@ -3,6 +3,7 @@ package mtypes
 import (
 	"math"
 	"strconv"
+	"sync/atomic"
 )
 
 // Nonnegative integer ID of vertex
@@ -38,8 +39,11 @@ type SuperConfig struct {
 	PrivKeyV4               string
 	PrivKeyV6               string
 	ListenPort              int
-	LogLevel                LoggerInfo
 	RePushConfigInterval    float64
+	HttpPostInterval        float64
+	PeerAliveTimeout        float64
+	SendPingInterval        float64
+	LogLevel                LoggerInfo
 	Passwords               Passwords
 	GraphRecalculateSetting GraphRecalculateSetting
 	NextHopTable            NextHopTable
@@ -135,7 +139,6 @@ type SuperInfo struct {
 	PubKeyV6             string
 	APIUrl               string
 	SkipLocalIP          bool
-	HttpPostInterval     float64
 	SuperNodeInfoTimeout float64
 }
 
@@ -149,7 +152,6 @@ type GraphRecalculateSetting struct {
 	StaticMode                bool
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
-	NodeReportTimeout         float64
 	TimeoutCheckInterval      float64
 	RecalculateCoolDown       float64
 }
@@ -199,6 +201,19 @@ type API_Peerinfo struct {
 	NodeID  Vertex
 	PSKey   string
 	Connurl *API_connurl
+}
+
+type API_SuperParams struct {
+	SendPingInterval float64
+	HttpPostInterval float64
+	PeerAliveTimeout float64
+	AdditionalCost   float64
+}
+
+type StateHash struct {
+	Peer       atomic.Value //[32]byte
+	SuperParam atomic.Value //[32]byte
+	NhTable    atomic.Value //[32]byte
 }
 
 type API_Peers map[string]API_Peerinfo // map[PubKey]API_Peerinfo

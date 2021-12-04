@@ -1,16 +1,19 @@
 nodename: NodeSuper
-postscript: example_config/echo.sh test
+postscript: ""
 privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
 privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
 listenport: 3000
+repushconfiginterval: 30
+httppostinterval: 50
+peeralivetimeout: 70
+sendpinginterval: 15
 loglevel:
   loglevel: normal
   logtransit: true
   logcontrol: true
-  lognormal: true
+  lognormal: false
   loginternal: true
   logntp: false
-repushconfiginterval: 30
 passwords:
   showstate: passwd
   addpeer: passwd_addpeer
@@ -19,7 +22,6 @@ graphrecalculatesetting:
   staticmode: false
   jittertolerance: 5
   jittertolerancemultiplier: 1.01
-  nodereporttimeout: 70
   timeoutcheckinterval: 5
   recalculatecooldown: 5
 nexthoptable:

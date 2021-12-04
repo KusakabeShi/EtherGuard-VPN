@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"syscall"
@@ -147,17 +146,9 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 		}
 	} else {
 		switch msg_type {
-		case path.UpdatePeer:
-			if content, err := mtypes.ParseUpdatePeerMsg(body); err == nil {
-				go device.process_UpdatePeerMsg(peer, content)
-			}
-		case path.UpdateNhTable:
-			if content, err := mtypes.ParseUpdateNhTableMsg(body); err == nil {
-				go device.process_UpdateNhTableMsg(peer, content)
-			}
-		case path.UpdateError:
-			if content, err := mtypes.ParseUpdateErrorMsg(body); err == nil {
-				device.process_UpdateErrorMsg(peer, content)
+		case path.ServerUpdate:
+			if content, err := mtypes.ParseServerUpdateMsg(body); err == nil {
+				device.process_ServerUpdateMsg(peer, content)
 			}
 		case path.PingPacket:
 			if content, err := mtypes.ParsePingMsg(body); err == nil {
@@ -189,21 +180,11 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) string {
 			return content.ToString()
 		}
 		return "RegisterMsg: Parse failed"
-	case path.UpdatePeer:
-		if content, err := mtypes.ParseUpdatePeerMsg(body); err == nil {
+	case path.ServerUpdate:
+		if content, err := mtypes.ParseServerUpdateMsg(body); err == nil {
 			return content.ToString()
 		}
-		return "UpdatePeerMsg: Parse failed"
-	case path.UpdateNhTable:
-		if content, err := mtypes.ParseUpdateNhTableMsg(body); err == nil {
-			return content.ToString()
-		}
-		return "UpdateNhTableMsg: Parse failed"
-	case path.UpdateError:
-		if content, err := mtypes.ParseUpdateErrorMsg(body); err == nil {
-			return content.ToString()
-		}
-		return "UpdateErrorMsg: Parse failed"
+		return "ServerUpdate: Parse failed"
 	case path.PingPacket:
 		if content, err := mtypes.ParsePingMsg(body); err == nil {
 			return content.ToString()
@@ -270,30 +251,30 @@ func compareVersion(v1 string, v2 string) bool {
 }
 
 func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.RegisterMsg) error {
-	UpdateErrorMsg := mtypes.ServerCommandMsg{
-		Node_id:   peer.ID,
-		Action:    mtypes.NoAction,
-		ErrorCode: 0,
-		ErrorMsg:  "",
+	ServerUpdateMsg := mtypes.ServerUpdateMsg{
+		Node_id: peer.ID,
+		Action:  mtypes.NoAction,
+		Code:    0,
+		Params:  "",
 	}
 	if peer.ID != content.Node_id {
-		UpdateErrorMsg = mtypes.ServerCommandMsg{
-			Node_id:   peer.ID,
-			Action:    mtypes.ThrowError,
-			ErrorCode: int(syscall.EPERM),
-			ErrorMsg:  fmt.Sprintf("Your nodeID: %v is not match with registered nodeID: %v", content.Node_id, peer.ID),
+		ServerUpdateMsg = mtypes.ServerUpdateMsg{
+			Node_id: peer.ID,
+			Action:  mtypes.ThrowError,
+			Code:    int(syscall.EPERM),
+			Params:  fmt.Sprintf("Your nodeID: %v is not match with registered nodeID: %v", content.Node_id, peer.ID),
 		}
 	}
 	if compareVersion(content.Version, device.Version) == false {
-		UpdateErrorMsg = mtypes.ServerCommandMsg{
-			Node_id:   peer.ID,
-			Action:    mtypes.ThrowError,
-			ErrorCode: int(syscall.ENOSYS),
-			ErrorMsg:  fmt.Sprintf("Your version: \"%v\" is not compatible with our version: \"%v\"", content.Version, device.Version),
+		ServerUpdateMsg = mtypes.ServerUpdateMsg{
+			Node_id: peer.ID,
+			Action:  mtypes.ThrowError,
+			Code:    int(syscall.ENOSYS),
+			Params:  fmt.Sprintf("Your version: \"%v\" is not compatible with our version: \"%v\"", content.Version, device.Version),
 		}
 	}
-	if UpdateErrorMsg.Action != mtypes.NoAction {
-		body, err := mtypes.GetByte(&UpdateErrorMsg)
+	if ServerUpdateMsg.Action != mtypes.NoAction {
+		body, err := mtypes.GetByte(&ServerUpdateMsg)
 		if err != nil {
 			return err
 		}
@@ -304,15 +285,15 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.Regi
 		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
 		header.SetDst(mtypes.SuperNodeMessage)
-		device.SendPacket(peer, path.UpdateError, buf, MessageTransportOffsetContent)
+		device.SendPacket(peer, path.ServerUpdate, buf, MessageTransportOffsetContent)
 		return nil
 	}
-	device.Event_server_register <- content
+	device.Chan_server_register <- content
 	return nil
 }
 
 func (device *Device) server_process_Pong(peer *Peer, content mtypes.PongMsg) error {
-	device.Event_server_pong <- content
+	device.Chan_server_pong <- content
 	return nil
 }
 
@@ -377,31 +358,31 @@ func (device *Device) process_pong(peer *Peer, content mtypes.PongMsg) error {
 	return nil
 }
 
-func (device *Device) process_UpdatePeerMsg(peer *Peer, content mtypes.UpdatePeerMsg) error {
+func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error {
 	var send_signal bool
 	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
-		if peer.ID != mtypes.SuperNodeMessage {
+		if device.state_hashes.Peer.Load().(string) == State_hash {
 			if device.LogLevel.LogControl {
-				fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
-			}
-			return nil
-		}
-		if bytes.Equal(device.peers.Peer_state[:], content.State_hash[:]) {
-			if device.LogLevel.LogControl {
-				fmt.Println("Control: Same PeerState Hash, skip download nhTable")
+				fmt.Println("Control: Same Hash, skip download PeerInfo")
 			}
 			return nil
 		}
 		var peer_infos mtypes.API_Peers
-
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/peerinfo?NodeID=" + strconv.Itoa(int(device.ID)) + "&PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
-		if device.LogLevel.LogControl {
-			fmt.Println("Control: Download peerinfo from :" + downloadurl)
-		}
+		//
 		client := http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 8 * time.Second,
 		}
-		resp, err := client.Get(downloadurl)
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/peerinfo" ////////////////////////////////////////////////////////////////////////////////////////////////
+		req, err := http.NewRequest("GET", downloadurl, nil)
+		q := req.URL.Query()
+		q.Add("NodeID", device.ID.ToString())
+		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
+		q.Add("State", State_hash)
+		req.URL.RawQuery = q.Encode()
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Download PeerInfo from :" + req.URL.RequestURI())
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			device.log.Errorf(err.Error())
 			return err
@@ -413,7 +394,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content mtypes.UpdatePee
 			return err
 		}
 		if resp.StatusCode != 200 {
-			device.log.Errorf("Control: Download peerinfo result failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
+			device.log.Errorf("Control: Download peerinfo failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
 			return nil
 		}
 		if device.LogLevel.LogControl {
@@ -482,7 +463,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content mtypes.UpdatePee
 				send_signal = true
 			}
 		}
-		device.peers.Peer_state = content.State_hash
+		device.state_hashes.Peer.Store(State_hash)
 		if send_signal {
 			device.event_tryendpoint <- struct{}{}
 		}
@@ -490,33 +471,31 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, content mtypes.UpdatePee
 	return nil
 }
 
-func (device *Device) process_UpdateNhTableMsg(peer *Peer, content mtypes.UpdateNhTableMsg) error {
+func (device *Device) process_UpdateNhTableMsg(peer *Peer, State_hash string) error {
 	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
-		if peer.ID != mtypes.SuperNodeMessage {
+		if device.state_hashes.NhTable.Load().(string) == State_hash {
 			if device.LogLevel.LogControl {
-				fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
-			}
-			return nil
-		}
-		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
-			if device.LogLevel.LogControl {
-				fmt.Println("Control: Same nhTable Hash, skip download nhTable")
+				fmt.Println("Control: Same Hash, skip download nhTable")
 			}
 			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
 			return nil
 		}
 		var NhTable mtypes.NextHopTable
-		if bytes.Equal(device.graph.NhTableHash[:], content.State_hash[:]) {
-			return nil
+		// Download from supernode
+		client := &http.Client{
+			Timeout: 8 * time.Second,
 		}
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/nhtable?NodeID=" + strconv.Itoa(int(device.ID)) + "&PubKey=" + url.QueryEscape(device.staticIdentity.publicKey.ToString()) + "&State=" + url.QueryEscape(string(content.State_hash[:]))
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/nhtable" ////////////////////////////////////////////////////////////////////////////////////////////////
+		req, err := http.NewRequest("GET", downloadurl, nil)
+		q := req.URL.Query()
+		q.Add("NodeID", device.ID.ToString())
+		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
+		q.Add("State", State_hash)
+		req.URL.RawQuery = q.Encode()
 		if device.LogLevel.LogControl {
-			fmt.Println("Control: Download NhTable from :" + downloadurl)
+			fmt.Println("Control: Download NhTable from :" + req.URL.RequestURI())
 		}
-		client := http.Client{
-			Timeout: 30 * time.Second,
-		}
-		resp, err := client.Get(downloadurl)
+		resp, err := client.Do(req)
 		if err != nil {
 			device.log.Errorf(err.Error())
 			return err
@@ -528,7 +507,7 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, content mtypes.Update
 			return err
 		}
 		if resp.StatusCode != 200 {
-			device.log.Errorf("Control: Download peerinfo result failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
+			device.log.Errorf("Control: Download NhTable failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
 			return nil
 		}
 		if device.LogLevel.LogControl {
@@ -538,25 +517,120 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, content mtypes.Update
 			device.log.Errorf("JSON decode error:", err.Error())
 			return err
 		}
-		device.graph.SetNHTable(NhTable, content.State_hash)
+		device.graph.SetNHTable(NhTable)
+		device.state_hashes.NhTable.Store(State_hash)
 	}
 	return nil
 }
 
-func (device *Device) process_UpdateErrorMsg(peer *Peer, content mtypes.ServerCommandMsg) error {
+func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string) error {
+	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
+		if device.state_hashes.SuperParam.Load().(string) == State_hash {
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Same Hash, skip download SuperParams")
+			}
+			device.graph.NhTableExpire = time.Now().Add(device.graph.SuperNodeInfoTimeout)
+			return nil
+		}
+		var SuperParams mtypes.API_SuperParams
+		client := &http.Client{
+			Timeout: 8 * time.Second,
+		}
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/superparams" ////////////////////////////////////////////////////////////////////////////////////////////////
+		req, err := http.NewRequest("GET", downloadurl, nil)
+		q := req.URL.Query()
+		q.Add("NodeID", device.ID.ToString())
+		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
+		q.Add("State", State_hash)
+		req.URL.RawQuery = q.Encode()
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Download SuperParams from :" + req.URL.RequestURI())
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
+		defer resp.Body.Close()
+		allbytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
+		if resp.StatusCode != 200 {
+			device.log.Errorf("Control: Download SuperParams failed: " + strconv.Itoa(resp.StatusCode) + " " + string(allbytes))
+			return nil
+		}
+		if device.LogLevel.LogControl {
+			fmt.Println("Control: Download SuperParams result :" + string(allbytes))
+		}
+		if err := json.Unmarshal(allbytes, &SuperParams); err != nil {
+			device.log.Errorf("JSON decode error:", err.Error())
+			return err
+		}
+		if SuperParams.PeerAliveTimeout <= 0 {
+			device.log.Errorf("SuperParams.PeerAliveTimeout <= 0: %v", SuperParams.PeerAliveTimeout)
+			return fmt.Errorf("SuperParams.PeerAliveTimeout <= 0: %v", SuperParams.PeerAliveTimeout)
+		}
+		if SuperParams.SendPingInterval <= 0 {
+			device.log.Errorf("SuperParams.SendPingInterval <= 0: %v", SuperParams.SendPingInterval)
+			return fmt.Errorf("SuperParams.SendPingInterval <= 0: %v", SuperParams.SendPingInterval)
+		}
+		if SuperParams.HttpPostInterval <= 0 {
+			device.log.Errorf("SuperParams.HttpPostInterval <= 0: %v", SuperParams.HttpPostInterval)
+			return fmt.Errorf("SuperParams.HttpPostInterval <= 0: %v", SuperParams.HttpPostInterval)
+		}
+
+		device.EdgeConfig.DynamicRoute.PeerAliveTimeout = SuperParams.PeerAliveTimeout
+
+		if device.EdgeConfig.DynamicRoute.SendPingInterval <= 0 {
+			device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
+			device.Chan_SendPingStart <- struct{}{}
+		} else {
+			device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
+		}
+
+		if device.SuperConfig.HttpPostInterval <= 0 {
+			device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
+			device.Chan_HttpPostStart <- struct{}{}
+		} else {
+			device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
+		}
+
+		if SuperParams.AdditionalCost >= 0 {
+			device.EdgeConfig.DynamicRoute.AdditionalCost = SuperParams.AdditionalCost
+		}
+
+		device.state_hashes.SuperParam.Store(State_hash)
+	}
+	return nil
+}
+
+func (device *Device) process_ServerUpdateMsg(peer *Peer, content mtypes.ServerUpdateMsg) error {
 	if peer.ID != mtypes.SuperNodeMessage {
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
 		}
 		return nil
 	}
-	device.log.Errorf(strconv.Itoa(int(content.ErrorCode)) + ": " + content.ErrorMsg)
-	if content.Action == mtypes.Shutdown {
+
+	switch content.Action {
+	case mtypes.Shutdown:
 		device.closed <- 0
-	} else if content.Action == mtypes.ThrowError {
-		device.closed <- content.ErrorCode
-	} else if content.Action == mtypes.Panic {
+	case mtypes.ThrowError:
+		device.log.Errorf(strconv.Itoa(int(content.Code)) + ": " + content.Params)
+		device.closed <- content.Code
+	case mtypes.Panic:
+		device.log.Errorf(strconv.Itoa(int(content.Code)) + ": " + content.Params)
 		panic(content.ToString())
+	case mtypes.UpdateNhTable:
+		return device.process_UpdateNhTableMsg(peer, content.Params)
+	case mtypes.UpdatePeer:
+		return device.process_UpdatePeerMsg(peer, content.Params)
+	case mtypes.UpdateSuperParams:
+		return device.process_UpdateSuperParamsMsg(peer, content.Params)
+	default:
+		device.log.Errorf("Unknown Action: %v", content.ToString())
 	}
 	return nil
 }
@@ -699,15 +773,32 @@ func (device *Device) RoutineDetectOfflineAndTryNextEndpoint() {
 	}
 }
 
-func (device *Device) RoutineSendPing() {
+func (device *Device) RoutineSendPing(startchan <-chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.P2P.UseP2P || device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval)
+	waitchan := make(<-chan time.Time)
 	for {
+		if device.EdgeConfig.DynamicRoute.SendPingInterval > 0 {
+			waitchan = time.After(mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval))
+		} else {
+			waitchan = make(<-chan time.Time)
+		}
+		select {
+		case <-startchan:
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Start RoutineSendPing()")
+			}
+			for len(startchan) > 0 {
+				<-startchan
+			}
+		case <-waitchan:
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Start RoutineSendPing() by timer")
+			}
+		}
 		packet, usage, _ := device.GeneratePingPacket(device.ID, 0)
 		device.SpreadPacket(make(map[mtypes.Vertex]bool), usage, packet, MessageTransportOffsetContent)
-		time.Sleep(timeout)
 	}
 }
 
@@ -716,15 +807,19 @@ func (device *Device) RoutineRegister() {
 		return
 	}
 	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval)
-	_ = <-device.Event_Supernode_OK
+	_ = <-device.Chan_Supernode_OK
 	for {
+		local_PeerStateHash := device.state_hashes.Peer.Load().(string)
+		local_NhTableHash := device.state_hashes.NhTable.Load().(string)
+		local_SuperParamState := device.state_hashes.SuperParam.Load().(string)
 		body, _ := mtypes.GetByte(mtypes.RegisterMsg{
-			Node_id:       device.ID,
-			PeerStateHash: device.peers.Peer_state,
-			NhStateHash:   device.graph.NhTableHash,
-			Version:       device.Version,
-			JWTSecret:     device.JWTSecret,
-			HttpPostCount: device.HttpPostCount,
+			Node_id:             device.ID,
+			PeerStateHash:       local_PeerStateHash,
+			NhStateHash:         local_NhTableHash,
+			SuperParamStateHash: local_SuperParamState,
+			Version:             device.Version,
+			JWTSecret:           device.JWTSecret,
+			HttpPostCount:       device.HttpPostCount,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
@@ -738,15 +833,28 @@ func (device *Device) RoutineRegister() {
 	}
 }
 
-func (device *Device) RoutinePostPeerInfo() {
+func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	if device.EdgeConfig.DynamicRoute.SuperNode.HttpPostInterval <= 0 {
-		return
-	}
-	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.SuperNode.HttpPostInterval)
+	waitchan := make(<-chan time.Time)
 	for {
+		if device.SuperConfig.HttpPostInterval > 0 {
+			waitchan = time.After(mtypes.S2TD(device.SuperConfig.HttpPostInterval))
+		} else {
+			waitchan = make(<-chan time.Time)
+		}
+		select {
+		case <-waitchan:
+			break
+		case <-startchan:
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Start RoutinePostPeerInfo()")
+			}
+			for len(startchan) > 0 {
+				<-startchan
+			}
+		}
 		// Stat all latency
 		device.peers.RLock()
 		pongs := make([]mtypes.PongMsg, 0, len(device.peers.IDMap))
@@ -802,17 +910,21 @@ func (device *Device) RoutinePostPeerInfo() {
 		})
 		tokenString, err := token.SignedString(device.JWTSecret[:])
 		// Construct post request
-		client := &http.Client{}
+		client := &http.Client{
+			Timeout: 8 * time.Second,
+		}
 		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/post/nodeinfo"
 		req, err := http.NewRequest("POST", downloadurl, bytes.NewReader(body))
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
+		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
 		q.Add("JWTSig", tokenString)
 		req.URL.RawQuery = q.Encode()
-		req.Header.Set("Content-Type", "application/binary")
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Encoding", "gzip")
 		device.HttpPostCount += 1
 		if device.LogLevel.LogControl {
-			fmt.Println("Control: Post to " + req.URL.String())
+			fmt.Println("Control: Post to " + req.URL.RequestURI())
 		}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -824,8 +936,6 @@ func (device *Device) RoutinePostPeerInfo() {
 			}
 			resp.Body.Close()
 		}
-
-		time.Sleep(timeout)
 	}
 }
 
@@ -833,7 +943,7 @@ func (device *Device) RoutineRecalculateNhTable() {
 	if device.graph.TimeoutCheckInterval == 0 {
 		return
 	}
-	
+
 	if !device.EdgeConfig.DynamicRoute.P2P.UseP2P {
 		return
 	}

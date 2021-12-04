@@ -31,7 +31,7 @@ func printExampleEdgeConf() {
 		Interface: mtypes.InterfaceConf{
 			Itype:         "stdio",
 			Name:          "tap1",
-			VPPIfaceID:    5,
+			VPPIfaceID:    1,
 			VPPBridgeID:   4242,
 			MacAddrPrefix: "AA:BB:CC:DD",
 			MTU:           1416,
@@ -45,7 +45,7 @@ func printExampleEdgeConf() {
 		DefaultTTL:   200,
 		L2FIBTimeout: 3600,
 		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
-		ListenPort:   3001,
+		ListenPort:   0,
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "error",
 			LogTransit:  true,
@@ -71,23 +71,21 @@ func printExampleEdgeConf() {
 				APIUrl:               "http://127.0.0.1:3000/api",
 				SuperNodeInfoTimeout: 50,
 				SkipLocalIP:          false,
-				HttpPostInterval:     15,
 			},
 			P2P: mtypes.P2Pinfo{
-				UseP2P:           true,
+				UseP2P:           false,
 				SendPeerInterval: 20,
 				GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
 					StaticMode:                false,
 					JitterTolerance:           20,
 					JitterToleranceMultiplier: 1.1,
-					NodeReportTimeout:         40,
 					TimeoutCheckInterval:      5,
 					RecalculateCoolDown:       5,
 				},
 			},
 			NTPconfig: mtypes.NTPinfo{
 				UseNTP:           true,
-				MaxServerUse:     5,
+				MaxServerUse:     8,
 				SyncTimeInterval: 3600,
 				NTPTimeout:       3,
 				Servers: []string{"time.google.com",
@@ -229,7 +227,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		econfig.LogLevel.LogNTP = false // NTP in static mode is useless
 	}
 	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel)
-	graph.SetNHTable(econfig.NextHopTable, [32]byte{})
+	graph.SetNHTable(econfig.NextHopTable)
 
 	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
 	defer the_device.Close()
@@ -310,7 +308,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return errors.New("Failed to connect to supernode.")
 			}
 		}
-		the_device.Event_Supernode_OK <- struct{}{}
+		the_device.Chan_Supernode_OK <- struct{}{}
 	}
 
 	logger.Verbosef("Device started")

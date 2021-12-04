@@ -32,14 +32,13 @@ dynamicroute:
   savenewpeers: true
   supernode:
     usesupernode: true
-    pskey: 'juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs='
+    pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
     connurlv4: 127.0.0.1:3000
     pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
     connurlv6: ''
     pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
     apiurl: http://127.0.0.1:3000/api
     skiplocalip: false
-    httppostinterval: 15
     supernodeinfotimeout: 50
   p2p:
     usep2p: false
@@ -48,7 +47,6 @@ dynamicroute:
       staticmode: false
       jittertolerance: 20
       jittertolerancemultiplier: 1.1
-      nodereporttimeout: 40
       timeoutcheckinterval: 5
       recalculatecooldown: 5
   ntpconfig:

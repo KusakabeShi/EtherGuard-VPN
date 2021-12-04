@@ -22,11 +22,9 @@ const (
 	MessageTransportType
 
 	NormalPacket
-	Register //Register to server
 
-	UpdatePeer //Comes from server
-	UpdateNhTable
-	UpdateError
+	Register     //Send to server
+	ServerUpdate //Comes from server
 
 	PingPacket //Comes from other peer
 	PongPacket //Send to everyone, include server
