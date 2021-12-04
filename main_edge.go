@@ -6,6 +6,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -321,6 +322,22 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	}
 
 	if econfig.PostScript != "" {
+		envs := make(map[string]string)
+		nid := econfig.NodeID
+		nid_bytearr := []byte{0, 0}
+		binary.LittleEndian.PutUint16(nid_bytearr, uint16(nid))
+
+		envs["EG_MODE"] = "edge"
+		envs["EG_NODE_NAME"] = econfig.NodeName
+		envs["EG_NODE_ID_INT_DEC"] = fmt.Sprintf("%d", nid)
+		envs["EG_NODE_ID_BYTE0_DEC"] = fmt.Sprintf("%d", nid_bytearr[0])
+		envs["EG_NODE_ID_BYTE1_DEC"] = fmt.Sprintf("%d", nid_bytearr[1])
+		envs["EG_NODE_ID_INT_HEX"] = fmt.Sprintf("%x", nid)
+		envs["EG_NODE_ID_BYTE0_HEX"] = fmt.Sprintf("%X", nid_bytearr[0])
+		envs["EG_NODE_ID_BYTE1_HEX"] = fmt.Sprintf("%X", nid_bytearr[1])
+		envs["EG_INTERFACE_NAME"] = econfig.Interface.Name
+		envs["EG_INTERFACE_TYPE"] = econfig.Interface.Itype
+
 		cmdarg, err := shlex.Split(econfig.PostScript)
 		if err != nil {
 			return fmt.Errorf("Error parse PostScript %v\n", err)
@@ -329,7 +346,10 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
 		}
 		cmd := exec.Command(cmdarg[0], cmdarg[1:]...)
-
+		cmd.Env = os.Environ()
+		for k, v := range envs {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("exec.Command(%v) failed with %v\n", cmdarg, err)
@@ -338,6 +358,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			fmt.Printf("PostScript output: %s\n", string(out))
 		}
 	}
+	mtypes.SdNotify(false, mtypes.SdNotifyReady)
 
 	// wait for program to terminate
 	signal.Notify(term, syscall.SIGTERM)

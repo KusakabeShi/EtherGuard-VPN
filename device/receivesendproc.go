@@ -569,34 +569,23 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 			return err
 		}
 		if SuperParams.PeerAliveTimeout <= 0 {
-			device.log.Errorf("SuperParams.PeerAliveTimeout <= 0: %v", SuperParams.PeerAliveTimeout)
-			return fmt.Errorf("SuperParams.PeerAliveTimeout <= 0: %v", SuperParams.PeerAliveTimeout)
+			device.log.Errorf("SuperParams.PeerAliveTimeout <= 0: %v, please check the config of the supernode", SuperParams.PeerAliveTimeout)
+			return fmt.Errorf("SuperParams.PeerAliveTimeout <= 0: %v, please check the config of the supernode", SuperParams.PeerAliveTimeout)
 		}
 		if SuperParams.SendPingInterval <= 0 {
-			device.log.Errorf("SuperParams.SendPingInterval <= 0: %v", SuperParams.SendPingInterval)
-			return fmt.Errorf("SuperParams.SendPingInterval <= 0: %v", SuperParams.SendPingInterval)
+			device.log.Errorf("SuperParams.SendPingInterval <= 0: %v, please check the config of the supernode", SuperParams.SendPingInterval)
+			return fmt.Errorf("SuperParams.SendPingInterval <= 0: %v, please check the config of the supernode", SuperParams.SendPingInterval)
 		}
-		if SuperParams.HttpPostInterval <= 0 {
-			device.log.Errorf("SuperParams.HttpPostInterval <= 0: %v", SuperParams.HttpPostInterval)
-			return fmt.Errorf("SuperParams.HttpPostInterval <= 0: %v", SuperParams.HttpPostInterval)
+		if SuperParams.HttpPostInterval < 0 {
+			device.log.Errorf("SuperParams.HttpPostInterval < 0: %v, please check the config of the supernode", SuperParams.HttpPostInterval)
+			return fmt.Errorf("SuperParams.HttpPostInterval < 0: %v, please check the config of the supernode", SuperParams.HttpPostInterval)
 		}
 
 		device.EdgeConfig.DynamicRoute.PeerAliveTimeout = SuperParams.PeerAliveTimeout
-
-		if device.EdgeConfig.DynamicRoute.SendPingInterval <= 0 {
-			device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
-			device.Chan_SendPingStart <- struct{}{}
-		} else {
-			device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
-		}
-
-		if device.SuperConfig.HttpPostInterval <= 0 {
-			device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
-			device.Chan_HttpPostStart <- struct{}{}
-		} else {
-			device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
-		}
-
+		device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
+		device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
+		device.Chan_SendPingStart <- struct{}{}
+		device.Chan_HttpPostStart <- struct{}{}
 		if SuperParams.AdditionalCost >= 0 {
 			device.EdgeConfig.DynamicRoute.AdditionalCost = SuperParams.AdditionalCost
 		}
