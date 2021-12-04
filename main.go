@@ -1,9 +1,6 @@
-//go:build !windows
-// +build !windows
-
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2021 Kusakabe Si. All Rights Reserved.
  */
 
 package main
@@ -47,8 +44,9 @@ func readYaml(filePath string, out interface{}) (err error) {
 
 var (
 	tconfig      = flag.String("config", "", "Config path for the interface.")
-	mode         = flag.String("mode", "", "Running mode. [super|edge|solve]")
+	mode         = flag.String("mode", "", "Running mode. [super|edge|solve|gencfg]")
 	printExample = flag.Bool("example", false, "Print example config")
+	cfgmode      = flag.String("cfgmode", "", "Running mode for generated config. [none|super|p2p]")
 	bind         = flag.String("bind", "linux", "UDP socket bind mode. [linux|std]\nYou may need std mode if you want to run Etherguard under WSL.")
 	nouapi       = flag.Bool("no-uapi", false, "Disable UAPI\nWith UAPI, you can check etherguard status by \"wg\" command")
 	version      = flag.Bool("version", false, "Show version")
@@ -79,6 +77,14 @@ func main() {
 		err = Super(*tconfig, !*nouapi, *printExample, *bind)
 	case "solve":
 		err = path.Solve(*tconfig, *printExample)
+	case "gencfg":
+		switch *cfgmode {
+		case "super":
+			err = genSuperCfg()
+		default:
+			err = fmt.Errorf("gencfg: generate config for %v mode are not implement.", *cfgmode)
+		}
+
 	default:
 		flag.Usage()
 	}

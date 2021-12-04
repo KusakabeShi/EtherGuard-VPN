@@ -16,7 +16,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"os/exec"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -196,7 +199,7 @@ func (tap *NativeTap) routineNetlinkListener() {
 	}
 }
 
-func (tap *NativeTap) setMacAddr(mac MacAddress) (err error) {
+func ioctlRequest(cmd uintptr, arg uintptr) (err error) {
 	fd, err := unix.Socket(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
@@ -206,6 +209,20 @@ func (tap *NativeTap) setMacAddr(mac MacAddress) (err error) {
 		return err
 	}
 	defer unix.Close(fd)
+
+	_, _, err = unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		cmd,
+		arg,
+	)
+	if err.(syscall.Errno) == syscall.Errno(0) {
+		err = nil
+	}
+	return
+}
+
+func (tap *NativeTap) setMacAddr(mac MacAddress) (err error) {
 	var ifr [ifReqSize]byte
 	name, err := tap.Name()
 	if err != nil {
@@ -218,28 +235,82 @@ func (tap *NativeTap) setMacAddr(mac MacAddress) (err error) {
 	copy(ifr[:unix.IFNAMSIZ], name)
 	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ:unix.IFNAMSIZ+2], unix.AF_UNIX)
 	copy(ifr[unix.IFNAMSIZ+2:unix.IFNAMSIZ+8], mac[:])
-	_, _, err = unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCSIFHWADDR),
-		uintptr(unsafe.Pointer(&ifr[0])),
-	)
-	if err.(syscall.Errno) == syscall.Errno(0) {
-		err = nil
+
+	err = ioctlRequest(unix.SIOCSIFHWADDR, uintptr(unsafe.Pointer(&ifr[0])))
+	return
+}
+
+func (tap *NativeTap) addIPAddr(version string, ip net.IP, mask net.IPMask) (err error) {
+	var ifr [ifReqSize]byte
+	name, err := tap.Name()
+	if err != nil {
+		return err
+	}
+	/*
+				bin_ip = socket.inet_aton(ip)
+		    	ifreq = struct.pack('16sH2s4s8s', iface, socket.AF_INET, '\x00' * 2, bin_ip, '\x00' * 8)
+		    	fcntl.ioctl(sock, SIOCSIFADDR, ifreq)
+	*/
+	if version == "4" {
+		{
+			iparr := [4]byte{}
+			copy(iparr[:], ip[len(ip)-4:])
+			sockaddr := unix.RawSockaddrInet4{
+				Family: unix.AF_INET,
+				Port:   0,
+				Addr:   iparr,
+			}
+			sockaddr_arr := (*[unsafe.Sizeof(sockaddr)]byte)(unsafe.Pointer(&sockaddr))[:]
+			copy(ifr[:unix.IFNAMSIZ], name)         // 0-16
+			copy(ifr[unix.IFNAMSIZ:], sockaddr_arr) // 20-
+			err = ioctlRequest(unix.SIOCSIFADDR, uintptr(unsafe.Pointer(&ifr[0])))
+			if err != nil {
+				return
+			}
+		}
+		{
+			iparr := [4]byte{}
+			copy(iparr[:], mask[len(mask)-4:])
+			sockaddr := unix.RawSockaddrInet4{
+				Family: unix.AF_INET,
+				Port:   0,
+				Addr:   iparr,
+			}
+			sockaddr_arr := (*[unsafe.Sizeof(sockaddr)]byte)(unsafe.Pointer(&sockaddr))[:]
+			copy(ifr[:unix.IFNAMSIZ], name)         // 0-16
+			copy(ifr[unix.IFNAMSIZ:], sockaddr_arr) // 20-
+			err = ioctlRequest(unix.SIOCSIFNETMASK, uintptr(unsafe.Pointer(&ifr[0])))
+			if err != nil {
+				return
+			}
+		}
+
+	} else if version == "6" {
+		o, _ := mask.Size()
+		masklen := strconv.Itoa(o)
+		e := exec.Command("ip", "addr", "add", ip.String()+"/"+masklen, "dev", name)
+		ret, err := e.CombinedOutput()
+		if err != nil {
+			fmt.Println("Please make sure `ip` tool installed")
+			return fmt.Errorf(string(ret))
+		}
+	} else if version == "6ll" {
+		_, llnet, _ := net.ParseCIDR("fe80::/64")
+
+		if llnet.Contains(ip) == false {
+			return fmt.Errorf("%v is not a link-local address", ip)
+		}
+		e := exec.Command("ip", "addr", "add", ip.String()+"/64", "dev", name)
+		ret, err := e.CombinedOutput()
+		if err != nil {
+			fmt.Println("Please make sure `ip` tool installed")
+			return fmt.Errorf(string(ret))
+		}
 	}
 	return
 }
 
 func (tap *NativeTap) setUp() (err error) {
-	fd, err := unix.Socket(
-		unix.AF_INET,
-		unix.SOCK_DGRAM,
-		0,
-	)
-	if err != nil {
-		return err
-	}
-	defer unix.Close(fd)
 	var ifr [ifReqSize]byte
 	name, err := tap.Name()
 	if err != nil {
@@ -253,81 +324,29 @@ func (tap *NativeTap) setUp() (err error) {
 	copy(ifr[:unix.IFNAMSIZ], name)
 	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ:unix.IFNAMSIZ+2], unix.AF_UNIX)
 	binary.LittleEndian.PutUint16(ifr[unix.IFNAMSIZ+2:unix.IFNAMSIZ+4], flags)
-	_, _, err = unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCSIFFLAGS),
-		uintptr(unsafe.Pointer(&ifr[0])),
-	)
-	if err.(syscall.Errno) == syscall.Errno(0) {
-		err = nil
-	}
+	err = ioctlRequest(unix.SIOCSIFFLAGS, uintptr(unsafe.Pointer(&ifr[0])))
 	return
 }
 
-func getIFIndex(name string) (int32, error) {
-	fd, err := unix.Socket(
-		unix.AF_INET,
-		unix.SOCK_DGRAM,
-		0,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	defer unix.Close(fd)
-
+func getIFIndex(name string) (ret int32, err error) {
 	var ifr [ifReqSize]byte
-	copy(ifr[:], name)
-	_, _, errno := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCGIFINDEX),
-		uintptr(unsafe.Pointer(&ifr[0])),
-	)
-
-	if errno != 0 {
-		return 0, errno
-	}
-
+	err = ioctlRequest(unix.SIOCGIFINDEX, uintptr(unsafe.Pointer(&ifr[0])))
 	return *(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])), nil
 }
 
-func (tap *NativeTap) setMTU(n int) error {
+func (tap *NativeTap) setMTU(n int) (err error) {
 	name, err := tap.Name()
 	if err != nil {
 		return err
 	}
-
-	// open datagram socket
-	fd, err := unix.Socket(
-		unix.AF_INET,
-		unix.SOCK_DGRAM,
-		0,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	defer unix.Close(fd)
-
 	// do ioctl call
 	var ifr [ifReqSize]byte
 	copy(ifr[:], name)
 	*(*uint32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])) = uint32(n)
-	_, _, errno := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCSIFMTU),
-		uintptr(unsafe.Pointer(&ifr[0])),
-	)
 
-	if errno != 0 {
-		return fmt.Errorf("failed to set MTU of TUN device: %w", errno)
-	}
+	err = ioctlRequest(unix.SIOCSIFMTU, uintptr(unsafe.Pointer(&ifr[0])))
 
-	return nil
+	return
 }
 
 func (tap *NativeTap) MTU() (int, error) {
@@ -335,33 +354,10 @@ func (tap *NativeTap) MTU() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	// open datagram socket
-	fd, err := unix.Socket(
-		unix.AF_INET,
-		unix.SOCK_DGRAM,
-		0,
-	)
-
-	if err != nil {
-		return 0, err
-	}
-
-	defer unix.Close(fd)
-
 	// do ioctl call
-
 	var ifr [ifReqSize]byte
 	copy(ifr[:], name)
-	_, _, errno := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCGIFMTU),
-		uintptr(unsafe.Pointer(&ifr[0])),
-	)
-	if errno != 0 {
-		return 0, fmt.Errorf("failed to get MTU of TUN device: %w", errno)
-	}
+	err = ioctlRequest(unix.SIOCGIFMTU, uintptr(unsafe.Pointer(&ifr[0])))
 
 	return int(*(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ]))), nil
 }
@@ -521,9 +517,13 @@ func CreateTAPFromFile(file *os.File, iconfig mtypes.InterfaceConf, NodeID mtype
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			unix.Close(tap.netlinkSock)
+		}
+	}()
 	tap.netlinkCancel, err = rwcancel.NewRWCancel(tap.netlinkSock)
 	if err != nil {
-		unix.Close(tap.netlinkSock)
 		return nil, err
 	}
 
@@ -533,7 +533,6 @@ func CreateTAPFromFile(file *os.File, iconfig mtypes.InterfaceConf, NodeID mtype
 
 	err = tap.setMTU(iconfig.MTU)
 	if err != nil {
-		unix.Close(tap.netlinkSock)
 		return nil, err
 	}
 	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, uint32(NodeID))
@@ -543,14 +542,55 @@ func CreateTAPFromFile(file *os.File, iconfig mtypes.InterfaceConf, NodeID mtype
 	}
 	err = tap.setMacAddr(IfMacAddr)
 	if err != nil {
-		unix.Close(tap.netlinkSock)
 		return nil, err
 	}
+	tapname, err := tap.Name()
+	if err != nil {
+		return nil, err
+	}
+
 	err = tap.setUp()
 	if err != nil {
-		unix.Close(tap.netlinkSock)
 		return nil, err
 	}
+
+	if iconfig.IPv6LLPrefix != "" {
+		e := exec.Command("ip", "addr", "flush", "dev", tapname)
+		_, err := e.CombinedOutput()
+		if err != nil {
+			fmt.Println("Please make sure `ip` tool installed")
+			return nil, err
+		}
+		cidrstr := iconfig.IPv6LLPrefix
+		ip, mask, err := GetIP(6, cidrstr, uint32(NodeID))
+		if err != nil {
+			return nil, err
+		}
+		err = tap.addIPAddr("6ll", ip, mask)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if iconfig.IPv6CIDR != "" {
+		cidrstr := iconfig.IPv6CIDR
+		ip, mask, err := GetIP(6, cidrstr, uint32(NodeID))
+		if err != nil {
+			return nil, err
+		}
+		err = tap.addIPAddr("6", ip, mask)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if iconfig.IPv4CIDR != "" {
+		cidrstr := iconfig.IPv4CIDR
+		ip, mask, err := GetIP(4, cidrstr, uint32(NodeID))
+		if err != nil {
+			return nil, err
+		}
+		err = tap.addIPAddr("4", ip, mask)
+	}
+
 	return tap, nil
 }
 

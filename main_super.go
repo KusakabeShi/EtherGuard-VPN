@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2021 Kusakabe Si. All Rights Reserved.
  */
 
 package main
@@ -65,11 +65,14 @@ func printExampleSuperConf() {
 	v2 := mtypes.Vertex(2)
 
 	sconfig := mtypes.SuperConfig{
-		NodeName:   "NodeSuper",
-		PostScript: "",
-		PrivKeyV4:  "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
-		PrivKeyV6:  "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
-		ListenPort: 3000,
+		NodeName:             "NodeSuper",
+		PostScript:           "",
+		PrivKeyV4:            "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
+		PrivKeyV6:            "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
+		ListenPort:           3000,
+		ListenPort_EdgeAPI:   "3000",
+		ListenPort_ManageAPI: "3000",
+		API_Prefix:           "/eg_api",
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "normal",
 			LogTransit:  true,
@@ -196,7 +199,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		Event_server_pong:     make(chan mtypes.PongMsg, 1<<5),
 		Event_server_register: make(chan mtypes.RegisterMsg, 1<<5),
 	}
-	httpobj.http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, mtypes.NTPinfo{}, sconfig.LogLevel)
+	httpobj.http_graph = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, mtypes.NTPInfo{}, sconfig.LogLevel)
 	httpobj.http_graph.SetNHTable(httpobj.http_sconfig.NextHopTable)
 	if sconfig.GraphRecalculateSetting.StaticMode {
 		err = checkNhTable(httpobj.http_sconfig.NextHopTable, sconfig.Peers)
@@ -257,13 +260,16 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 		defer uapi6.Close()
 	}
-	prepare_superparams(*httpobj.http_sconfig)
+
 	go Event_server_event_hendler(httpobj.http_graph, httpobj.http_super_chains)
 	go RoutinePushSettings(mtypes.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
-	go HttpServer(sconfig.ListenPort, "/api")
+	go HttpServer(sconfig.ListenPort_EdgeAPI, sconfig.ListenPort_ManageAPI, sconfig.API_Prefix)
 
 	if sconfig.PostScript != "" {
+		envs := make(map[string]string)
+		envs["EG_MODE"] = "super"
+		envs["EG_NODE_NAME"] = sconfig.NodeName
 		cmdarg, err := shlex.Split(sconfig.PostScript)
 		if err != nil {
 			return fmt.Errorf("Error parse PostScript %v\n", err)
@@ -292,21 +298,6 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 	logger4.Verbosef("Shutting down")
 	return
-}
-
-func prepare_superparams(sconfig mtypes.SuperConfig) {
-	SuperParams := mtypes.API_SuperParams{
-		SendPingInterval: sconfig.SendPingInterval,
-		HttpPostInterval: sconfig.HttpPostInterval,
-		PeerAliveTimeout: sconfig.PeerAliveTimeout,
-		AdditionalCost:   -1,
-	}
-	SuperParamStr, _ := json.Marshal(SuperParams)
-	httpobj.http_SuperParamsStr = SuperParamStr
-	md5_hash_raw := md5.Sum(append(httpobj.http_SuperParamsStr, httpobj.http_HashSalt...))
-	new_hash_str := hex.EncodeToString(md5_hash_raw[:])
-
-	httpobj.http_SuperParams_Hash = new_hash_str
 }
 
 func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
@@ -351,10 +342,22 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 	}
 	httpobj.http_PeerID2Info[peerconf.NodeID] = peerconf
 
+	SuperParams := mtypes.API_SuperParams{
+		SendPingInterval: httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval: httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout: httpobj.http_sconfig.PeerAliveTimeout,
+		AdditionalCost:   peerconf.AdditionalCost,
+	}
+
+	SuperParamStr, _ := json.Marshal(SuperParams)
+	md5_hash_raw := md5.Sum(append(SuperParamStr, httpobj.http_HashSalt...))
+	new_hash_str := hex.EncodeToString(md5_hash_raw[:])
+
 	PS := PeerState{}
 	PS.NhTableState.Store("")              // string
 	PS.PeerInfoState.Store("")             // string
-	PS.SuperParamState.Store("")           // string
+	PS.SuperParamState.Store(new_hash_str) // string
+	PS.SuperParamStateClient.Store("")     // string
 	PS.JETSecret.Store(mtypes.JWTSecret{}) // mtypes.JWTSecret
 	PS.httpPostCount.Store(uint64(0))      // uint64
 	PS.LastSeen.Store(time.Time{})         // time.Time
@@ -569,29 +572,31 @@ func PushPeerinfo(force bool) {
 
 func PushServerParams(force bool) {
 	//No lock
-	body, err := mtypes.GetByte(mtypes.ServerUpdateMsg{
-		Node_id: mtypes.SuperNodeMessage,
-		Action:  mtypes.UpdateSuperParams,
-		Code:    0,
-		Params:  string(httpobj.http_SuperParams_Hash[:]),
-	})
-	if err != nil {
-		fmt.Println("Error get byte")
-		return
-	}
-	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
-	header.SetDst(mtypes.SuperNodeMessage)
-	header.SetPacketLength(uint16(len(body)))
-	header.SetSrc(mtypes.SuperNodeMessage)
-	header.SetTTL(0)
-	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
 		if !isAlive {
 			continue
 		}
-		if force || peerstate.SuperParamState.Load().(string) != httpobj.http_SuperParams_Hash {
+		if force || peerstate.SuperParamState.Load().(string) != peerstate.SuperParamStateClient.Load().(string) {
+
+			body, err := mtypes.GetByte(mtypes.ServerUpdateMsg{
+				Node_id: mtypes.SuperNodeMessage,
+				Action:  mtypes.UpdateSuperParams,
+				Code:    0,
+				Params:  peerstate.SuperParamState.Load().(string),
+			})
+			if err != nil {
+				fmt.Println("Error get byte")
+				return
+			}
+			buf := make([]byte, path.EgHeaderLen+len(body))
+			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+			header.SetDst(mtypes.SuperNodeMessage)
+			header.SetPacketLength(uint16(len(body)))
+			header.SetSrc(mtypes.SuperNodeMessage)
+			header.SetTTL(0)
+			copy(buf[path.EgHeaderLen:], body)
+
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil {
 				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
 			}

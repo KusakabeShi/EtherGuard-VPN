@@ -53,12 +53,12 @@ type IG struct {
 	loglevel                  mtypes.LoggerInfo
 
 	ntp_wg      sync.WaitGroup
-	ntp_info    mtypes.NTPinfo
+	ntp_info    mtypes.NTPInfo
 	ntp_offset  time.Duration
 	ntp_servers orderedmap.OrderedMap // serverurl:lentancy
 }
 
-func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateSetting, ntpinfo mtypes.NTPinfo, loglevel mtypes.LoggerInfo) *IG {
+func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateSetting, ntpinfo mtypes.NTPInfo, loglevel mtypes.LoggerInfo) *IG {
 	g := IG{
 		edgelock:                  &sync.RWMutex{},
 		StaticMode:                theconfig.StaticMode,
@@ -499,7 +499,7 @@ func Solve(filePath string, pe bool) error {
 		return nil
 	}
 
-	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{	}, mtypes.NTPinfo{}, mtypes.LoggerInfo{LogInternal: true})
+	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{	}, mtypes.NTPInfo{}, mtypes.LoggerInfo{LogInternal: true})
 	inputb, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err

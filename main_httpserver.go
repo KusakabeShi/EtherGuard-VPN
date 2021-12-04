@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: MIT
+ *
+ * Copyright (C) 2017-2021 Kusakabe Si. All Rights Reserved.
+ */
+
 package main
 
 import (
@@ -28,17 +33,15 @@ import (
 )
 
 type http_shared_objects struct {
-	http_graph            *path.IG
-	http_device4          *device.Device
-	http_device6          *device.Device
-	http_HashSalt         []byte
-	http_NhTable_Hash     string
-	http_PeerInfo_hash    string
-	http_SuperParams_Hash string
-	http_SuperParamsStr   []byte
-	http_NhTableStr       []byte
-	http_PeerInfo         mtypes.API_Peers
-	http_super_chains     *mtypes.SUPER_Events
+	http_graph         *path.IG
+	http_device4       *device.Device
+	http_device6       *device.Device
+	http_HashSalt      []byte
+	http_NhTable_Hash  string
+	http_PeerInfo_hash string
+	http_NhTableStr    []byte
+	http_PeerInfo      mtypes.API_Peers
+	http_super_chains  *mtypes.SUPER_Events
 
 	http_passwords       mtypes.Passwords
 	http_StateExpire     time.Time
@@ -80,12 +83,13 @@ type HttpPeerInfo struct {
 }
 
 type PeerState struct {
-	NhTableState    atomic.Value // string
-	PeerInfoState   atomic.Value // string
-	SuperParamState atomic.Value // string
-	JETSecret       atomic.Value // mtypes.JWTSecret
-	httpPostCount   atomic.Value // uint64
-	LastSeen        atomic.Value // time.Time
+	NhTableState          atomic.Value // string
+	PeerInfoState         atomic.Value // string
+	SuperParamState       atomic.Value // string
+	SuperParamStateClient atomic.Value // string
+	JETSecret             atomic.Value // mtypes.JWTSecret
+	httpPostCount         atomic.Value // uint64
+	LastSeen              atomic.Value // time.Time
 }
 
 type client struct {
@@ -221,15 +225,15 @@ func get_superparams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if httpobj.http_SuperParams_Hash != State {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Paramater State: State not correct"))
-		return
-	}
-
 	if _, has := httpobj.http_PeerState[PubKey]; has == false {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Paramater PubKey: Not found in httpobj.http_PeerState, this shouldn't happen. Please report to the author."))
+		return
+	}
+
+	if httpobj.http_PeerState[PubKey].SuperParamState.Load().(string) != State {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Paramater State: State not correct"))
 		return
 	}
 	// Do something
@@ -240,7 +244,7 @@ func get_superparams(w http.ResponseWriter, r *http.Request) {
 		AdditionalCost:   httpobj.http_PeerID2Info[NodeID].AdditionalCost,
 	}
 	SuperParamStr, _ := json.Marshal(SuperParams)
-	httpobj.http_PeerState[PubKey].SuperParamState.Store(State)
+	httpobj.http_PeerState[PubKey].SuperParamStateClient.Store(State)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(SuperParamStr))
@@ -743,17 +747,45 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	return
 }
 
-func HttpServer(http_port int, apiprefix string) {
-	mux := http.NewServeMux()
-	if apiprefix[0] != '/' {
+func HttpServer(edgeListen string, manageListen string, apiprefix string) (err error) {
+	if len(apiprefix) > 0 && apiprefix[0] != '/' {
 		apiprefix = "/" + apiprefix
 	}
-	mux.HandleFunc(apiprefix+"/superparams", get_superparams)
-	mux.HandleFunc(apiprefix+"/peerinfo", get_peerinfo)
-	mux.HandleFunc(apiprefix+"/nhtable", get_nhtable)
-	mux.HandleFunc(apiprefix+"/peerstate", get_peerstate)
-	mux.HandleFunc(apiprefix+"/post/nodeinfo", post_nodeinfo)
-	mux.HandleFunc(apiprefix+"/peer/add", peeradd) //Waiting for test
-	mux.HandleFunc(apiprefix+"/peer/del", peerdel) //Waiting for test
-	http.ListenAndServe(":"+strconv.Itoa(http_port), mux)
+	if len(edgeListen) > 0 && edgeListen[0] != ':' {
+		edgeListen = ":" + edgeListen
+	}
+	if len(manageListen) > 0 && manageListen[0] != ':' {
+		manageListen = ":" + manageListen
+	}
+	if edgeListen == manageListen {
+		mux := http.NewServeMux()
+		mux.HandleFunc(apiprefix+"/edge/superparams", get_superparams)
+		mux.HandleFunc(apiprefix+"/edge/peerinfo", get_peerinfo)
+		mux.HandleFunc(apiprefix+"/edge/nhtable", get_nhtable)
+		mux.HandleFunc(apiprefix+"/edge/post/nodeinfo", post_nodeinfo)
+		mux.HandleFunc(apiprefix+"/manage/peerstate", get_peerstate)
+		mux.HandleFunc(apiprefix+"/manage/peer/add", peeradd)
+		mux.HandleFunc(apiprefix+"/manage/peer/del", peerdel)
+		err = http.ListenAndServe(edgeListen, mux)
+		return
+	} else {
+		edgemux := http.NewServeMux()
+		managemux := http.NewServeMux()
+		edgemux.HandleFunc(apiprefix+"/edge/superparams", get_superparams)
+		edgemux.HandleFunc(apiprefix+"/edge/peerinfo", get_peerinfo)
+		edgemux.HandleFunc(apiprefix+"/edge/nhtable", get_nhtable)
+		edgemux.HandleFunc(apiprefix+"/edge/post/nodeinfo", post_nodeinfo)
+		managemux.HandleFunc(apiprefix+"/manage/peerstate", get_peerstate)
+		managemux.HandleFunc(apiprefix+"/manage/peer/add", peeradd)
+		managemux.HandleFunc(apiprefix+"/manage/peer/del", peerdel)
+		err = http.ListenAndServe(edgeListen, edgemux)
+		if err != nil {
+			return
+		}
+		if manageListen != "" {
+			err = http.ListenAndServe(manageListen, managemux)
+		}
+		return
+	}
+
 }

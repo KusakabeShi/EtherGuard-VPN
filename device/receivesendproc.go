@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: MIT
+ *
+ * Copyright (C) 2017-2021 Kusakabe Si. All Rights Reserved.
+ */
+
 package device
 
 import (
@@ -372,7 +377,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error
 		client := http.Client{
 			Timeout: 8 * time.Second,
 		}
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/peerinfo" ////////////////////////////////////////////////////////////////////////////////////////////////
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/peerinfo" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
@@ -485,7 +490,7 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, State_hash string) er
 		client := &http.Client{
 			Timeout: 8 * time.Second,
 		}
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/nhtable" ////////////////////////////////////////////////////////////////////////////////////////////////
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/nhtable" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
@@ -536,7 +541,7 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 		client := &http.Client{
 			Timeout: 8 * time.Second,
 		}
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/superparams" ////////////////////////////////////////////////////////////////////////////////////////////////
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/superparams" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
@@ -902,7 +907,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 		client := &http.Client{
 			Timeout: 8 * time.Second,
 		}
-		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.APIUrl + "/post/nodeinfo"
+		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/post/nodeinfo"
 		req, err := http.NewRequest("POST", downloadurl, bytes.NewReader(body))
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())

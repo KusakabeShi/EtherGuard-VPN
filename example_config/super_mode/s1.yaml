@@ -1,46 +1,45 @@
-nodename: NodeSuper
-postscript: example_config/echo.sh test
-privkeyv4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
-privkeyv6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
-listenport: 3000
-repushconfiginterval: 30
-httppostinterval: 50
-peeralivetimeout: 70
-sendpinginterval: 15
-loglevel:
-  loglevel: normal
-  logtransit: true
-  logcontrol: true
-  lognormal: false
-  loginternal: true
-  logntp: false
-passwords:
-  showstate: passwd
-  addpeer: passwd_addpeer
-  delpeer: passwd_delpeer
-graphrecalculatesetting:
-  staticmode: false
-  jittertolerance: 5
-  jittertolerancemultiplier: 1.01
-  timeoutcheckinterval: 5
-  recalculatecooldown: 5
-nexthoptable:
-  1:
-    2: 2
-  2:
-    1: 1
-edgetemplate: example_config/super_mode/n1.yaml
-usepskforinteredge: true
-peers:
-- nodeid: 1
-  name: Node_01
-  pubkey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
-  pskey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
-  additionalcost: 10
-  skiplocalip: false
-- nodeid: 2
-  name: Node_02
-  pubkey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
-  pskey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
-  additionalcost: 10
-  skiplocalip: false
+NodeName: NodeSuper
+PostScript: ""
+PrivKeyV4: mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=
+PrivKeyV6: +EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=
+ListenPort: 3000
+ListenPort_EdgeAPI: "3000"
+ListenPort_ManageAPI: "3000"
+API_Prefix: /eg_api
+RePushConfigInterval: 30
+HttpPostInterval: 50
+PeerAliveTimeout: 70
+SendPingInterval: 15
+LogLevel:
+  LogLevel: normal
+  LogTransit: true
+  LogControl: true
+  LogNormal: false
+  LogInternal: true
+  LogNTP: false
+Passwords:
+  ShowState: passwd
+  AddPeer: passwd_addpeer
+  DelPeer: passwd_delpeer
+GraphRecalculateSetting:
+  StaticMode: false
+  JitterTolerance: 5
+  JitterToleranceMultiplier: 1.01
+  TimeoutCheckInterval: 5
+  RecalculateCoolDown: 5
+NextHopTable: {}
+EdgeTemplate: example_config/super_mode/n1.yaml
+UsePSKForInterEdge: true
+Peers:
+- NodeID: 1
+  Name: Node_01
+  PubKey: ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=
+  PSKey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
+  AdditionalCost: 10
+  SkipLocalIP: false
+- NodeID: 2
+  Name: Node_02
+  PubKey: dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=
+  PSKey: juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=
+  AdditionalCost: 10
+  SkipLocalIP: false

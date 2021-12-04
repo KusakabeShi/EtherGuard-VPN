@@ -18,82 +18,88 @@ const (
 )
 
 type EdgeConfig struct {
-	Interface         InterfaceConf
-	NodeID            Vertex
-	NodeName          string
-	PostScript        string
-	DefaultTTL        uint8
-	L2FIBTimeout      float64
-	PrivKey           string
-	ListenPort        int
-	LogLevel          LoggerInfo
-	DynamicRoute      DynamicRouteInfo
-	NextHopTable      NextHopTable
-	ResetConnInterval float64
-	Peers             []PeerInfo
+	Interface         InterfaceConf    `yaml:"Interface"`
+	NodeID            Vertex           `yaml:"NodeID"`
+	NodeName          string           `yaml:"NodeName"`
+	PostScript        string           `yaml:"PostScript"`
+	DefaultTTL        uint8            `yaml:"DefaultTTL"`
+	L2FIBTimeout      float64          `yaml:"L2FIBTimeout"`
+	PrivKey           string           `yaml:"PrivKey"`
+	ListenPort        int              `yaml:"ListenPort"`
+	LogLevel          LoggerInfo       `yaml:"LogLevel"`
+	DynamicRoute      DynamicRouteInfo `yaml:"DynamicRoute"`
+	NextHopTable      NextHopTable     `yaml:"NextHopTable"`
+	ResetConnInterval float64          `yaml:"ResetConnInterval"`
+	Peers             []PeerInfo       `yaml:"Peers"`
 }
 
 type SuperConfig struct {
-	NodeName                string
-	PostScript              string
-	PrivKeyV4               string
-	PrivKeyV6               string
-	ListenPort              int
-	RePushConfigInterval    float64
-	HttpPostInterval        float64
-	PeerAliveTimeout        float64
-	SendPingInterval        float64
-	LogLevel                LoggerInfo
-	Passwords               Passwords
-	GraphRecalculateSetting GraphRecalculateSetting
-	NextHopTable            NextHopTable
-	EdgeTemplate            string
-	UsePSKForInterEdge      bool
-	Peers                   []SuperPeerInfo
+	NodeName                string                  `yaml:"NodeName"`
+	PostScript              string                  `yaml:"PostScript"`
+	PrivKeyV4               string                  `yaml:"PrivKeyV4"`
+	PrivKeyV6               string                  `yaml:"PrivKeyV6"`
+	ListenPort              int                     `yaml:"ListenPort"`
+	ListenPort_EdgeAPI      string                  `yaml:"ListenPort_EdgeAPI"`
+	ListenPort_ManageAPI    string                  `yaml:"ListenPort_ManageAPI"`
+	API_Prefix              string                  `yaml:"API_Prefix"`
+	RePushConfigInterval    float64                 `yaml:"RePushConfigInterval"`
+	HttpPostInterval        float64                 `yaml:"HttpPostInterval"`
+	PeerAliveTimeout        float64                 `yaml:"PeerAliveTimeout"`
+	SendPingInterval        float64                 `yaml:"SendPingInterval"`
+	LogLevel                LoggerInfo              `yaml:"LogLevel"`
+	Passwords               Passwords               `yaml:"Passwords"`
+	GraphRecalculateSetting GraphRecalculateSetting `yaml:"GraphRecalculateSetting"`
+	NextHopTable            NextHopTable            `yaml:"NextHopTable"`
+	EdgeTemplate            string                  `yaml:"EdgeTemplate"`
+	UsePSKForInterEdge      bool                    `yaml:"UsePSKForInterEdge"`
+	Peers                   []SuperPeerInfo         `yaml:"Peers"`
 }
 
 type Passwords struct {
-	ShowState string
-	AddPeer   string
-	DelPeer   string
+	ShowState string `yaml:"ShowState"`
+	AddPeer   string `yaml:"AddPeer"`
+	DelPeer   string `yaml:"DelPeer"`
 }
 
 type InterfaceConf struct {
-	Itype         string
-	Name          string
-	VPPIfaceID    uint32
-	VPPBridgeID   uint32
-	MacAddrPrefix string
-	MTU           int
-	RecvAddr      string
-	SendAddr      string
-	L2HeaderMode  string
+	IType         string `yaml:"IType"`
+	Name          string `yaml:"Name"`
+	VPPIFaceID    uint32 `yaml:"VPPIFaceID"`
+	VPPBridgeID   uint32 `yaml:"VPPBridgeID"`
+	MacAddrPrefix string `yaml:"MacAddrPrefix"`
+	IPv4CIDR      string `yaml:"IPv4CIDR"`
+	IPv6CIDR      string `yaml:"IPv6CIDR"`
+	IPv6LLPrefix  string `yaml:"IPv6LLPrefix"`
+	MTU           int    `yaml:"MTU"`
+	RecvAddr      string `yaml:"RecvAddr"`
+	SendAddr      string `yaml:"SendAddr"`
+	L2HeaderMode  string `yaml:"L2HeaderMode"`
 }
 
 type PeerInfo struct {
-	NodeID   Vertex
-	PubKey   string
-	PSKey    string
-	EndPoint string
-	Static   bool
+	NodeID   Vertex `yaml:"NodeID"`
+	PubKey   string `yaml:"PubKey"`
+	PSKey    string `yaml:"PSKey"`
+	EndPoint string `yaml:"EndPoint"`
+	Static   bool   `yaml:"Static"`
 }
 
 type SuperPeerInfo struct {
-	NodeID         Vertex
-	Name           string
-	PubKey         string
-	PSKey          string
-	AdditionalCost float64
-	SkipLocalIP    bool
+	NodeID         Vertex  `yaml:"NodeID"`
+	Name           string  `yaml:"Name"`
+	PubKey         string  `yaml:"PubKey"`
+	PSKey          string  `yaml:"PSKey"`
+	AdditionalCost float64 `yaml:"AdditionalCost"`
+	SkipLocalIP    bool    `yaml:"SkipLocalIP"`
 }
 
 type LoggerInfo struct {
-	LogLevel    string
-	LogTransit  bool
-	LogControl  bool
-	LogNormal   bool
-	LogInternal bool
-	LogNTP      bool
+	LogLevel    string `yaml:"LogLevel"`
+	LogTransit  bool   `yaml:"LogTransit"`
+	LogControl  bool   `yaml:"LogControl"`
+	LogNormal   bool   `yaml:"LogNormal"`
+	LogInternal bool   `yaml:"LogInternal"`
+	LogNTP      bool   `yaml:"LogNTP"`
 }
 
 func (v *Vertex) ToString() string {
@@ -110,50 +116,50 @@ func (v *Vertex) ToString() string {
 }
 
 type DynamicRouteInfo struct {
-	SendPingInterval float64
-	PeerAliveTimeout float64
-	DupCheckTimeout  float64
-	ConnTimeOut      float64
-	ConnNextTry      float64
-	AdditionalCost   float64
-	SaveNewPeers     bool
-	SuperNode        SuperInfo
-	P2P              P2Pinfo
-	NTPconfig        NTPinfo
+	SendPingInterval float64   `yaml:"SendPingInterval"`
+	PeerAliveTimeout float64   `yaml:"PeerAliveTimeout"`
+	DupCheckTimeout  float64   `yaml:"DupCheckTimeout"`
+	ConnTimeOut      float64   `yaml:"ConnTimeOut"`
+	ConnNextTry      float64   `yaml:"ConnNextTry"`
+	AdditionalCost   float64   `yaml:"AdditionalCost"`
+	SaveNewPeers     bool      `yaml:"SaveNewPeers"`
+	SuperNode        SuperInfo `yaml:"SuperNode"`
+	P2P              P2PInfo   `yaml:"P2P"`
+	NTPConfig        NTPInfo   `yaml:"NTPConfig"`
 }
 
-type NTPinfo struct {
-	UseNTP           bool
-	MaxServerUse     int
-	SyncTimeInterval float64
-	NTPTimeout       float64
-	Servers          []string
+type NTPInfo struct {
+	UseNTP           bool     `yaml:"UseNTP"`
+	MaxServerUse     int      `yaml:"MaxServerUse"`
+	SyncTimeInterval float64  `yaml:"SyncTimeInterval"`
+	NTPTimeout       float64  `yaml:"NTPTimeout"`
+	Servers          []string `yaml:"Servers"`
 }
 
 type SuperInfo struct {
-	UseSuperNode         bool
-	PSKey                string
-	ConnURLV4            string
-	PubKeyV4             string
-	ConnURLV6            string
-	PubKeyV6             string
-	APIUrl               string
-	SkipLocalIP          bool
-	SuperNodeInfoTimeout float64
+	UseSuperNode         bool    `yaml:"UseSuperNode"`
+	PSKey                string  `yaml:"PSKey"`
+	EndpointV4           string  `yaml:"EndpointV4"`
+	PubKeyV4             string  `yaml:"PubKeyV4"`
+	EndpointV6           string  `yaml:"EndpointV6"`
+	PubKeyV6             string  `yaml:"PubKeyV6"`
+	EndpointEdgeAPIUrl   string  `yaml:"EndpointEdgeAPIUrl"`
+	SkipLocalIP          bool    `yaml:"SkipLocalIP"`
+	SuperNodeInfoTimeout float64 `yaml:"SuperNodeInfoTimeout"`
 }
 
-type P2Pinfo struct {
-	UseP2P                  bool
-	SendPeerInterval        float64
-	GraphRecalculateSetting GraphRecalculateSetting
+type P2PInfo struct {
+	UseP2P                  bool                    `yaml:"UseP2P"`
+	SendPeerInterval        float64                 `yaml:"SendPeerInterval"`
+	GraphRecalculateSetting GraphRecalculateSetting `yaml:"GraphRecalculateSetting"`
 }
 
 type GraphRecalculateSetting struct {
-	StaticMode                bool
-	JitterTolerance           float64
-	JitterToleranceMultiplier float64
-	TimeoutCheckInterval      float64
-	RecalculateCoolDown       float64
+	StaticMode                bool    `yaml:"StaticMode"`
+	JitterTolerance           float64 `yaml:"JitterTolerance"`
+	JitterToleranceMultiplier float64 `yaml:"JitterToleranceMultiplier"`
+	TimeoutCheckInterval      float64 `yaml:"TimeoutCheckInterval"`
+	RecalculateCoolDown       float64 `yaml:"RecalculateCoolDown"`
 }
 
 type DistTable map[Vertex]map[Vertex]float64

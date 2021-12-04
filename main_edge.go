@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2021 Kusakabe Si. All Rights Reserved.
  */
 
 package main
@@ -30,9 +30,9 @@ func printExampleEdgeConf() {
 	v2 := mtypes.Vertex(2)
 	tconfig := mtypes.EdgeConfig{
 		Interface: mtypes.InterfaceConf{
-			Itype:         "stdio",
+			IType:         "stdio",
 			Name:          "tap1",
-			VPPIfaceID:    1,
+			VPPIFaceID:    1,
 			VPPBridgeID:   4242,
 			MacAddrPrefix: "AA:BB:CC:DD",
 			MTU:           1416,
@@ -53,7 +53,7 @@ func printExampleEdgeConf() {
 			LogControl:  true,
 			LogNormal:   true,
 			LogInternal: true,
-			LogNTP:      false,
+			LogNTP:      true,
 		},
 		DynamicRoute: mtypes.DynamicRouteInfo{
 			SendPingInterval: 16,
@@ -61,19 +61,20 @@ func printExampleEdgeConf() {
 			DupCheckTimeout:  40,
 			ConnTimeOut:      20,
 			ConnNextTry:      5,
+			AdditionalCost:   10,
 			SaveNewPeers:     true,
 			SuperNode: mtypes.SuperInfo{
 				UseSuperNode:         true,
 				PSKey:                "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
-				ConnURLV4:            "127.0.0.1:3000",
+				EndpointV4:           "127.0.0.1:3000",
 				PubKeyV4:             "LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=",
-				ConnURLV6:            "[::1]:3000",
+				EndpointV6:           "[::1]:3000",
 				PubKeyV6:             "HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=",
-				APIUrl:               "http://127.0.0.1:3000/api",
+				EndpointEdgeAPIUrl:   "http://127.0.0.1:3000/eg_api",
 				SuperNodeInfoTimeout: 50,
 				SkipLocalIP:          false,
 			},
-			P2P: mtypes.P2Pinfo{
+			P2P: mtypes.P2PInfo{
 				UseP2P:           false,
 				SendPeerInterval: 20,
 				GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
@@ -84,12 +85,13 @@ func printExampleEdgeConf() {
 					RecalculateCoolDown:       5,
 				},
 			},
-			NTPconfig: mtypes.NTPinfo{
+			NTPConfig: mtypes.NTPInfo{
 				UseNTP:           true,
 				MaxServerUse:     8,
 				SyncTimeInterval: 3600,
 				NTPTimeout:       3,
-				Servers: []string{"time.google.com",
+				Servers: []string{
+					"time.google.com",
 					"time1.google.com",
 					"time2.google.com",
 					"time3.google.com",
@@ -103,7 +105,13 @@ func printExampleEdgeConf() {
 					"time.apple.com",
 					"time.asia.apple.com",
 					"time.euro.apple.com",
-					"time.windows.com"},
+					"time.windows.com",
+					"pool.ntp.org",
+					"0.pool.ntp.org",
+					"1.pool.ntp.org",
+					"2.pool.ntp.org",
+					"3.pool.ntp.org",
+				},
 			},
 		},
 		NextHopTable: mtypes.NextHopTable{
@@ -125,7 +133,7 @@ func printExampleEdgeConf() {
 			},
 		},
 	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPconfig, tconfig.LogLevel)
+	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPConfig, tconfig.LogLevel)
 
 	g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
 	g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
@@ -189,7 +197,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 
 	var thetap tap.Device
 	// open TUN device (or use supplied fd)
-	switch econfig.Interface.Itype {
+	switch econfig.Interface.IType {
 	case "dummy":
 		thetap, err = tap.CreateDummyTAP()
 	case "stdio":
@@ -211,7 +219,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	case "tap":
 		thetap, err = tap.CreateTAP(econfig.Interface, econfig.NodeID)
 	default:
-		return errors.New("Unknow interface type:" + econfig.Interface.Itype)
+		return errors.New("Unknow interface type:" + econfig.Interface.IType)
 	}
 	if err != nil {
 		logger.Errorf("Failed to create TAP device: %v", err)
@@ -227,7 +235,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	if econfig.DynamicRoute.P2P.UseP2P == false && econfig.DynamicRoute.SuperNode.UseSuperNode == false {
 		econfig.LogLevel.LogNTP = false // NTP in static mode is useless
 	}
-	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPconfig, econfig.LogLevel)
+	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPConfig, econfig.LogLevel)
 	graph.SetNHTable(econfig.NextHopTable)
 
 	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
@@ -261,7 +269,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	if econfig.DynamicRoute.SuperNode.UseSuperNode {
 		S4 := true
 		S6 := true
-		if econfig.DynamicRoute.SuperNode.ConnURLV4 != "" {
+		if econfig.DynamicRoute.SuperNode.EndpointV4 != "" {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV4)
 			if err != nil {
 				fmt.Println("Error decode base64 ", err)
@@ -277,13 +285,13 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV4, 4, false)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, false)
 			if err != nil {
-				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV4, err)
+				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV4, err)
 				S4 = false
 			}
 		}
-		if econfig.DynamicRoute.SuperNode.ConnURLV6 != "" {
+		if econfig.DynamicRoute.SuperNode.EndpointV6 != "" {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV6)
 			if err != nil {
 				fmt.Println("Error decode base64 ", err)
@@ -299,10 +307,10 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			}
 			peer.SetPSK(psk)
 			peer.StaticConn = false
-			peer.ConnURL = econfig.DynamicRoute.SuperNode.ConnURLV6
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.ConnURLV6, 6, false)
+			peer.ConnURL = econfig.DynamicRoute.SuperNode.EndpointV6
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, false)
 			if err != nil {
-				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.ConnURLV6, err)
+				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
 				S6 = false
 			}
 			if !(S4 || S6) {
@@ -325,6 +333,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		envs := make(map[string]string)
 		nid := econfig.NodeID
 		nid_bytearr := []byte{0, 0}
+		MacAddr, _ := tap.GetMacAddr(econfig.Interface.MacAddrPrefix, uint32(nid))
 		binary.LittleEndian.PutUint16(nid_bytearr, uint16(nid))
 
 		envs["EG_MODE"] = "edge"
@@ -336,7 +345,9 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		envs["EG_NODE_ID_BYTE0_HEX"] = fmt.Sprintf("%X", nid_bytearr[0])
 		envs["EG_NODE_ID_BYTE1_HEX"] = fmt.Sprintf("%X", nid_bytearr[1])
 		envs["EG_INTERFACE_NAME"] = econfig.Interface.Name
-		envs["EG_INTERFACE_TYPE"] = econfig.Interface.Itype
+		envs["EG_INTERFACE_TYPE"] = econfig.Interface.IType
+		envs["EG_INTERFACE_MAC_PREFIX"] = econfig.Interface.MacAddrPrefix
+		envs["EG_INTERFACE_MAC_ADDR"] = MacAddr.String()
 
 		cmdarg, err := shlex.Split(econfig.PostScript)
 		if err != nil {
