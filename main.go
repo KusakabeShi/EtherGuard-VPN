@@ -12,6 +12,9 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"time"
+
+	nonSecureRand "math/rand"
 
 	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
@@ -68,6 +71,7 @@ func main() {
 	if uapiDir != "" {
 		ipc.SetsocketDirectory(uapiDir)
 	}
+	nonSecureRand.Seed(time.Now().UnixNano())
 
 	var err error
 	switch *mode {

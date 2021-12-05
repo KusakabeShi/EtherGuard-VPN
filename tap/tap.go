@@ -62,7 +62,6 @@ func GetIP(version int, netcidr string, uid uint32) (net.IP, net.IPMask, error) 
 		maxuid.Sub(maxuid, big.NewInt(2))
 		if uid == 0 {
 			ip_use.Set(maxuid)
-			ip_use.Sub(ip_use, big.NewInt(1))
 		}
 	}
 	if ip_use.Cmp(maxuid) > 0 {

@@ -26,11 +26,24 @@ import (
 )
 
 func printExampleEdgeConf() {
+	tconfig := getExampleEdgeConf("")
+	toprint, _ := yaml.Marshal(tconfig)
+	fmt.Print(string(toprint))
+}
+
+func getExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
+	tconfig := mtypes.EdgeConfig{}
+	if templatePath != "" {
+		err := readYaml(templatePath, &tconfig)
+		if err == nil {
+			return tconfig
+		}
+	}
 	v1 := mtypes.Vertex(1)
 	v2 := mtypes.Vertex(2)
-	tconfig := mtypes.EdgeConfig{
+	tconfig = mtypes.EdgeConfig{
 		Interface: mtypes.InterfaceConf{
-			IType:         "stdio",
+			IType:         "tap",
 			Name:          "tap1",
 			VPPIFaceID:    1,
 			VPPBridgeID:   4242,
@@ -133,7 +146,7 @@ func printExampleEdgeConf() {
 			},
 		},
 	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPConfig, tconfig.LogLevel)
+	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPConfig, mtypes.LoggerInfo{})
 
 	g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
 	g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
@@ -149,9 +162,7 @@ func printExampleEdgeConf() {
 	g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
 	_, next, _ := g.FloydWarshall(false)
 	tconfig.NextHopTable = next
-	toprint, _ := yaml.Marshal(tconfig)
-	fmt.Print(string(toprint))
-	return
+	return tconfig
 }
 
 func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {

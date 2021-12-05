@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
+	nonSecureRand "math/rand"
 	"time"
 )
 
@@ -13,30 +14,35 @@ func S2TD(secs float64) time.Duration {
 	return time.Duration(secs * float64(time.Second))
 }
 
-func RandomStr(length int, defaults string) string {
-	bytes := make([]byte, length)
-
-	if _, err := rand.Read(bytes); err != nil {
-		if len(defaults) < length {
-			defaults = fmt.Sprintf("%*s\n", length, defaults)
-		}
-		return defaults[:length]
-	}
+func RandomStr(length int, defaults string) (ret string) {
+	bytes := RandomBytes(length, []byte(defaults))
 
 	for i, b := range bytes {
 		bytes[i] = chars[b%byte(len(chars))]
 	}
+	ret = string(bytes)
 
-	return string(bytes)
+	return
+
 }
 
-func RandomBytes(length int, defaults []byte) []byte {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		copy(bytes, defaults)
-		return defaults
+func RandomBytes(length int, defaults []byte) (ret []byte) {
+	var err error
+	ret = make([]byte, length)
+
+	_, err = rand.Read(ret)
+	if err == nil {
+		return
 	}
-	return bytes
+	_, err = nonSecureRand.Read(ret)
+	if err == nil {
+		return
+	}
+
+	if len(defaults) < length {
+		copy(ret, defaults[:length])
+	}
+	return
 }
 
 func ByteSlice2Byte32(bytes []byte) (ret [32]byte) {

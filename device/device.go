@@ -83,12 +83,13 @@ type Device struct {
 	SuperConfigPath string
 	SuperConfig     *mtypes.SuperConfig
 
-	Chan_server_register chan mtypes.RegisterMsg
-	Chan_server_pong     chan mtypes.PongMsg
-	Chan_save_config     chan struct{}
-	Chan_Supernode_OK    chan struct{}
-	Chan_SendPingStart   chan struct{}
-	Chan_HttpPostStart   chan struct{}
+	Chan_server_register   chan mtypes.RegisterMsg
+	Chan_server_pong       chan mtypes.PongMsg
+	Chan_save_config       chan struct{}
+	Chan_Supernode_OK      chan struct{}
+	Chan_SendPingStart     chan struct{}
+	Chan_SendRegisterStart chan struct{}
+	Chan_HttpPostStart     chan struct{}
 
 	indexTable    IndexTable
 	cookieChecker CookieChecker
@@ -367,12 +368,13 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.Chan_save_config = make(chan struct{}, 1<<5)
 		device.Chan_Supernode_OK = make(chan struct{}, 1<<5)
 		device.Chan_SendPingStart = make(chan struct{}, 1<<5)
+		device.Chan_SendRegisterStart = make(chan struct{}, 1<<5)
 		device.Chan_HttpPostStart = make(chan struct{}, 1<<5)
 		device.LogLevel = econfig.LogLevel
 
 		go device.RoutineSetEndpoint()
 		go device.RoutineDetectOfflineAndTryNextEndpoint()
-		go device.RoutineRegister()
+		go device.RoutineRegister(device.Chan_SendRegisterStart)
 		go device.RoutineSendPing(device.Chan_SendPingStart)
 		go device.RoutineSpreadAllMyNeighbor()
 		go device.RoutineResetConn()

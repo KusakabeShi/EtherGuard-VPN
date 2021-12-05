@@ -1,4 +1,5 @@
-//+build vpp
+//go:build vpp
+// +build vpp
 
 package tap
 
@@ -63,7 +64,7 @@ type VppTap struct {
 }
 
 // New creates and returns a new TUN interface for the application.
-func CreateVppTAP(iconfig config.InterfaceConf,NodeID config.Vertex, loglevel string) (tapdev Device, err error) {
+func CreateVppTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex, loglevel string) (tapdev Device, err error) {
 	// Setup TUN Config
 	if len(iconfig.Name) >= unix.IFNAMSIZ {
 		return nil, fmt.Errorf("interface name too long: %w", unix.ENAMETOOLONG)
@@ -123,7 +124,7 @@ func CreateVppTAP(iconfig config.InterfaceConf,NodeID config.Vertex, loglevel st
 	l2service := l2.NewServiceClient(conn)
 	interfacservice := interfaces.NewServiceClient(conn)
 
-	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix,uint32(NodeID))
+	IfMacAddr, err := GetMacAddr(iconfig.MacAddrPrefix, uint32(NodeID))
 	if err != nil {
 		log.Fatalln("ERROR: Failed parse mac address:", iconfig.MacAddrPrefix)
 		return nil, err
@@ -133,10 +134,10 @@ func CreateVppTAP(iconfig config.InterfaceConf,NodeID config.Vertex, loglevel st
 	tap := &VppTap{
 		name:          iconfig.Name,
 		mtu:           iconfig.MTU,
-		ifuid:         iconfig.VPPIfaceID,
+		ifuid:         iconfig.VPPIFaceID,
 		SwIfIndex:     0,
 		memifSockPath: path.Join(vppMemifSocketDir, iconfig.Name+".sock"),
-		secret:        config.RandomStr(16, iconfig.Name),
+		secret:        mtypes.RandomStr(16, iconfig.Name),
 		logger:        log,
 		RxintChNext:   make(chan uint8, 1<<6),
 		errors:        make(chan error, 1<<5),
@@ -146,7 +147,7 @@ func CreateVppTAP(iconfig config.InterfaceConf,NodeID config.Vertex, loglevel st
 
 	_, err = memifservice.MemifSocketFilenameAddDel(context.Background(), &memif.MemifSocketFilenameAddDel{
 		IsAdd:          true,
-		SocketID:       iconfig.VPPIfaceID,
+		SocketID:       iconfig.VPPIFaceID,
 		SocketFilename: tap.memifSockPath,
 	})
 	if err != nil {

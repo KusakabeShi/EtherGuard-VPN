@@ -18,9 +18,11 @@ LogLevel:
   LogInternal: true
   LogNTP: false
 Passwords:
-  ShowState: passwd
+  ShowState: passwd_showstate
   AddPeer: passwd_addpeer
   DelPeer: passwd_delpeer
+  UpdatePeer: passwd_updatepeer
+  UpdateSuper: passwd_updatesuper
 GraphRecalculateSetting:
   StaticMode: false
   JitterTolerance: 5

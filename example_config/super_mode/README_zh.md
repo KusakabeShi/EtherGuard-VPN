@@ -68,13 +68,12 @@ Super node收到Pong以後，就會更新它裡面的`Distance matrix`，並且�
 這樣super node收到HTTP API看到`state hash`就知道這個edge node確實有收到`UpdateXXX`了。  
 不然每隔一段時間就會重新發送`UpdateXXX`給該節點
 
-## HTTP Guest API
+## HTTP Manage API
 HTTP還有一些個API，給前端使用，幫助管理整個網路
 
-### peerstate  
-首先是這個peerstate
+### super/state  
 ```bash
-curl "http://127.0.0.1:3000/api/peerstate?Password=passwd"
+curl "http://127.0.0.1:3000/eg_api/manage/super/state?Password=passwd_showstate"
 ```  
 可以給前端看的，用來顯示現在各節點之間的單向延遲狀況  
 之後可以用來畫力導向圖。
@@ -89,187 +88,47 @@ curl "http://127.0.0.1:3000/api/peerstate?Password=passwd"
 {
   "PeerInfo": {
     "1": {
-      "Name": "hk",
-      "LastSeen": "2021-09-29 11:23:22.854700559 +0000 UTC m=+28740.116476977"
+      "Name": "Node_01",
+      "LastSeen": "2021-12-05 21:21:56.039750832 +0000 UTC m=+23.401193649"
     },
-    "1001": {
-      "Name": "relay_kr",
-      "LastSeen": "2021-09-29 11:23:21.277417897 +0000 UTC m=+28738.539194315"
-    },
-    "121": {
-      "Name": "za_north",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "33": {
-      "Name": "us_west",
-      "LastSeen": "2021-09-29 11:23:13.257033252 +0000 UTC m=+28730.518809670"
-    },
-    "49": {
-      "Name": "us_east",
-      "LastSeen": "2021-09-29 11:23:16.606165241 +0000 UTC m=+28733.867941659"
-    },
-    "51": {
-      "Name": "ca_central",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "65": {
-      "Name": "fr",
-      "LastSeen": "2021-09-29 11:23:19.4084596 +0000 UTC m=+28736.670236018"
-    },
-    "81": {
-      "Name": "au_central",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "89": {
-      "Name": "uae_north",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "9": {
-      "Name": "jp_east",
-      "LastSeen": "2021-09-29 11:23:16.669505147 +0000 UTC m=+28733.931281565"
-    },
-    "97": {
-      "Name": "br_south",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    "2": {
+      "Name": "Node_02",
+      "LastSeen": "2021-12-05 21:21:57.711616169 +0000 UTC m=+25.073058986"
     }
   },
   "Infinity": 99999,
   "Edges": {
     "1": {
-      "1001": 0.033121187,
-      "33": 0.075653164,
-      "49": 0.100471502,
-      "65": 0.065714769,
-      "9": 0.022864241
+      "2": 0.002179297
     },
-    "1001": {
-      "1": 0.018561948,
-      "33": 0.064077348,
-      "49": 0.094459818,
-      "65": 0.079481599,
-      "9": 0.011163433
+    "2": {
+      "1": -0.00030252
+    }
+  },
+  "Edges_Nh": {
+    "1": {
+      "2": 0.012179297
     },
-    "33": {
-      "1": 0.075263428,
-      "1001": 0.070029457,
-      "49": 0.032631349,
-      "65": 0.045575061,
-      "9": 0.050444255
-    },
-    "49": {
-      "1": 0.100271358,
-      "1001": 0.100182834,
-      "33": 0.034563118,
-      "65": 0.017950046,
-      "9": 0.07510982
-    },
-    "65": {
-      "1": 0.114219741,
-      "1001": 0.132759205,
-      "33": 0.095265063,
-      "49": 0.067413235,
-      "9": 0.127562362
-    },
-    "9": {
-      "1": 0.026909699,
-      "1001": 0.022555855,
-      "33": 0.056469043,
-      "49": 0.090400723,
-      "65": 0.08525314
+    "2": {
+      "1": 0.00969748
     }
   },
   "NhTable": {
     "1": {
-      "1001": 1001,
-      "33": 33,
-      "49": 49,
-      "65": 65,
-      "9": 9
+      "2": 2
     },
-    "1001": {
-      "1": 1,
-      "33": 33,
-      "49": 49,
-      "65": 65,
-      "9": 9
-    },
-    "33": {
-      "1": 1,
-      "1001": 1001,
-      "49": 49,
-      "65": 65,
-      "9": 9
-    },
-    "49": {
-      "1": 1,
-      "1001": 9,
-      "33": 33,
-      "65": 65,
-      "9": 9
-    },
-    "65": {
-      "1": 1,
-      "1001": 1001,
-      "33": 33,
-      "49": 49,
-      "9": 9
-    },
-    "9": {
-      "1": 1,
-      "1001": 1001,
-      "33": 33,
-      "49": 33,
-      "65": 65
+    "2": {
+      "1": 1
     }
   },
   "Dist": {
     "1": {
       "1": 0,
-      "1001": 0.033121187,
-      "33": 0.075119328,
-      "49": 0.102236885,
-      "65": 0.074688856,
-      "9": 0.022473723
+      "2": 0.012179297
     },
-    "1001": {
-      "1": 0.018561948,
-      "1001": 0,
-      "33": 0.064077348,
-      "49": 0.094459818,
-      "65": 0.079481599,
-      "9": 0.011163433
-    },
-    "33": {
-      "1": 0.075263428,
-      "1001": 0.070029457,
-      "33": 0,
-      "49": 0.032631349,
-      "65": 0.045575061,
-      "9": 0.050444255
-    },
-    "49": {
-      "1": 0.100271358,
-      "1001": 0.097665675,
-      "33": 0.034563118,
-      "49": 0,
-      "65": 0.017950046,
-      "9": 0.07510982
-    },
-    "65": {
-      "1": 0.114219741,
-      "1001": 0.132759205,
-      "33": 0.095265063,
-      "49": 0.067413235,
-      "65": 0,
-      "9": 0.127562362
-    },
-    "9": {
-      "1": 0.026909699,
-      "1001": 0.022555855,
-      "33": 0.056469043,
-      "49": 0.089100392,
-      "65": 0.08525314,
-      "9": 0
+    "2": {
+      "1": 0.00969748,
+      "2": 0
     }
   }
 }
@@ -278,25 +137,28 @@ curl "http://127.0.0.1:3000/api/peerstate?Password=passwd"
 欄位意義:  
 1. PeerInfo: 節點id，名稱，上次上線時間
 2. Edges: 節點**直連的延遲**，99999或是缺失代表不可達(打洞失敗)
+3. Edges_Nh: 加上AdditionalCost之後的結果，也就是餵給 FloydWarshall(g) 的真正參數
 3. NhTable: 計算結果
 4. Dist: 節點走**Etherguard之後的延遲**
 
-### peeradd
+### peer/add
 再來是新增peer，可以不用重啟Supernode就新增Peer
 
 範例:  
 ```
-curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "nodeid=100&name=Node_100&additionalcost=1000&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
+curl -X POST "http://127.0.0.1:3000/eg_api/manage/peer/add?Password=passwd_addpeer" \
+ -H "Content-Type: application/x-www-form-urlencoded" \
+ -d "NodeID=100&Name=Node_100&PubKey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM=&AdditionalCost=1000&PSKey=j9dS%2FlYvL16svSeC5lh%2Bldlq2iZX2MWwZfM3NNWpULI%3D&SkipLocalIP=false"
 ```
 參數:
 1. URL query: Password: 新增peer用的密碼，在設定檔配置
 1. Post body:
-    1. nodeid: Node ID
-    1. pubkey: Public Key
-    1. pskey: Preshared Key
-    1. additionalcost: 此節點進行封包轉發的額外成本。單位: 毫秒
+    1. NodeID: Node ID
+    1. Name: 節點名稱
+    1. PubKey: Public Key
+    1. PSKey: Preshared Key
+    1. AdditionalCost: 此節點進行封包轉發的額外成本。單位: 毫秒
+    1. SkipLocalIP: 是否使該節點不使用Local IP
     1. nexthoptable: 如果你的super node的`graphrecalculatesetting`是static mode，那麼你需要在這提供一張新的`NextHopTable`，json格式
 
 返回值:
@@ -304,91 +166,19 @@ curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
 2. http code == 200，一份edge的參考設定檔  
     * 會根據 `edgetemplate` 裡面的內容，再填入使用者的資訊(nodeid/name/pubkey)
     * 方便使用者複製貼上
-```yaml
-interface:
-  itype: stdio
-  name: tap1
-  vppifaceid: 1
-  vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD
-  mtu: 1416
-  recvaddr: 127.0.0.1:4001
-  sendaddr: 127.0.0.1:5001
-  l2headermode: kbdbg
-nodeid: 100
-nodename: Node_100
-defaultttl: 200
-privkey: Your_Private_Key
-listenport: 3001
-loglevel:
-  loglevel: normal
-  logtransit: true
-  logcontrol: true
-  lognormal: true
-  logntp: true
-dynamicroute:
-  sendpinginterval: 16
-  peeralivetimeout: 30
-  dupchecktimeout: 40
-  conntimeout: 30
-  connnexttry: 5
-  savenewpeers: true
-  supernode:
-    usesupernode: true
-    pskey: ""
-    connurlv4: 127.0.0.1:3000
-    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: ""
-    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
-    apiurl: http://127.0.0.1:3000/api
-    supernodeinfotimeout: 50
-  p2p:
-    usep2p: false
-    sendpeerinterval: 20
-    graphrecalculatesetting:
-      jittertolerance: 20
-      jittertolerancemultiplier: 1.1
-      nodereporttimeout: 40
-      recalculatecooldown: 5
-  ntpconfig:
-    usentp: true
-    maxserveruse: 8
-    synctimeinterval: 3600
-    ntptimeout: 3
-    servers:
-    - time.google.com
-    - time1.google.com
-    - time2.google.com
-    - time3.google.com
-    - time4.google.com
-    - time1.facebook.com
-    - time2.facebook.com
-    - time3.facebook.com
-    - time4.facebook.com
-    - time5.facebook.com
-    - time.cloudflare.com
-    - time.apple.com
-    - time.asia.apple.com
-    - time.euro.apple.com
-    - time.windows.com
-nexthoptable: {}
-resetconninterval: 86400
-peers: []
-```
 
-### peerdel  
-最後是刪除peer。  
+### peer/del  
 有兩種刪除模式，分別是使用Password刪除，以及使用privkey刪除。  
 設計上分別是給管理員使用，或是給加入網路的人，想離開網路使用
 
 使用Password刪除可以刪除任意節點，以上面新增的節點為例，使用這個API即可刪除剛剛新增的節點
 ```
-curl "http://127.0.0.1:3000/api/peer/del?Password=passwd_delpeer&nodeid=100"
+curl "http://127.0.0.1:3000/eg_api/manage/peer/del?Password=passwd_delpeer&NodeID=100"
 ```
 
 也可以使用privkey刪除，同上，但是只要附上privkey參數就好
 ```
-curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ="
+curl "http://127.0.0.1:3000/eg_api/manage/peer/del?PrivKey=IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ="
 ```
 
 參數:
@@ -400,6 +190,23 @@ curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9K
 返回值:
 1. http code != 200: 錯誤訊息
 2. http code == 200: 被刪除的nodeID  
+
+### peer/update
+更新節點的一些參數
+```
+curl -X POST "http://127.0.0.1:12369/eg_net/eg_api/manage/peer/update?Password=e05znou1_updatepeer&NodeID=1" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "AdditionalCost=10&SkipLocalIP=false"
+```
+
+### super/update
+更新SuperNode的一些參數
+```
+curl -X POST "http://127.0.0.1:12369/eg_net/eg_api/manage/super/update?Password=e05znou1_updatesuper" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70"
+```
+
 
 ## Config Parameters
 

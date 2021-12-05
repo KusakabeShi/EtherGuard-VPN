@@ -610,6 +610,7 @@ func (device *Device) process_ServerUpdateMsg(peer *Peer, content mtypes.ServerU
 
 	switch content.Action {
 	case mtypes.Shutdown:
+		device.log.Errorf("Shutdown: " + content.Params)
 		device.closed <- 0
 	case mtypes.ThrowError:
 		device.log.Errorf(strconv.Itoa(int(content.Code)) + ": " + content.Params)
@@ -787,22 +788,34 @@ func (device *Device) RoutineSendPing(startchan <-chan struct{}) {
 				<-startchan
 			}
 		case <-waitchan:
-			if device.LogLevel.LogControl {
-				fmt.Println("Control: Start RoutineSendPing() by timer")
-			}
 		}
 		packet, usage, _ := device.GeneratePingPacket(device.ID, 0)
 		device.SpreadPacket(make(map[mtypes.Vertex]bool), usage, packet, MessageTransportOffsetContent)
 	}
 }
 
-func (device *Device) RoutineRegister() {
+func (device *Device) RoutineRegister(startchan chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval)
-	_ = <-device.Chan_Supernode_OK
+	waitchan := time.After(8 * time.Second)
+	startchan <- struct{}{}
 	for {
+		if device.EdgeConfig.DynamicRoute.SendPingInterval > 0 {
+			waitchan = time.After(mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval))
+		} else {
+			waitchan = time.After(8 * time.Second)
+		}
+		select {
+		case <-startchan:
+			if device.LogLevel.LogControl {
+				fmt.Println("Control: Start RoutineRegister()")
+			}
+			for len(startchan) > 0 {
+				<-startchan
+			}
+		case <-waitchan:
+		}
 		local_PeerStateHash := device.state_hashes.Peer.Load().(string)
 		local_NhTableHash := device.state_hashes.NhTable.Load().(string)
 		local_SuperParamState := device.state_hashes.SuperParam.Load().(string)
@@ -823,7 +836,6 @@ func (device *Device) RoutineRegister() {
 		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
 		device.Send2Super(path.Register, buf, MessageTransportOffsetContent)
-		time.Sleep(timeout)
 	}
 }
 

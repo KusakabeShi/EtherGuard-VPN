@@ -172,5 +172,4 @@ func ValidIP(ip net.IP) bool {
 		}
 	}
 	return false
-
 }

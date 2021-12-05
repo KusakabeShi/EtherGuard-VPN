@@ -61,10 +61,26 @@ func checkNhTable(NhTable mtypes.NextHopTable, peers []mtypes.SuperPeerInfo) err
 }
 
 func printExampleSuperConf() {
+	sconfig := getExampleSuperConf("")
+	scprint, _ := yaml.Marshal(sconfig)
+	fmt.Print(string(scprint))
+}
+
+func getExampleSuperConf(templatePath string) mtypes.SuperConfig {
+	sconfig := mtypes.SuperConfig{}
+	if templatePath != "" {
+		err := readYaml(templatePath, &sconfig)
+		if err == nil {
+			return sconfig
+		}
+	}
+
 	v1 := mtypes.Vertex(1)
 	v2 := mtypes.Vertex(2)
 
-	sconfig := mtypes.SuperConfig{
+	random_passwd := mtypes.RandomStr(8, "passwd")
+
+	sconfig = mtypes.SuperConfig{
 		NodeName:             "NodeSuper",
 		PostScript:           "",
 		PrivKeyV4:            "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
@@ -86,9 +102,11 @@ func printExampleSuperConf() {
 		HttpPostInterval:     50,
 		SendPingInterval:     15,
 		Passwords: mtypes.Passwords{
-			ShowState: "passwd",
-			AddPeer:   "passwd_addpeer",
-			DelPeer:   "passwd_delpeer",
+			ShowState:   random_passwd + "_showstate",
+			AddPeer:     random_passwd + "_addpeer",
+			DelPeer:     random_passwd + "_delpeer",
+			UpdatePeer:  random_passwd + "_updatepeer",
+			UpdateSuper: random_passwd + "_updatesuper",
 		},
 		GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
 			StaticMode:                false,
@@ -124,10 +142,7 @@ func printExampleSuperConf() {
 			},
 		},
 	}
-
-	scprint, _ := yaml.Marshal(sconfig)
-	fmt.Print(string(scprint))
-	return
+	return sconfig
 }
 
 func Super(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {
@@ -143,11 +158,8 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		return err
 	}
 	httpobj.http_sconfig = &sconfig
-	err = readYaml(sconfig.EdgeTemplate, &httpobj.http_econfig_tmp)
-	if err != nil {
-		fmt.Printf("Error read config: %v\t%v\n", sconfig.EdgeTemplate, err)
-		return err
-	}
+	http_econfig_tmp := getExampleEdgeConf(sconfig.EdgeTemplate)
+	httpobj.http_econfig_tmp = &http_econfig_tmp
 	NodeName := sconfig.NodeName
 	if len(NodeName) > 32 {
 		return errors.New("Node name can't longer than 32 :" + NodeName)
@@ -264,7 +276,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	go Event_server_event_hendler(httpobj.http_graph, httpobj.http_super_chains)
 	go RoutinePushSettings(mtypes.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
-	go HttpServer(sconfig.ListenPort_EdgeAPI, sconfig.ListenPort_ManageAPI, sconfig.API_Prefix)
+	err = HttpServer(sconfig.ListenPort_EdgeAPI, sconfig.ListenPort_ManageAPI, sconfig.API_Prefix)
+	if err != nil {
+		return err
+	}
 
 	if sconfig.PostScript != "" {
 		envs := make(map[string]string)
@@ -414,6 +429,7 @@ func Event_server_event_hendler(graph *path.IG, events *mtypes.SUPER_Events) {
 		case reg_msg := <-events.Event_server_register:
 			var should_push_peer bool
 			var should_push_nh bool
+			var should_push_superparams bool
 			NodeID := reg_msg.Node_id
 			httpobj.RLock()
 			PubKey := httpobj.http_PeerID2Info[NodeID].PubKey
@@ -429,6 +445,10 @@ func Event_server_event_hendler(graph *path.IG, events *mtypes.SUPER_Events) {
 					httpobj.http_PeerState[PubKey].PeerInfoState.Store(reg_msg.PeerStateHash)
 					should_push_peer = true
 				}
+				if httpobj.http_PeerState[PubKey].SuperParamStateClient.Load().(string) == reg_msg.SuperParamStateHash == false {
+					httpobj.http_PeerState[PubKey].SuperParamStateClient.Store(reg_msg.SuperParamStateHash)
+					should_push_superparams = true
+				}
 			}
 			var peer_state_changed bool
 
@@ -438,6 +458,9 @@ func Event_server_event_hendler(graph *path.IG, events *mtypes.SUPER_Events) {
 			}
 			if should_push_nh {
 				PushNhTable(false)
+			}
+			if should_push_superparams {
+				PushServerParams(false)
 			}
 			httpobj.RUnlock()
 		case pong_msg := <-events.Event_server_pong:

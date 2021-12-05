@@ -160,14 +160,17 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 	// No lock
 	api_peerinfo = make(mtypes.API_Peers)
 	for _, peerinfo := range httpobj.http_sconfig.Peers {
+		connV4 := httpobj.http_device4.GetConnurl(peerinfo.NodeID)
+		connV6 := httpobj.http_device6.GetConnurl(peerinfo.NodeID)
+		if len(connV4)+len(connV6) == 0 {
+			continue
+		}
 		api_peerinfo[peerinfo.PubKey] = mtypes.API_Peerinfo{
 			NodeID:  peerinfo.NodeID,
 			PSKey:   peerinfo.PSKey,
 			Connurl: &mtypes.API_connurl{},
 		}
 		if httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now()) {
-			connV4 := httpobj.http_device4.GetConnurl(peerinfo.NodeID)
-			connV6 := httpobj.http_device6.GetConnurl(peerinfo.NodeID)
 			if connV4 != "" {
 				api_peerinfo[peerinfo.PubKey].Connurl.ExternalV4 = map[string]float64{connV4: 4}
 			}
@@ -179,7 +182,6 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 				api_peerinfo[peerinfo.PubKey].Connurl.LocalV6 = httpobj.http_PeerIPs[peerinfo.PubKey].LocalIPv6
 			}
 		}
-
 	}
 	api_peerinfo_str_byte, _ := json.Marshal(&api_peerinfo)
 	hash_raw := md5.Sum(append(api_peerinfo_str_byte, httpobj.http_HashSalt...))
@@ -191,7 +193,7 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 	return
 }
 
-func get_superparams(w http.ResponseWriter, r *http.Request) {
+func edge_get_superparams(w http.ResponseWriter, r *http.Request) {
 	// Read all params
 	params := r.URL.Query()
 	PubKey, err := extractParamsStr(params, "PubKey", w)
@@ -251,7 +253,7 @@ func get_superparams(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func get_peerinfo(w http.ResponseWriter, r *http.Request) {
+func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	// Read all params
 	params := r.URL.Query()
 	PubKey, err := extractParamsStr(params, "PubKey", w)
@@ -333,7 +335,7 @@ func get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func get_nhtable(w http.ResponseWriter, r *http.Request) {
+func edge_get_nhtable(w http.ResponseWriter, r *http.Request) {
 	// Read all params
 	params := r.URL.Query()
 	PubKey, err := extractParamsStr(params, "PubKey", w)
@@ -382,48 +384,9 @@ func get_nhtable(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(httpobj.http_NhTableStr))
 	return
-
 }
 
-func get_peerstate(w http.ResponseWriter, r *http.Request) {
-	params := r.URL.Query()
-	password, err := extractParamsStr(params, "Password", w)
-	if err != nil {
-		return
-	}
-	if password != httpobj.http_passwords.ShowState {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Wrong password"))
-		return
-	}
-	httpobj.RLock()
-	defer httpobj.RUnlock()
-	if time.Now().After(httpobj.http_StateExpire) {
-		hs := HttpState{
-			PeerInfo: make(map[mtypes.Vertex]HttpPeerInfo),
-			NhTable:  httpobj.http_graph.GetNHTable(false),
-			Infinity: path.Infinity,
-			Edges:    httpobj.http_graph.GetEdges(false, false),
-			Edges_Nh: httpobj.http_graph.GetEdges(true, true),
-			Dist:     httpobj.http_graph.GetDtst(),
-		}
-
-		for _, peerinfo := range httpobj.http_sconfig.Peers {
-			LastSeenStr := httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Load().(time.Time).String()
-			hs.PeerInfo[peerinfo.NodeID] = HttpPeerInfo{
-				Name:     peerinfo.Name,
-				LastSeen: LastSeenStr,
-			}
-		}
-		httpobj.http_StateExpire = time.Now().Add(5 * time.Second)
-		httpobj.http_StateString_tmp, _ = json.Marshal(hs)
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(httpobj.http_StateString_tmp)
-	return
-}
-
-func post_nodeinfo(w http.ResponseWriter, r *http.Request) {
+func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 
 	NodeID, err := extractParamsVertex(params, "NodeID", w)
@@ -552,13 +515,75 @@ func post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
+func checkPassword(s1 string, s2 string) bool {
+	b1 := []byte(s1)
+	b2 := []byte(s2)
+	if len(b1) == 0 || len(b2) == 0 {
+		return false
+	}
+	if len(b1) != len(b2) {
+		aaa := 0
+		for _, c := range b1 {
+			if c != b2[0] {
+				aaa += 1
+			}
+		}
+		return false
+	}
+	pass := true
+	for i, c := range b1 {
+		if c != b2[i] {
+			pass = false
+		}
+	}
+	return pass
+}
+
+func manage_get_peerstate(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	password, err := extractParamsStr(params, "Password", w)
 	if err != nil {
 		return
 	}
-	if password != httpobj.http_passwords.AddPeer {
+	if checkPassword(password, httpobj.http_passwords.ShowState) == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Wrong password"))
+		return
+	}
+	httpobj.RLock()
+	defer httpobj.RUnlock()
+	if time.Now().After(httpobj.http_StateExpire) {
+		hs := HttpState{
+			PeerInfo: make(map[mtypes.Vertex]HttpPeerInfo),
+			NhTable:  httpobj.http_graph.GetNHTable(false),
+			Infinity: path.Infinity,
+			Edges:    httpobj.http_graph.GetEdges(false, false),
+			Edges_Nh: httpobj.http_graph.GetEdges(true, true),
+			Dist:     httpobj.http_graph.GetDtst(),
+		}
+
+		for _, peerinfo := range httpobj.http_sconfig.Peers {
+			LastSeenStr := httpobj.http_PeerState[peerinfo.PubKey].LastSeen.Load().(time.Time).String()
+			hs.PeerInfo[peerinfo.NodeID] = HttpPeerInfo{
+				Name:     peerinfo.Name,
+				LastSeen: LastSeenStr,
+			}
+		}
+		httpobj.http_StateExpire = time.Now().Add(5 * time.Second)
+		httpobj.http_StateString_tmp, _ = json.Marshal(hs)
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(httpobj.http_StateString_tmp)
+	return
+}
+
+func manage_peeradd(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	password, err := extractParamsStr(params, "Password", w)
+	if err != nil {
+		return
+	}
+	if checkPassword(password, httpobj.http_passwords.AddPeer) == false {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Wrong password"))
 		return
@@ -671,13 +696,189 @@ func peeradd(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	httpobj.http_econfig_tmp.DynamicRoute.SuperNode.PSKey = PSKey
 	httpobj.http_econfig_tmp.DynamicRoute.AdditionalCost = AdditionalCost
 	httpobj.http_econfig_tmp.DynamicRoute.SuperNode.SkipLocalIP = SkipLocalIP
+	httpobj.http_econfig_tmp.NextHopTable = make(mtypes.NextHopTable)
+	httpobj.http_econfig_tmp.Peers = make([]mtypes.PeerInfo, 0)
 	ret_str_byte, _ := yaml.Marshal(&httpobj.http_econfig_tmp)
 	w.WriteHeader(http.StatusOK)
 	w.Write(ret_str_byte)
 	return
 }
 
-func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
+func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	toUpdate := mtypes.Broadcast
+
+	var err error
+	var NodeID mtypes.Vertex
+
+	password, err := extractParamsStr(params, "Password", w)
+	if err != nil {
+		return
+	}
+	if checkPassword(password, httpobj.http_passwords.UpdatePeer) == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Paramater Password: Wrong password"))
+		return
+	}
+	NodeID, err = extractParamsVertex(params, "NodeID", w)
+	if err != nil {
+		return
+	}
+	toUpdate = NodeID
+	httpobj.Lock()
+	defer httpobj.Unlock()
+	if _, has := httpobj.http_PeerID2Info[toUpdate]; !has {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(fmt.Sprintf("Paramater NodeID: \"%v\" not found", NodeID)))
+		return
+	}
+	PubKey := httpobj.http_PeerID2Info[toUpdate].PubKey
+	Updated_params := make(map[string]string)
+	new_superpeerinfo := httpobj.http_PeerID2Info[toUpdate]
+	r.ParseForm()
+	AdditionalCost, err := extractParamsFloat(r.Form, "AdditionalCost", 64, nil)
+	if err == nil {
+		Updated_params["AdditionalCost"] = fmt.Sprintf("%v", AdditionalCost)
+		new_superpeerinfo.AdditionalCost = AdditionalCost
+	}
+	SkipLocalIP, err := extractParamsStr(r.Form, "SkipLocalIP", nil)
+	if err == nil {
+		SkipLocalIPVal := strings.EqualFold(SkipLocalIP, "true")
+		Updated_params["SkipLocalIP"] = fmt.Sprintf("%v", SkipLocalIPVal)
+		new_superpeerinfo.SkipLocalIP = SkipLocalIPVal
+
+	}
+	if len(Updated_params) == 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("NodeID: " + toUpdate.ToString() + " , no any paramater updated.\n"))
+		return
+	}
+
+	httpobj.http_PeerID2Info[toUpdate] = new_superpeerinfo
+	SuperParams := mtypes.API_SuperParams{
+		SendPingInterval: httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval: httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout: httpobj.http_sconfig.PeerAliveTimeout,
+		AdditionalCost:   new_superpeerinfo.AdditionalCost,
+	}
+
+	SuperParamStr, _ := json.Marshal(SuperParams)
+	md5_hash_raw := md5.Sum(append(SuperParamStr, httpobj.http_HashSalt...))
+	new_hash_str := hex.EncodeToString(md5_hash_raw[:])
+	httpobj.http_PeerState[PubKey].SuperParamState.Store(new_hash_str)
+
+	var peers_new []mtypes.SuperPeerInfo
+	for _, peerinfo := range httpobj.http_sconfig.Peers {
+		if peerinfo.NodeID == toUpdate {
+			peers_new = append(peers_new, new_superpeerinfo)
+		} else {
+			peers_new = append(peers_new, peerinfo)
+		}
+	}
+	httpobj.http_sconfig.Peers = peers_new
+	mtypesBytes, _ := yaml.Marshal(httpobj.http_sconfig)
+	ioutil.WriteFile(httpobj.http_sconfig_path, mtypesBytes, 0644)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("NodeID: " + toUpdate.ToString() + " updated following values:\n"))
+	for k, v := range Updated_params {
+		w.Write([]byte(fmt.Sprintf("%v = %v\n", k, v)))
+	}
+	return
+}
+
+func manage_superupdate(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+
+	var err error
+
+	password, err := extractParamsStr(params, "Password", w)
+	if err != nil {
+		return
+	}
+	if checkPassword(password, httpobj.http_passwords.UpdateSuper) == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Paramater Password: Wrong password"))
+		return
+	}
+
+	r.ParseForm()
+	Updated_params := make(map[string]string)
+
+	sconfig_temp := mtypes.SuperConfig{}
+	sconfig_temp.PeerAliveTimeout = httpobj.http_sconfig.PeerAliveTimeout
+	sconfig_temp.SendPingInterval = httpobj.http_sconfig.SendPingInterval
+	sconfig_temp.HttpPostInterval = httpobj.http_sconfig.HttpPostInterval
+
+	PeerAliveTimeout, err := extractParamsFloat(r.Form, "PeerAliveTimeout", 64, nil)
+	if err == nil {
+		if PeerAliveTimeout <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Paramater PeerAliveTimeout: Must > 0.\n")))
+			return
+		}
+		Updated_params["PeerAliveTimeout"] = fmt.Sprintf("%v", PeerAliveTimeout)
+		sconfig_temp.PeerAliveTimeout = PeerAliveTimeout
+	}
+
+	SendPingInterval, err := extractParamsFloat(r.Form, "SendPingInterval", 64, nil)
+	if err == nil {
+		if SendPingInterval <= 0 || SendPingInterval >= sconfig_temp.PeerAliveTimeout {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Paramater SendPingInterval: Must > 0 and < %v(PeerAliveTimeout).\n", sconfig_temp.PeerAliveTimeout)))
+			return
+		}
+		Updated_params["SendPingInterval"] = fmt.Sprintf("%v", SendPingInterval)
+		sconfig_temp.SendPingInterval = SendPingInterval
+	}
+	HttpPostInterval, err := extractParamsFloat(r.Form, "HttpPostInterval", 64, nil)
+	if err == nil {
+		if SendPingInterval <= 0 || SendPingInterval >= sconfig_temp.PeerAliveTimeout {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Paramater HttpPostInterval: Must > 0 and < %v(PeerAliveTimeout).\n", sconfig_temp.PeerAliveTimeout)))
+			return
+		}
+		Updated_params["HttpPostInterval"] = fmt.Sprintf("%v", HttpPostInterval)
+		sconfig_temp.HttpPostInterval = HttpPostInterval
+	}
+
+	if len(Updated_params) == 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("SuperNode: no any paramater updated.\n"))
+		return
+	}
+
+	httpobj.http_sconfig.PeerAliveTimeout = sconfig_temp.PeerAliveTimeout
+	httpobj.http_sconfig.SendPingInterval = sconfig_temp.SendPingInterval
+	httpobj.http_sconfig.HttpPostInterval = sconfig_temp.HttpPostInterval
+
+	SuperParams := mtypes.API_SuperParams{
+		SendPingInterval: httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval: httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout: httpobj.http_sconfig.PeerAliveTimeout,
+		AdditionalCost:   10,
+	}
+	httpobj.Lock()
+	defer httpobj.Unlock()
+	for _, peerinfo := range httpobj.http_PeerID2Info {
+		SuperParams.AdditionalCost = peerinfo.AdditionalCost
+		PubKey := peerinfo.PubKey
+		SuperParamStr, _ := json.Marshal(SuperParams)
+		md5_hash_raw := md5.Sum(append(SuperParamStr, httpobj.http_HashSalt...))
+		new_hash_str := hex.EncodeToString(md5_hash_raw[:])
+		httpobj.http_PeerState[PubKey].SuperParamState.Store(new_hash_str)
+	}
+
+	mtypesBytes, _ := yaml.Marshal(httpobj.http_sconfig)
+	ioutil.WriteFile(httpobj.http_sconfig_path, mtypesBytes, 0644)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Supernode: updated following values:\n"))
+	for k, v := range Updated_params {
+		w.Write([]byte(fmt.Sprintf("%v = %v\n", k, v)))
+	}
+	return
+}
+
+func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	toDelete := mtypes.Broadcast
 
@@ -689,7 +890,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 	httpobj.Lock()
 	defer httpobj.Unlock()
 	if pwderr == nil { // user provide the password
-		if password == httpobj.http_passwords.DelPeer {
+		if checkPassword(password, httpobj.http_passwords.DelPeer) {
 			NodeID, err = extractParamsVertex(params, "NodeID", w)
 			if err != nil {
 				return
@@ -697,7 +898,7 @@ func peerdel(w http.ResponseWriter, r *http.Request) { //Waiting for test
 			toDelete = NodeID
 			if _, has := httpobj.http_PeerID2Info[toDelete]; !has {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte(fmt.Sprintf("Paramater NodeID: \"%v\" not found", PubKey)))
+				w.Write([]byte(fmt.Sprintf("Paramater NodeID: \"%v\" not found", NodeID)))
 				return
 			}
 		} else {
@@ -759,25 +960,29 @@ func HttpServer(edgeListen string, manageListen string, apiprefix string) (err e
 	}
 	if edgeListen == manageListen {
 		mux := http.NewServeMux()
-		mux.HandleFunc(apiprefix+"/edge/superparams", get_superparams)
-		mux.HandleFunc(apiprefix+"/edge/peerinfo", get_peerinfo)
-		mux.HandleFunc(apiprefix+"/edge/nhtable", get_nhtable)
-		mux.HandleFunc(apiprefix+"/edge/post/nodeinfo", post_nodeinfo)
-		mux.HandleFunc(apiprefix+"/manage/peerstate", get_peerstate)
-		mux.HandleFunc(apiprefix+"/manage/peer/add", peeradd)
-		mux.HandleFunc(apiprefix+"/manage/peer/del", peerdel)
+		mux.HandleFunc(apiprefix+"/edge/superparams", edge_get_superparams)
+		mux.HandleFunc(apiprefix+"/edge/peerinfo", edge_get_peerinfo)
+		mux.HandleFunc(apiprefix+"/edge/nhtable", edge_get_nhtable)
+		mux.HandleFunc(apiprefix+"/edge/post/nodeinfo", edge_post_nodeinfo)
+		mux.HandleFunc(apiprefix+"/manage/peer/add", manage_peeradd)
+		mux.HandleFunc(apiprefix+"/manage/peer/del", manage_peerdel)
+		mux.HandleFunc(apiprefix+"/manage/peer/update", manage_peerupdate)
+		mux.HandleFunc(apiprefix+"/manage/super/state", manage_get_peerstate)
+		mux.HandleFunc(apiprefix+"/manage/super/update", manage_superupdate)
 		err = http.ListenAndServe(edgeListen, mux)
 		return
 	} else {
 		edgemux := http.NewServeMux()
 		managemux := http.NewServeMux()
-		edgemux.HandleFunc(apiprefix+"/edge/superparams", get_superparams)
-		edgemux.HandleFunc(apiprefix+"/edge/peerinfo", get_peerinfo)
-		edgemux.HandleFunc(apiprefix+"/edge/nhtable", get_nhtable)
-		edgemux.HandleFunc(apiprefix+"/edge/post/nodeinfo", post_nodeinfo)
-		managemux.HandleFunc(apiprefix+"/manage/peerstate", get_peerstate)
-		managemux.HandleFunc(apiprefix+"/manage/peer/add", peeradd)
-		managemux.HandleFunc(apiprefix+"/manage/peer/del", peerdel)
+		edgemux.HandleFunc(apiprefix+"/edge/superparams", edge_get_superparams)
+		edgemux.HandleFunc(apiprefix+"/edge/peerinfo", edge_get_peerinfo)
+		edgemux.HandleFunc(apiprefix+"/edge/nhtable", edge_get_nhtable)
+		edgemux.HandleFunc(apiprefix+"/edge/post/nodeinfo", edge_post_nodeinfo)
+		managemux.HandleFunc(apiprefix+"/manage/peer/add", manage_peeradd)
+		managemux.HandleFunc(apiprefix+"/manage/peer/del", manage_peerdel)
+		managemux.HandleFunc(apiprefix+"/manage/peer/update", manage_peerupdate)
+		managemux.HandleFunc(apiprefix+"/manage/super/state", manage_get_peerstate)
+		managemux.HandleFunc(apiprefix+"/manage/super/update", manage_superupdate)
 		err = http.ListenAndServe(edgeListen, edgemux)
 		if err != nil {
 			return

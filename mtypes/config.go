@@ -56,9 +56,11 @@ type SuperConfig struct {
 }
 
 type Passwords struct {
-	ShowState string `yaml:"ShowState"`
-	AddPeer   string `yaml:"AddPeer"`
-	DelPeer   string `yaml:"DelPeer"`
+	ShowState   string `yaml:"ShowState"`
+	AddPeer     string `yaml:"AddPeer"`
+	DelPeer     string `yaml:"DelPeer"`
+	UpdatePeer  string `yaml:"UpdatePeer"`
+	UpdateSuper string `yaml:"UpdateSuper"`
 }
 
 type InterfaceConf struct {
