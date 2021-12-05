@@ -91,11 +91,11 @@ func getExampleSuperConf(templatePath string) mtypes.SuperConfig {
 		API_Prefix:           "/eg_api",
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "normal",
-			LogTransit:  true,
+			LogTransit:  false,
 			LogControl:  true,
 			LogNormal:   false,
 			LogInternal: true,
-			LogNTP:      false,
+			LogNTP:      true,
 		},
 		RePushConfigInterval: 30,
 		PeerAliveTimeout:     70,

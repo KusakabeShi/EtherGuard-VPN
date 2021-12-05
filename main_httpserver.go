@@ -484,6 +484,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	httpobj.http_PeerIPs[PubKey].LocalIPv4 = client_report.LocalV4s
 	httpobj.http_PeerIPs[PubKey].LocalIPv6 = client_report.LocalV6s
 	httpobj.http_PeerState[PubKey].httpPostCount.Store(client_PostCount + 1)
+	httpobj.http_PeerState[PubKey].LastSeen.Store(time.Now())
 
 	applied_pones := make([]mtypes.PongMsg, 0, len(client_report.Pongs))
 	for _, pong_msg := range client_report.Pongs {

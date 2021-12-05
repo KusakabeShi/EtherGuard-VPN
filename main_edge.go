@@ -62,9 +62,9 @@ func getExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
 		ListenPort:   0,
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "error",
-			LogTransit:  true,
+			LogTransit:  false,
 			LogControl:  true,
-			LogNormal:   true,
+			LogNormal:   false,
 			LogInternal: true,
 			LogNTP:      true,
 		},
