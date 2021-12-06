@@ -56,7 +56,10 @@ Usage of ./etherguard-go-vpp:
 可以參考下面的配置，但是 `/tmp/test` , `example.com` , `192.168.76.0/24` , `fd95:71cb:a3df:e586::/64` , `fe80::a3df:0/112` 請記得換掉
 
 ```
-> ./etherguard-go -mode gencfg -cfgmode super
+$ ./etherguard-go -mode gencfg -cfgmode super
+```
+然後按照提示輸入即可
+```
 Config save path (eg_generated_configs) :/tmp/test    
 SuperConfig template path(optional) :
 EdgeTamplatePath template path(optional) :
@@ -72,6 +75,11 @@ IPv4 block(optional) :192.168.76.0/24
 IPv6 block(optional) :fd95:71cb:a3df:e586::/64
 IPv6LL block(optional) :fe80::a3df:0/112
 ```
+
+順帶一提，最後三個欄位，IP的部分可以直接省略沒關係  
+這個欄位唯一的目的只是在啟動以後，調用ip命令，幫tap接口加個ip  
+和VPN本身運作完全無關  
+VPN起來以後，自己手動加ip也行  
 
 ## Build
 

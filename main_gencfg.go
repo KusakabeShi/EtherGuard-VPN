@@ -45,10 +45,6 @@ func readFLn(promptF string, checkFn func(string) error, defaultAns func() strin
 	return text
 }
 
-func noCheck(string) error {
-	return nil
-}
-
 func genSuperCfg() error {
 	gencfg_reader = bufio.NewReader(os.Stdin)
 
