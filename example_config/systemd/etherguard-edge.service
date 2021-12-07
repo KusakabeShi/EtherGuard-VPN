@@ -8,7 +8,7 @@ After=network.target
 User=root
 Group=root
 WorkingDirectory=/etc/eggo
-Type=simple
+Type=notify
 ExecStart=etherguard-go -config /etc/eggo/edge.yaml -mode edge
 Nice=5
 

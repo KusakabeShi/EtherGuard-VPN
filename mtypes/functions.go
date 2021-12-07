@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	nonSecureRand "math/rand"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 func S2TD(secs float64) time.Duration {
@@ -68,4 +70,13 @@ func GUzip(bytesIn []byte) (ret []byte, err error) {
 		return
 	}
 	return ioutil.ReadAll(r)
+}
+
+func ReadYaml(filePath string, out interface{}) (err error) {
+	yamlFile, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return
+	}
+	err = yaml.Unmarshal(yamlFile, out)
+	return
 }

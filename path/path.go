@@ -41,6 +41,7 @@ type IG struct {
 	StaticMode                bool
 	JitterTolerance           float64
 	JitterToleranceMultiplier float64
+	DampingResistance         float64
 	SuperNodeInfoTimeout      time.Duration
 	RecalculateCoolDown       time.Duration
 	TimeoutCheckInterval      time.Duration
@@ -64,6 +65,7 @@ func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateS
 		StaticMode:                theconfig.StaticMode,
 		JitterTolerance:           theconfig.JitterTolerance,
 		JitterToleranceMultiplier: theconfig.JitterToleranceMultiplier,
+		DampingResistance:         theconfig.DampingResistance,
 		RecalculateCoolDown:       mtypes.S2TD(theconfig.RecalculateCoolDown),
 		TimeoutCheckInterval:      mtypes.S2TD(theconfig.TimeoutCheckInterval),
 		ntp_info:                  ntpinfo,
@@ -87,8 +89,8 @@ func (g *IG) GetWeightType(x float64) (y float64) {
 	return y
 }
 
-func (g *IG) ShouldUpdate(u mtypes.Vertex, v mtypes.Vertex, newval float64) bool {
-	oldval := math.Abs(g.OldWeight(u, v, false) * 1000)
+func (g *IG) ShouldUpdate(oldval float64, newval float64) bool {
+	oldval = math.Abs(oldval * 1000)
 	newval = math.Abs(newval * 1000)
 	if g.IsSuperMode {
 		if g.JitterTolerance > 0.001 && g.JitterToleranceMultiplier >= 1 {
@@ -110,7 +112,8 @@ func (g *IG) CheckAnyShouldUpdate() bool {
 		for v, _ := range vert {
 			if u != v {
 				newVal := g.Weight(u, v, false)
-				if g.ShouldUpdate(u, v, newVal) {
+				oldVal := g.OldWeight(u, v, false)
+				if g.ShouldUpdate(oldVal, newVal) {
 					return true
 				}
 			}
@@ -176,13 +179,13 @@ func (g *IG) UpdateLatency(src mtypes.Vertex, dst mtypes.Vertex, val float64, Ti
 }
 
 func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, checkchange bool) (changed bool) {
-
 	g.edgelock.Lock()
 	should_update := false
 	for _, pong_msg := range pong_info {
 		u := pong_msg.Src_nodeID
 		v := pong_msg.Dst_nodeID
-		w := pong_msg.Timediff
+		w_in := pong_msg.Timediff
+		w := w_in
 		additionalCost := pong_msg.AdditionalCost
 		if additionalCost < 0 {
 			additionalCost = 0
@@ -194,9 +197,12 @@ func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, ch
 			g.edges[u] = make(map[mtypes.Vertex]*Latency)
 		}
 		g.edgelock.Unlock()
-		should_update = should_update || g.ShouldUpdate(u, v, w)
+		oldval := g.OldWeight(u, v, false)
 		g.edgelock.Lock()
-
+		if oldval != Infinity {
+			w = oldval*g.DampingResistance + w_in*(1-g.DampingResistance)
+		}
+		should_update = should_update || g.ShouldUpdate(oldval, w)
 		if _, ok := g.edges[u][v]; ok {
 			g.edges[u][v].ping = w
 			g.edges[u][v].validUntil = time.Now().Add(mtypes.S2TD(pong_msg.TimeToAlive))
@@ -409,9 +415,11 @@ func Path(u, v mtypes.Vertex, next mtypes.NextHopTable) (path []mtypes.Vertex) {
 }
 
 func (g *IG) SetNHTable(nh mtypes.NextHopTable) { // set nhTable from supernode
+	g.edgelock.Lock()
 	g.nhTable = nh
 	g.changed = true
 	g.NhTableExpire = time.Now().Add(g.SuperNodeInfoTimeout)
+	g.edgelock.Unlock()
 }
 
 func (g *IG) GetNHTable(recalculate bool) mtypes.NextHopTable {
@@ -499,7 +507,7 @@ func Solve(filePath string, pe bool) error {
 		return nil
 	}
 
-	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{	}, mtypes.NTPInfo{}, mtypes.LoggerInfo{LogInternal: true})
+	g := NewGraph(3, false, mtypes.GraphRecalculateSetting{}, mtypes.NTPInfo{}, mtypes.LoggerInfo{LogInternal: true})
 	inputb, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err

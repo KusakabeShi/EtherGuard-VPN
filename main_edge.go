@@ -19,6 +19,7 @@ import (
 
 	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/device"
+	"github.com/KusakabeSi/EtherGuard-VPN/gencfg"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
@@ -26,143 +27,9 @@ import (
 )
 
 func printExampleEdgeConf() {
-	tconfig := getExampleEdgeConf("")
+	tconfig := gencfg.GetExampleEdgeConf("")
 	toprint, _ := yaml.Marshal(tconfig)
 	fmt.Print(string(toprint))
-}
-
-func getExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
-	tconfig := mtypes.EdgeConfig{}
-	if templatePath != "" {
-		err := readYaml(templatePath, &tconfig)
-		if err == nil {
-			return tconfig
-		}
-	}
-	v1 := mtypes.Vertex(1)
-	v2 := mtypes.Vertex(2)
-	tconfig = mtypes.EdgeConfig{
-		Interface: mtypes.InterfaceConf{
-			IType:         "tap",
-			Name:          "tap1",
-			VPPIFaceID:    1,
-			VPPBridgeID:   4242,
-			MacAddrPrefix: "AA:BB:CC:DD",
-			MTU:           1416,
-			RecvAddr:      "127.0.0.1:4001",
-			SendAddr:      "127.0.0.1:5001",
-			L2HeaderMode:  "nochg",
-		},
-		NodeID:       1,
-		NodeName:     "Node01",
-		PostScript:   "",
-		DefaultTTL:   200,
-		L2FIBTimeout: 3600,
-		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
-		ListenPort:   0,
-		LogLevel: mtypes.LoggerInfo{
-			LogLevel:    "error",
-			LogTransit:  false,
-			LogControl:  true,
-			LogNormal:   false,
-			LogInternal: true,
-			LogNTP:      true,
-		},
-		DynamicRoute: mtypes.DynamicRouteInfo{
-			SendPingInterval: 16,
-			PeerAliveTimeout: 70,
-			DupCheckTimeout:  40,
-			ConnTimeOut:      20,
-			ConnNextTry:      5,
-			AdditionalCost:   10,
-			SaveNewPeers:     true,
-			SuperNode: mtypes.SuperInfo{
-				UseSuperNode:         true,
-				PSKey:                "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
-				EndpointV4:           "127.0.0.1:3000",
-				PubKeyV4:             "LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=",
-				EndpointV6:           "[::1]:3000",
-				PubKeyV6:             "HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=",
-				EndpointEdgeAPIUrl:   "http://127.0.0.1:3000/eg_api",
-				SuperNodeInfoTimeout: 50,
-				SkipLocalIP:          false,
-			},
-			P2P: mtypes.P2PInfo{
-				UseP2P:           false,
-				SendPeerInterval: 20,
-				GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
-					StaticMode:                false,
-					JitterTolerance:           20,
-					JitterToleranceMultiplier: 1.1,
-					TimeoutCheckInterval:      5,
-					RecalculateCoolDown:       5,
-				},
-			},
-			NTPConfig: mtypes.NTPInfo{
-				UseNTP:           true,
-				MaxServerUse:     8,
-				SyncTimeInterval: 3600,
-				NTPTimeout:       3,
-				Servers: []string{
-					"time.google.com",
-					"time1.google.com",
-					"time2.google.com",
-					"time3.google.com",
-					"time4.google.com",
-					"time1.facebook.com",
-					"time2.facebook.com",
-					"time3.facebook.com",
-					"time4.facebook.com",
-					"time5.facebook.com",
-					"time.cloudflare.com",
-					"time.apple.com",
-					"time.asia.apple.com",
-					"time.euro.apple.com",
-					"time.windows.com",
-					"pool.ntp.org",
-					"0.pool.ntp.org",
-					"1.pool.ntp.org",
-					"2.pool.ntp.org",
-					"3.pool.ntp.org",
-				},
-			},
-		},
-		NextHopTable: mtypes.NextHopTable{
-			mtypes.Vertex(1): {
-				mtypes.Vertex(2): &v2,
-			},
-			mtypes.Vertex(2): {
-				mtypes.Vertex(1): &v1,
-			},
-		},
-		ResetConnInterval: 86400,
-		Peers: []mtypes.PeerInfo{
-			{
-				NodeID:   2,
-				PubKey:   "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
-				PSKey:    "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
-				EndPoint: "127.0.0.1:3002",
-				Static:   true,
-			},
-		},
-	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPConfig, mtypes.LoggerInfo{})
-
-	g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(5, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 5, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(6, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
-	_, next, _ := g.FloydWarshall(false)
-	tconfig.NextHopTable = next
-	return tconfig
 }
 
 func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {
@@ -174,7 +41,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	//printExampleConf()
 	//return
 
-	err = readYaml(configPath, &econfig)
+	err = mtypes.ReadYaml(configPath, &econfig)
 	if err != nil {
 		fmt.Printf("Error read config: %v\t%v\n", configPath, err)
 		return err

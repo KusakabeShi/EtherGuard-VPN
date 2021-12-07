@@ -499,9 +499,12 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 				pong_msg.AdditionalCost = AdditionalCost_use
 			}
 			applied_pones = append(applied_pones, pong_msg)
+			if httpobj.http_sconfig.LogLevel.LogControl {
+				fmt.Println("Control: Unpack from : Post body " + pong_msg.ToString())
+			}
 		}
 	}
-	changed := httpobj.http_graph.UpdateLatencyMulti(client_report.Pongs, true, true)
+	changed := httpobj.http_graph.UpdateLatencyMulti(applied_pones, true, true)
 	if changed {
 		NhTable := httpobj.http_graph.GetNHTable(true)
 		NhTablestr, _ := json.Marshal(NhTable)

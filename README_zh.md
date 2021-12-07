@@ -53,33 +53,28 @@ Usage of ./etherguard-go-vpp:
 
 內建小工具可以快速生成設定檔，搞定私鑰公鑰等等，暫時只支援Super模式
 
-可以參考下面的配置，但是 `/tmp/test` , `example.com` , `192.168.76.0/24` , `fd95:71cb:a3df:e586::/64` , `fe80::a3df:0/112` 請記得換掉
+首先按需求修改`example_config/super_mode/gensuper.yaml`
 
 ```
-$ ./etherguard-go -mode gencfg -cfgmode super
-```
-然後按照提示輸入即可
-```
-Config save path (eg_generated_configs) :/tmp/test    
-SuperConfig template path(optional) :
-EdgeTamplatePath template path(optional) :
-Network name (eg_net) :
-SuperNode ListenPort (12369) : 3456
-EdgeAPI prefix (/eg_net/eg_api) :
-IPv4/domain of your supernode (optional) :example.com
-IPv6/domain of your supernode (optional) :example.com
-URL(use domain would be better) of the EdgeAPI provided by supernode (http://example.com:3456/eg_net/eg_api) :
-Number of your nodes :100
-MacAddress Prefix (36:23:DA:2D) :
-IPv4 block(optional) :192.168.76.0/24
-IPv6 block(optional) :fd95:71cb:a3df:e586::/64
-IPv6LL block(optional) :fe80::a3df:0/112
+$ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/gensuper.yaml
 ```
 
 順帶一提，最後三個欄位，IP的部分可以直接省略沒關係  
 這個欄位唯一的目的只是在啟動以後，調用ip命令，幫tap接口加個ip  
 和VPN本身運作完全無關  
 VPN起來以後，自己手動加ip也行  
+
+把一個super，2個edge分別搬去三台機器  
+或是2台機器，super和edge可以是同一台
+
+然後在Supernode執行  
+```
+./etherguard-go -config [設定檔位置] -mode super
+```
+然後在EdgeNode執行  
+```
+./etherguard-go -config [設定檔位置] -mode edge
+```
 
 ## Build
 

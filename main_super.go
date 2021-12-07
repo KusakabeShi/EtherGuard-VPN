@@ -23,6 +23,7 @@ import (
 
 	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/device"
+	"github.com/KusakabeSi/EtherGuard-VPN/gencfg"
 	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
@@ -61,88 +62,9 @@ func checkNhTable(NhTable mtypes.NextHopTable, peers []mtypes.SuperPeerInfo) err
 }
 
 func printExampleSuperConf() {
-	sconfig := getExampleSuperConf("")
+	sconfig := gencfg.GetExampleSuperConf("")
 	scprint, _ := yaml.Marshal(sconfig)
 	fmt.Print(string(scprint))
-}
-
-func getExampleSuperConf(templatePath string) mtypes.SuperConfig {
-	sconfig := mtypes.SuperConfig{}
-	if templatePath != "" {
-		err := readYaml(templatePath, &sconfig)
-		if err == nil {
-			return sconfig
-		}
-	}
-
-	v1 := mtypes.Vertex(1)
-	v2 := mtypes.Vertex(2)
-
-	random_passwd := mtypes.RandomStr(8, "passwd")
-
-	sconfig = mtypes.SuperConfig{
-		NodeName:             "NodeSuper",
-		PostScript:           "",
-		PrivKeyV4:            "mL5IW0GuqbjgDeOJuPHBU2iJzBPNKhaNEXbIGwwYWWk=",
-		PrivKeyV6:            "+EdOKIoBp/EvIusHDsvXhV1RJYbyN3Qr8nxlz35wl3I=",
-		ListenPort:           3000,
-		ListenPort_EdgeAPI:   "3000",
-		ListenPort_ManageAPI: "3000",
-		API_Prefix:           "/eg_api",
-		LogLevel: mtypes.LoggerInfo{
-			LogLevel:    "normal",
-			LogTransit:  false,
-			LogControl:  true,
-			LogNormal:   false,
-			LogInternal: true,
-			LogNTP:      true,
-		},
-		RePushConfigInterval: 30,
-		PeerAliveTimeout:     70,
-		HttpPostInterval:     50,
-		SendPingInterval:     15,
-		Passwords: mtypes.Passwords{
-			ShowState:   random_passwd + "_showstate",
-			AddPeer:     random_passwd + "_addpeer",
-			DelPeer:     random_passwd + "_delpeer",
-			UpdatePeer:  random_passwd + "_updatepeer",
-			UpdateSuper: random_passwd + "_updatesuper",
-		},
-		GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
-			StaticMode:                false,
-			JitterTolerance:           5,
-			JitterToleranceMultiplier: 1.01,
-			TimeoutCheckInterval:      5,
-			RecalculateCoolDown:       5,
-		},
-		NextHopTable: mtypes.NextHopTable{
-			mtypes.Vertex(1): {
-				mtypes.Vertex(2): &v2,
-			},
-			mtypes.Vertex(2): {
-				mtypes.Vertex(1): &v1,
-			},
-		},
-		EdgeTemplate:       "example_config/super_mode/n1.yaml",
-		UsePSKForInterEdge: true,
-		Peers: []mtypes.SuperPeerInfo{
-			{
-				NodeID:         1,
-				Name:           "Node_01",
-				PubKey:         "ZqzLVSbXzjppERslwbf2QziWruW3V/UIx9oqwU8Fn3I=",
-				PSKey:          "iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=",
-				AdditionalCost: 10,
-			},
-			{
-				NodeID:         2,
-				Name:           "Node_02",
-				PubKey:         "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
-				PSKey:          "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
-				AdditionalCost: 10,
-			},
-		},
-	}
-	return sconfig
 }
 
 func Super(configPath string, useUAPI bool, printExample bool, bindmode string) (err error) {
@@ -152,13 +74,13 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	}
 	var sconfig mtypes.SuperConfig
 
-	err = readYaml(configPath, &sconfig)
+	err = mtypes.ReadYaml(configPath, &sconfig)
 	if err != nil {
 		fmt.Printf("Error read config: %v\t%v\n", configPath, err)
 		return err
 	}
 	httpobj.http_sconfig = &sconfig
-	http_econfig_tmp := getExampleEdgeConf(sconfig.EdgeTemplate)
+	http_econfig_tmp := gencfg.GetExampleEdgeConf(sconfig.EdgeTemplate)
 	httpobj.http_econfig_tmp = &http_econfig_tmp
 	NodeName := sconfig.NodeName
 	if len(NodeName) > 32 {

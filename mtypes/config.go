@@ -160,6 +160,7 @@ type GraphRecalculateSetting struct {
 	StaticMode                bool    `yaml:"StaticMode"`
 	JitterTolerance           float64 `yaml:"JitterTolerance"`
 	JitterToleranceMultiplier float64 `yaml:"JitterToleranceMultiplier"`
+	DampingResistance         float64 `yaml:"DampingResistance"`
 	TimeoutCheckInterval      float64 `yaml:"TimeoutCheckInterval"`
 	RecalculateCoolDown       float64 `yaml:"RecalculateCoolDown"`
 }

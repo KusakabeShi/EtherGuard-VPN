@@ -8,7 +8,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"syscall"
@@ -16,10 +15,10 @@ import (
 
 	nonSecureRand "math/rand"
 
+	"github.com/KusakabeSi/EtherGuard-VPN/gencfg"
 	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -34,15 +33,6 @@ const (
 
 func printUsage() {
 	fmt.Printf("Usage: %s -s/c CONFIG-PATH\n", os.Args[0])
-}
-
-func readYaml(filePath string, out interface{}) (err error) {
-	yamlFile, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return
-	}
-	err = yaml.Unmarshal(yamlFile, out)
-	return
 }
 
 var (
@@ -84,9 +74,9 @@ func main() {
 	case "gencfg":
 		switch *cfgmode {
 		case "super":
-			err = genSuperCfg()
+			err = gencfg.GenSuperCfg(*tconfig, *printExample)
 		default:
-			err = fmt.Errorf("gencfg: generate config for %v mode are not implement.", *cfgmode)
+			err = fmt.Errorf("gencfg: generate config for %v mode are not implement", *cfgmode)
 		}
 
 	default:
