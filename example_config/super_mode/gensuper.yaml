@@ -9,7 +9,7 @@ Super Node:
   Endpoint(IPv6)(optional): example.com
   Endpoint(EdgeAPI): http://example.com:3456/eg_net/eg_api
 Edge Node:
-  Node IDs: "[1~100]"
+  Node IDs: "[1~10,11,19,23,29,31,55~66,88~99]"
   MacAddress prefix: ""
   IPv4 range: 192.168.76.0/24
   IPv6 range: fd95:71cb:a3df:e586::/64
