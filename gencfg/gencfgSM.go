@@ -264,7 +264,6 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		peerceconf.DynamicRoute.SuperNode.EndpointV4 = EndpointV4 + ":" + ListenPort
 		peerceconf.DynamicRoute.SuperNode.EndpointV6 = EndpointV6 + ":" + ListenPort
 		peerceconf.DynamicRoute.SuperNode.EndpointEdgeAPIUrl = EndpointEdgeAPIUrl
-		peerceconf.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance = 0
 		peerceconf.Interface.MacAddrPrefix = MacPrefix
 		peerceconf.Interface.IPv4CIDR = IPv4Block
 		peerceconf.Interface.IPv6CIDR = IPv6Block

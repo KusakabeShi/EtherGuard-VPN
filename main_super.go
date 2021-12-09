@@ -100,8 +100,8 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	if sconfig.RePushConfigInterval <= 0 {
 		return fmt.Errorf("RePushConfigInterval must > 0 : %v", sconfig.RePushConfigInterval)
 	}
-	if sconfig.GraphRecalculateSetting.DampingResistance < 0 || sconfig.GraphRecalculateSetting.DampingResistance >= 1 {
-		return fmt.Errorf("DampingResistance must in range [0,1) : %v", sconfig.GraphRecalculateSetting.DampingResistance)
+	if sconfig.DampingResistance < 0 || sconfig.DampingResistance >= 1 {
+		return fmt.Errorf("DampingResistance must in range [0,1) : %v", sconfig.DampingResistance)
 	}
 
 	var logLevel int

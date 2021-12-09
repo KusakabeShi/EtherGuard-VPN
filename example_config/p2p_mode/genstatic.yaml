@@ -1,4 +1,4 @@
-Config output dir: /tmp/eg_gen_static
+Config output dir: /tmp/eg_gen_p2p
 ConfigTemplate for edge node: "EgNet_edge1.yaml"
 Network name: "EgNet"
 Edge Node:

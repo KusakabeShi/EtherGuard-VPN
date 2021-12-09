@@ -34,7 +34,7 @@ func printNMCinfig() {
 	fmt.Print(string(toprint))
 }
 
-func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
+func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error) {
 	NMCfg := NMCfg{}
 	if printExample {
 		printNMCinfig()
@@ -76,9 +76,30 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 	}
 
 	g, _ := path.NewGraph(0, false, mtypes.GraphRecalculateSetting{}, mtypes.NTPInfo{}, mtypes.LoggerInfo{LogInternal: false})
-	edges, err := path.ParseDistanceMatrix(NMCfg.DistanceMatrix)
-	if err != nil {
-		return err
+	edges := []mtypes.PongMsg{}
+	if NMCfg.DistanceMatrix != "" {
+		edges, err = path.ParseDistanceMatrix(NMCfg.DistanceMatrix)
+		if err != nil {
+			return err
+		}
+	} else {
+		for S, edgeinfoS := range NMCfg.EdgeNodes {
+			for D, edgeinfoD := range NMCfg.EdgeNodes {
+				if S == D {
+					continue
+				}
+				if len(edgeinfoS.Endpoint)+len(edgeinfoD.Endpoint) == 0 {
+					continue
+				}
+				edges = append(edges, mtypes.PongMsg{
+					Src_nodeID:     S,
+					Dst_nodeID:     D,
+					Timediff:       1,
+					TimeToAlive:    99999,
+					AdditionalCost: 0,
+				})
+			}
+		}
 	}
 	g.UpdateLatencyMulti(edges, false, false)
 	all_verts := g.Vertices()
@@ -156,9 +177,12 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 		}
 	}
 	econfig := GetExampleEdgeConf(NMCfg.EdgeConfigTemplate, false)
-	econfig.DynamicRoute.P2P.UseP2P = false
+	econfig.DynamicRoute.P2P.UseP2P = enableP2P
 	econfig.DynamicRoute.SuperNode.UseSuperNode = false
 	econfig.NextHopTable = next
+	if enableP2P {
+		econfig.NextHopTable = make(mtypes.NextHopTable)
+	}
 
 	econfig.DynamicRoute.NTPConfig.Servers = make([]string, 0)
 	econfig.DynamicRoute.SuperNode.PSKey = ""

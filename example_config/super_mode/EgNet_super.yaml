@@ -1,0 +1,55 @@
+NodeName: EgNetSP
+PostScript: ""
+PrivKeyV4: xJiK1UiWpZyygZUlZWR+nmGU9PrweCIPDcCRRXNvHLI=
+PrivKeyV6: 8AEBC4hRAKhAWd2F5kR7xJZJi8GIp7K8hEjo2cDn8kE=
+ListenPort: 3456
+ListenPort_EdgeAPI: "3456"
+ListenPort_ManageAPI: "3456"
+API_Prefix: /eg_net/eg_api
+RePushConfigInterval: 30
+HttpPostInterval: 50
+PeerAliveTimeout: 70
+SendPingInterval: 15
+DampingResistance: 0.9
+LogLevel:
+  LogLevel: normal
+  LogTransit: false
+  LogNormal: false
+  LogControl: true
+  LogInternal: true
+  LogNTP: true
+Passwords:
+  ShowState: zOWP0T9O_showstate
+  AddPeer: zOWP0T9O_addpeer
+  DelPeer: zOWP0T9O_delpeer
+  UpdatePeer: zOWP0T9O_updatepeer
+  UpdateSuper: zOWP0T9O_updatesuper
+GraphRecalculateSetting:
+  StaticMode: false
+  ManualLatency: {}
+  JitterTolerance: 30
+  JitterToleranceMultiplier: 1.01
+  TimeoutCheckInterval: 5
+  RecalculateCoolDown: 5
+NextHopTable: {}
+EdgeTemplate: EgNet_edge001.yaml
+UsePSKForInterEdge: true
+Peers:
+- NodeID: 1
+  Name: EgNet001
+  PubKey: SlRqHTbVz976aBbR06DFDFXG8yKjSvMdrrWeKuvePgw=
+  PSKey: 2eOq1sJlEs3No80xYOaKJ059ElgRaSveyMu9IyQG3X8=
+  AdditionalCost: 10
+  SkipLocalIP: false
+- NodeID: 2
+  Name: EgNet002
+  PubKey: TlxC+ZHej2RkitN1o2tnFT8pO6WUFulitF4RzMlMFlk=
+  PSKey: Ye1vd4P8vZWCLmuhYq8yiu1ziB84AGwuO+/cexQObqc=
+  AdditionalCost: 10
+  SkipLocalIP: false
+- NodeID: 100
+  Name: EgNet100
+  PubKey: DG/Lq1bFpE/6109emAoO3iaC+shgWtdRaGBhW3soiSI=
+  PSKey: w5t64vFEoyNk/iKJP3oeSi9eiGEiPteZmf2o0oI2q2U=
+  AdditionalCost: 10
+  SkipLocalIP: false

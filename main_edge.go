@@ -51,8 +51,8 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	if len(NodeName) > 32 {
 		return errors.New("Node name can't longer than 32 :" + NodeName)
 	}
-	if econfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance < 0 || econfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance >= 1 {
-		return fmt.Errorf("DampingResistance must in range [0,1) : %v", econfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance)
+	if econfig.DynamicRoute.DampingResistance < 0 || econfig.DynamicRoute.DampingResistance >= 1 {
+		return fmt.Errorf("DampingResistance must in range [0,1) : %v", econfig.DynamicRoute.DampingResistance)
 	}
 	var logLevel int
 	switch econfig.LogLevel.LogLevel {

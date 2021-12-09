@@ -126,7 +126,7 @@ func (et *endpoint_trylist) GetNextTry() (bool, string) {
 			}
 			delete(et.trymap_p2p, url)
 		}
-		if smallest.lastTry.After(v.lastTry) {
+		if smallest == nil || smallest.lastTry.After(v.lastTry) {
 			smallest = v
 		}
 	}

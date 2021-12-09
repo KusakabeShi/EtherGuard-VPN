@@ -10,11 +10,11 @@ import (
 type Vertex uint16
 
 const (
-	NodeID_Broadcast         Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
+	NodeID_Broadcast Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
 	NodeID_AllPeer   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
 	NodeID_SuperNode Vertex = math.MaxUint16 - iota
-	NodeID_Invalid           Vertex = math.MaxUint16 - iota
-	NodeID_Special           Vertex = NodeID_Invalid
+	NodeID_Invalid   Vertex = math.MaxUint16 - iota
+	NodeID_Special   Vertex = NodeID_Invalid
 )
 
 type EdgeConfig struct {
@@ -46,6 +46,7 @@ type SuperConfig struct {
 	HttpPostInterval        float64                 `yaml:"HttpPostInterval"`
 	PeerAliveTimeout        float64                 `yaml:"PeerAliveTimeout"`
 	SendPingInterval        float64                 `yaml:"SendPingInterval"`
+	DampingResistance       float64                 `yaml:"DampingResistance"`
 	LogLevel                LoggerInfo              `yaml:"LogLevel"`
 	Passwords               Passwords               `yaml:"Passwords"`
 	GraphRecalculateSetting GraphRecalculateSetting `yaml:"GraphRecalculateSetting"`
@@ -110,25 +111,28 @@ func (v *Vertex) ToString() string {
 	case NodeID_Broadcast:
 		return "Boardcast"
 	case NodeID_AllPeer:
-		return "Control"
+		return "AllPeer"
 	case NodeID_SuperNode:
 		return "Super"
+	case NodeID_Invalid:
+		return "Invalid"
 	default:
 		return strconv.Itoa(int(*v))
 	}
 }
 
 type DynamicRouteInfo struct {
-	SendPingInterval float64   `yaml:"SendPingInterval"`
-	PeerAliveTimeout float64   `yaml:"PeerAliveTimeout"`
-	DupCheckTimeout  float64   `yaml:"DupCheckTimeout"`
-	ConnTimeOut      float64   `yaml:"ConnTimeOut"`
-	ConnNextTry      float64   `yaml:"ConnNextTry"`
-	AdditionalCost   float64   `yaml:"AdditionalCost"`
-	SaveNewPeers     bool      `yaml:"SaveNewPeers"`
-	SuperNode        SuperInfo `yaml:"SuperNode"`
-	P2P              P2PInfo   `yaml:"P2P"`
-	NTPConfig        NTPInfo   `yaml:"NTPConfig"`
+	SendPingInterval     float64   `yaml:"SendPingInterval"`
+	PeerAliveTimeout     float64   `yaml:"PeerAliveTimeout"`
+	TimeoutCheckInterval float64   `yaml:"TimeoutCheckInterval"`
+	ConnNextTry          float64   `yaml:"ConnNextTry"`
+	DupCheckTimeout      float64   `yaml:"DupCheckTimeout"`
+	AdditionalCost       float64   `yaml:"AdditionalCost"`
+	DampingResistance    float64   `yaml:"DampingResistance"`
+	SaveNewPeers         bool      `yaml:"SaveNewPeers"`
+	SuperNode            SuperInfo `yaml:"SuperNode"`
+	P2P                  P2PInfo   `yaml:"P2P"`
+	NTPConfig            NTPInfo   `yaml:"NTPConfig"`
 }
 
 type NTPInfo struct {
@@ -162,7 +166,6 @@ type GraphRecalculateSetting struct {
 	ManualLatency             DistTable `yaml:"ManualLatency"`
 	JitterTolerance           float64   `yaml:"JitterTolerance"`
 	JitterToleranceMultiplier float64   `yaml:"JitterToleranceMultiplier"`
-	DampingResistance         float64   `yaml:"DampingResistance"`
 	TimeoutCheckInterval      float64   `yaml:"TimeoutCheckInterval"`
 	RecalculateCoolDown       float64   `yaml:"RecalculateCoolDown"`
 }
@@ -215,10 +218,11 @@ type API_Peerinfo struct {
 }
 
 type API_SuperParams struct {
-	SendPingInterval float64
-	HttpPostInterval float64
-	PeerAliveTimeout float64
-	AdditionalCost   float64
+	SendPingInterval  float64
+	HttpPostInterval  float64
+	PeerAliveTimeout  float64
+	DampingResistance float64
+	AdditionalCost    float64
 }
 
 type StateHash struct {

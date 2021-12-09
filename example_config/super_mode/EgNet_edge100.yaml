@@ -1,45 +1,46 @@
 Interface:
   IType: stdio
-  Name: Node001
+  Name: EgNet100
   VPPIFaceID: 1
   VPPBridgeID: 4242
-  MacAddrPrefix: CE:51:BA:B4
+  MacAddrPrefix: 62:A6:A3:6D
   IPv4CIDR: 192.168.76.0/24
   IPv6CIDR: fd95:71cb:a3df:e586::/64
   IPv6LLPrefix: fe80::a3df:0/112
   MTU: 1416
-  RecvAddr: 127.0.0.1:4001
-  SendAddr: 127.0.0.1:5001
+  RecvAddr: 127.0.0.1:4100
+  SendAddr: 127.0.0.1:5100
   L2HeaderMode: kbdbg
-NodeID: 1
-NodeName: Node001
+NodeID: 100
+NodeName: EgNet100
 PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
-PrivKey: C0SXvffZh8nDqXYNzG4UqUJtSCiRMEj3ehX5o7QiJz0=
-ListenPort: 3001
+PrivKey: iquaLyD+YLzW3zvI0JGSed9GfDqHYMh/vUaU0PYVAbQ=
+ListenPort: 0
 LogLevel:
   LogLevel: error
   LogTransit: false
-  LogControl: true
   LogNormal: false
+  LogControl: true
   LogInternal: true
   LogNTP: true
 DynamicRoute:
   SendPingInterval: 16
   PeerAliveTimeout: 70
-  DupCheckTimeout: 40
-  ConnTimeOut: 20
+  TimeoutCheckInterval: 20
   ConnNextTry: 5
+  DupCheckTimeout: 40
   AdditionalCost: 10
+  DampingResistance: 0.9
   SaveNewPeers: true
   SuperNode:
     UseSuperNode: true
-    PSKey: j2f9Fhdhw2O2zLqUqfL5nTFStjVWPnEXpw7Iqz6VX9M=
+    PSKey: w5t64vFEoyNk/iKJP3oeSi9eiGEiPteZmf2o0oI2q2U=
     EndpointV4: 127.0.0.1:3456
-    PubKeyV4: Id/VoZ6HmTU3FSqhxBUswfuHHB0mQxfzcbdoJNGBRzQ=
+    PubKeyV4: 10CPQrpXKqXxnjtpdxDwnYqLglnuRnCFsiSAjxMrMTc=
     EndpointV6: :3456
-    PubKeyV6: 40tADRhJTvaortwE5Ur4qNXhP+SOMX7ZuSvl251Yxnc=
+    PubKeyV6: KhpV1fJ+jtNT6S5wKUZJbb0oFlDNMS5qxO0f5Ow/QQU=
     EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false
     SuperNodeInfoTimeout: 50
@@ -51,7 +52,6 @@ DynamicRoute:
       ManualLatency: {}
       JitterTolerance: 50
       JitterToleranceMultiplier: 1.1
-      DampingResistance: 0
       TimeoutCheckInterval: 5
       RecalculateCoolDown: 5
   NTPConfig:

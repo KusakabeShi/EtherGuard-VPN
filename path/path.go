@@ -65,9 +65,6 @@ func NewGraph(num_node int, IsSuperMode bool, theconfig mtypes.GraphRecalculateS
 	g.edges = make(map[mtypes.Vertex]map[mtypes.Vertex]*Latency, num_node)
 	g.IsSuperMode = IsSuperMode
 	g.loglevel = loglevel
-	if theconfig.DampingResistance < 0 || theconfig.DampingResistance >= 1 {
-		return nil, fmt.Errorf("DampingResistance must in range [0,1)")
-	}
 	g.InitNTP()
 	return &g, nil
 }
@@ -206,9 +203,6 @@ func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, ch
 		g.edgelock.Unlock()
 		oldval := g.OldWeight(u, v, false)
 		g.edgelock.Lock()
-		if oldval != mtypes.Infinity && g.IsSuperMode && g.gsetting.DampingResistance > 0 {
-			w = oldval*g.gsetting.DampingResistance + newval*(1-g.gsetting.DampingResistance)
-		}
 		should_update = should_update || g.ShouldUpdate(oldval, w, false)
 		if _, ok := g.edges[u][v]; ok {
 			g.edges[u][v].ping = w

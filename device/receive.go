@@ -581,7 +581,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NormalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Println("Control: Received From:" + peer.GetEndpointDstStr() + " " + device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]))
+						fmt.Printf("Control: Received S:%v D:%v %v From:%v\n", src_nodeID.ToString(), dst_nodeID.ToString(), device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]), peer.ID.ToString())
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])

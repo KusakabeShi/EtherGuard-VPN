@@ -52,9 +52,11 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 		}
 	}
 	if device.LogLevel.LogControl {
+		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
 		if usage != path.NormalPacket {
 			if peer.GetEndpointDstStr() != "" {
-				fmt.Println("Control: Send To:" + peer.GetEndpointDstStr() + " " + device.sprint_received(usage, packet[path.EgHeaderLen:]))
+				dst_nodeID := EgHeader.GetDst()
+				fmt.Printf("Control: Send D:%v %v To:%v\n", dst_nodeID.ToString(), device.sprint_received(usage, packet[path.EgHeaderLen:]), peer.GetEndpointDstStr())
 			}
 		}
 	}
@@ -146,10 +148,14 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 		case path.Register:
 			if content, err := mtypes.ParseRegisterMsg(body); err == nil {
 				return device.server_process_RegisterMsg(peer, content)
+			} else {
+				return err
 			}
 		case path.PongPacket:
 			if content, err := mtypes.ParsePongMsg(body); err == nil {
 				return device.server_process_Pong(peer, content)
+			} else {
+				return err
 			}
 		default:
 			err = errors.New("not a valid msg_type")
@@ -159,22 +165,32 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 		case path.ServerUpdate:
 			if content, err := mtypes.ParseServerUpdateMsg(body); err == nil {
 				device.process_ServerUpdateMsg(peer, content)
+			} else {
+				return err
 			}
 		case path.PingPacket:
 			if content, err := mtypes.ParsePingMsg(body); err == nil {
 				return device.process_ping(peer, content)
+			} else {
+				return err
 			}
 		case path.PongPacket:
 			if content, err := mtypes.ParsePongMsg(body); err == nil {
 				return device.process_pong(peer, content)
+			} else {
+				return err
 			}
 		case path.QueryPeer:
 			if content, err := mtypes.ParseQueryPeerMsg(body); err == nil {
 				return device.process_RequestPeerMsg(content)
+			} else {
+				return err
 			}
 		case path.BroadcastPeer:
 			if content, err := mtypes.ParseBoardcastPeerMsg(body); err == nil {
 				return device.process_BoardcastPeerMsg(peer, content)
+			} else {
+				return err
 			}
 		default:
 			err = errors.New("not a valid msg_type")
@@ -311,8 +327,8 @@ func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 	Timediff := device.graph.GetCurrentTime().Sub(content.Time).Seconds()
 	OldTimediff := peer.SingleWayLatency.Load().(float64)
 	NewTimediff := Timediff
-	if OldTimediff <= mtypes.Infinity {
-		DR := device.EdgeConfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance
+	if (OldTimediff < mtypes.Infinity) == (NewTimediff < mtypes.Infinity) {
+		DR := device.SuperConfig.DampingResistance
 		NewTimediff = OldTimediff*DR + Timediff*(1-DR)
 	}
 	peer.SingleWayLatency.Store(NewTimediff)
@@ -612,6 +628,9 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 		device.EdgeConfig.DynamicRoute.PeerAliveTimeout = SuperParams.PeerAliveTimeout
 		device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
 		device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
+		if SuperParams.DampingResistance > 0 && SuperParams.DampingResistance <= 1 {
+			device.SuperConfig.DampingResistance = SuperParams.DampingResistance
+		}
 		device.Chan_SendPingStart <- struct{}{}
 		device.Chan_HttpPostStart <- struct{}{}
 		if SuperParams.AdditionalCost >= 0 {
@@ -696,7 +715,7 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 	return nil
 }
 
-func (device *Device) process_BoardcastPeerMsg(peer *Peer, content mtypes.BoardcastPeerMsg) error {
+func (device *Device) process_BoardcastPeerMsg(peer *Peer, content mtypes.BoardcastPeerMsg) (err error) {
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P {
 		var pk NoisePublicKey
 		if content.Request_ID == uint32(device.ID) {
@@ -717,7 +736,10 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content mtypes.Boardc
 			if device.graph.Weight(content.NodeID, device.ID, false) == mtypes.Infinity { // add node to graph
 				device.graph.UpdateLatency(content.NodeID, device.ID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 			}
-			device.NewPeer(pk, content.NodeID, false, 0)
+			thepeer, err = device.NewPeer(pk, content.NodeID, false, 0)
+			if err != nil {
+				return err
+			}
 		}
 		if !thepeer.IsPeerAlive() {
 			//Peer died, try to switch to this new endpoint
@@ -781,10 +803,10 @@ func (device *Device) RoutineDetectOfflineAndTryNextEndpoint() {
 	if !(device.EdgeConfig.DynamicRoute.P2P.UseP2P || device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	if device.EdgeConfig.DynamicRoute.ConnTimeOut == 0 {
+	if device.EdgeConfig.DynamicRoute.TimeoutCheckInterval == 0 {
 		return
 	}
-	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.ConnTimeOut)
+	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.TimeoutCheckInterval)
 	for {
 		device.event_tryendpoint <- struct{}{}
 		time.Sleep(timeout)

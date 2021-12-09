@@ -230,7 +230,7 @@ curl "http://127.0.0.1:3456/eg_net/eg_api/manage/super/state?Password=passwd_sho
 ```bash
 curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/add?Password=passwd_addpeer" \
  -H "Content-Type: application/x-www-form-urlencoded" \
- -d "NodeID=100&Name=Node_100&PubKey=Bax6wOJpisSVJtrU92ujn8D%2F2oGUyhyPrKTXkHbGamM%3D&AdditionalCost=1000&PSKey=Gfp2RkPNrKTeGKrCJNEvSyiBqYYRmzVnVG6CBuUKUNc%3D&SkipLocalIP=false"
+ -d "NodeID=100&Name=Node_100&PubKey=DG%2FLq1bFpE%2F6109emAoO3iaC%2BshgWtdRaGBhW3soiSI%3D&AdditionalCost=1000&PSKey=w5t64vFEoyNk%2FiKJP3oeSi9eiGEiPteZmf2o0oI2q2U%3D&SkipLocalIP=false"
 ```
 參數:
 1. URL query: Password: 新增peer用的密碼，在設定檔配置
@@ -260,7 +260,7 @@ curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?Password=passwd_delpee
 
 也可以使用privkey刪除，同上，但是只要附上privkey參數就好
 ```bash
-curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?PrivKey=a04BVvT%2BYbrX1ejjvMQVI6k5VRFlBkEX8tuLGWNyNrY%3D"
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?PrivKey=iquaLyD%2BYLzW3zvI0JGSed9GfDqHYMh%2FvUaU0PYVAbQ%3D"
 ```
 
 參數:
@@ -286,7 +286,7 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/peer/update?Pass
 ```bash
 curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/super/update?Password=e05znou1_updatesuper" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70"
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70DampingResistance=0.9"
 ```
 
 ### SuperNode Config Parameter
@@ -359,15 +359,15 @@ ResetConnInterval | 如果對方是動態ip就要用這個。每隔一段時間�
 
 <a name="DynamicRoute"></a>DynamicRoute      | Description
 --------------------|:-----
-SendPingInterval   | 發送Ping訊息的間隔(秒)
-PeerAliveTimeout   | 每次收到封包就重置，超過時間(秒)沒收到就標記該peer離線
-DupCheckTimeout    | 重複封包檢查的timeout(秒)<br>完全相同的封包收第二次會被丟棄
-ConnTimeOut        | 檢查peer離線的時間間格<br>如果標記離線，就切換下一個endpoint<br>SuperNode可能傳了多個endpoint過來
-ConnNextTry        | 切換下一個endpoint的間隔
+SendPingInterval     | 發送Ping訊息的間隔(秒)
+PeerAliveTimeout     | 被標記為離線所需的無反應時間(秒)
+TimeoutCheckInterval | 檢查間格(秒)，檢查是否有任何peer超時，若有就標記
+ConnNextTry          | 被標記以後，嘗試下一個endpoint的間隔(秒)
+DupCheckTimeout      | 重複封包檢查的timeout(秒)<br>完全相同的封包收第二次會被丟棄
 [AdditionalCost](#AdditionalCost)     | 繞路成本(毫秒)。僅限SuperNode設定-1時生效
-SaveNewPeers       | 是否把下載來的鄰居資訊存到本地設定檔裡面
+SaveNewPeers         | 是否把下載來的鄰居資訊存到本地設定檔裡面
 [SuperNode](#SuperNode)          | SuperNode相關設定
-P2P                | P2P相關設定，SuperMode用不到
+[P2P](../p2p_mode/README_zh.md#P2P)                  | P2P相關設定，SuperMode用不到
 [NTPConfig](#NTPConfig)          | NTP時間同步相關設定
 
 <a name="SuperNode"></a>SuperNode      | Description

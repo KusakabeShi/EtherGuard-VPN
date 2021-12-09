@@ -1,13 +1,54 @@
 # Etherguard
 [English](README.md)
 
-P2P Mode的[範例配置檔](./)的說明文件
-在了解Super Mode的運作之前，建議您先閱讀[Super Mode的運作](../super_mode/README_zh.md)方法，再閱讀本篇會比較好
-
 ## P2P Mode
 受到[tinc](https://github.com/gsliepen/tinc)的啟發
 
 和[Super模式運作](../super_mode/README_zh.md)有點相似，不過也有點修改  
+
+## Quick Start
+首先，按照需求修改`genstatic.yaml`
+
+```yaml
+Config output dir: /tmp/eg_gen_static   # 設定檔輸出位置
+ConfigTemplate for edge node: ""        # 設定檔Template
+Network name: "EgNet"
+Edge Node:
+  MacAddress prefix: ""                 # 留空隨機產生
+  IPv4 range: 192.168.76.0/24           # 順帶一提，IP的部分可以直接省略沒關係  
+  IPv6 range: fd95:71cb:a3df:e586::/64  # 這個欄位唯一的目的只是在啟動以後，調用ip命令，幫tap接口加個ip  
+  IPv6 LL range: fe80::a3df:0/112       # 和VPN本身運作完全無關  
+Edge Nodes:                             # 所有的節點相關設定
+  1:
+    Endpoint(optional): ""
+  2:
+    Endpoint(optional): ""
+  3:
+    Endpoint(optional): 127.0.0.1:3003
+  4:
+    Endpoint(optional): 127.0.0.1:3004
+  5:
+    Endpoint(optional): ""
+  6:
+    Endpoint(optional): ""
+```
+接著執行這個，就會生成所需設定檔了。
+```
+./etherguard-go -mode gencfg -cfgmode static -config example_config/static_mode/genstatic.yaml
+```
+
+把這些設定檔不捨去對應節點，然後再執行  
+```
+./etherguard-go -config [設定檔位置] -mode edge
+```
+就可以了
+
+確認運作以後，可以關閉不必要的log增加性能
+
+## Documentation
+
+P2P Mode的[範例配置檔](./)的說明文件
+在了解Super Mode的運作之前，建議您先閱讀[Super Mode的運作](../super_mode/README_zh.md)方法，再閱讀本篇會比較好
 
 ### ControlMsg
 
@@ -55,18 +96,34 @@ Pong封包是一種`ControlMsg`，使用**flood廣播**盡量讓每個節點都�
 如果已經有了，再檢查Peer是不是離線。  
 如果已經離線，就用收到的Endpoint覆蓋掉自己原本的Endpoint
 
-## Config Paramaters
+### EdgeNode Config Parameter
 
-P2P模式也有幾個參數
-1. usep2p: 是否啟用P2P模式
-1. sendpeerinterval: 廣播BoardcastPeer的間格
-1. graphrecalculatesetting: 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
-    1. staticmode: 關閉Floyd-Warshall演算法，只使用一開始載入的nexthoptable。P2P單純用來打洞
-    1. jittertolerance: 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算
-    1. jittertolerancemultiplier: 一樣是抖動容許誤差，但是高ping的話允許更多誤差  
-        https://www.desmos.com/calculator/raoti16r5n
-    1. nodereporttimeout: 收到的`Pong`封包的有效期限。太久沒收到就變回Infinity
-    1. recalculatecooldown: Floyd-Warshal是O(n^3)時間複雜度，不能太常算。設個冷卻時間
+<a name="P2P"></a>P2P      | Description
+------------------------|:-----
+UseP2P                  | 是否啟用P2P模式
+SendPeerInterval        | 廣播BoardcastPeer的間格
+[GraphRecalculateSetting](../super_mode/README_zh.md#GraphRecalculateSetting) | 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
+
+#### Run example config
+
+在**不同terminal**分別執行以下命令
+
+```
+./etherguard-go -config example_config/p2p_mode/EgNet_edge1.yaml -mode edge
+./etherguard-go -config example_config/p2p_mode/EgNet_edge2.yaml -mode edge
+./etherguard-go -config example_config/p2p_mode/EgNet_edge3.yaml -mode edge
+./etherguard-go -config example_config/p2p_mode/EgNet_edge4.yaml -mode edge
+./etherguard-go -config example_config/p2p_mode/EgNet_edge5.yaml -mode edge
+./etherguard-go -config example_config/p2p_mode/EgNet_edge6.yaml -mode edge
+```
+
+因為本範例配置是stdio的kbdbg模式，stdin會讀入VPN網路  
+請在其中一個edge視窗中鍵入
+```
+b1message
+```
+因為`L2HeaderMode`是`kbdbg`，所以b1會被轉換成 12byte 的layer 2 header，b是廣播地址`FF:FF:FF:FF:FF:FF`，1是普通地址`AA:BB:CC:DD:EE:01`，message是後面的payload，然後再丟入VPN  
+此時應該要能夠在另一個視窗上看見字串b1message。前12byte被轉換回來了
 
 ## Note
 P2P模式下，PSK是禁用的。因為n個節點有n(n-1)/2的連線，每個連線都要使用不同PSK  

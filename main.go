@@ -72,7 +72,9 @@ func main() {
 		case "super":
 			err = gencfg.GenSuperCfg(*tconfig, *printExample)
 		case "static":
-			err = gencfg.GenNMCfg(*tconfig, *printExample)
+			err = gencfg.GenNMCfg(*tconfig, false, *printExample)
+		case "p2p":
+			err = gencfg.GenNMCfg(*tconfig, true, *printExample)
 		default:
 			err = fmt.Errorf("gencfg: generate config for %v mode are not implement", *cfgmode)
 		}
