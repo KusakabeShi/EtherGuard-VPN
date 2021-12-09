@@ -309,9 +309,12 @@ func (device *Device) server_process_Pong(peer *Peer, content mtypes.PongMsg) er
 
 func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 	Timediff := device.graph.GetCurrentTime().Sub(content.Time).Seconds()
-	NewTimediff := peer.SingleWayLatency.Load().(float64)
-	DR := NewTimediff * device.EdgeConfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance
-	NewTimediff = NewTimediff*DR + Timediff*(1-DR)
+	OldTimediff := peer.SingleWayLatency.Load().(float64)
+	NewTimediff := Timediff
+	if OldTimediff <= mtypes.Infinity {
+		DR := device.EdgeConfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance
+		NewTimediff = OldTimediff*DR + Timediff*(1-DR)
+	}
 	peer.SingleWayLatency.Store(NewTimediff)
 
 	PongMSG := mtypes.PongMsg{
