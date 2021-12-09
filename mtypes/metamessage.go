@@ -21,6 +21,8 @@ func GetByte(structIn interface{}) (bb []byte, err error) {
 	return
 }
 
+const Infinity = float64(99999)
+
 type RegisterMsg struct {
 	Node_id             Vertex
 	Version             string

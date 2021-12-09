@@ -31,10 +31,6 @@ const (
 	ENV_EG_UAPI_DIR = "EG_UAPI_DIR"
 )
 
-func printUsage() {
-	fmt.Printf("Usage: %s -s/c CONFIG-PATH\n", os.Args[0])
-}
-
 var (
 	tconfig      = flag.String("config", "", "Config path for the interface.")
 	mode         = flag.String("mode", "", "Running mode. [super|edge|solve|gencfg]")
@@ -48,11 +44,11 @@ var (
 
 func main() {
 	flag.Parse()
-	if *version == true {
+	if *version {
 		fmt.Printf("etherguard-go %s\n%s-%s\n%s\n\nA full mesh layer 2 VPN powered by Floyd Warshall algorithm.\nInformation available at https://github.com/KusakabeSi/EtherGuard-VPN.\nCopyright (C) Kusakabe Si <si@kskb.eu.org>.\n", Version, runtime.GOOS, runtime.GOARCH, tap.VPP_SUPPORT)
 		return
 	}
-	if *help == true {
+	if *help {
 		flag.Usage()
 		return
 	}
@@ -75,6 +71,8 @@ func main() {
 		switch *cfgmode {
 		case "super":
 			err = gencfg.GenSuperCfg(*tconfig, *printExample)
+		case "static":
+			err = gencfg.GenNMCfg(*tconfig, *printExample)
 		default:
 			err = fmt.Errorf("gencfg: generate config for %v mode are not implement", *cfgmode)
 		}
@@ -83,14 +81,12 @@ func main() {
 		flag.Usage()
 	}
 	if err != nil {
-		switch err.(type) {
+		switch err := err.(type) {
 		case syscall.Errno:
-			errno, _ := err.(syscall.Errno)
-			os.Exit(int(errno))
+			os.Exit(int(err))
 		default:
 			fmt.Fprintf(os.Stderr, "Error :%v\n", err)
 			os.Exit(1)
 		}
 	}
-	return
 }

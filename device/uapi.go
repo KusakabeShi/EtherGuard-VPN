@@ -282,9 +282,9 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 	if peer.created {
 		id, err := device.LookupPeerIDAtConfig(publicKey)
 		if err != nil {
-			return errors.New("Create new peer by UAPI is not implemented")
+			return errors.New("create new peer by UAPI is not implemented")
 		}
-		peer.Peer, err = device.NewPeer(publicKey, id, false)
+		peer.Peer, err = device.NewPeer(publicKey, id, false, 0)
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)
 		}

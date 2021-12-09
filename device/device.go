@@ -175,7 +175,7 @@ func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	// remove from peer map
 	id := peer.ID
 	delete(device.peers.keyMap, key)
-	if id == mtypes.SuperNodeMessage {
+	if id == mtypes.NodeID_SuperNode {
 		delete(device.peers.SuperPeer, key)
 	} else {
 		delete(device.peers.IDMap, id)
@@ -412,7 +412,7 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID mtypes.Vertex,
 	if device.IsSuperNode {
 		var peerlist []mtypes.SuperPeerInfo
 		if device.SuperConfig == nil {
-			return 0, errors.New("Superconfig is nil")
+			return 0, errors.New("superconfig is nil")
 		}
 		peerlist = device.SuperConfig.Peers
 		pkstr := pk.ToString()
@@ -424,7 +424,7 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID mtypes.Vertex,
 	} else {
 		var peerlist []mtypes.PeerInfo
 		if device.EdgeConfig == nil {
-			return 0, errors.New("EdgeConfig is nil")
+			return 0, errors.New("edgeconfig is nil")
 		}
 		peerlist = device.EdgeConfig.Peers
 		pkstr := pk.ToString()
@@ -435,7 +435,42 @@ func (device *Device) LookupPeerIDAtConfig(pk NoisePublicKey) (ID mtypes.Vertex,
 		}
 	}
 
-	return 0, errors.New("Peer not found in the config file.")
+	return 0, errors.New("peer not found in the config file")
+}
+
+type VPair struct {
+	s mtypes.Vertex
+	d mtypes.Vertex
+}
+type PSKDB struct {
+	db sync.Map
+}
+
+func (D *PSKDB) GetPSK(s mtypes.Vertex, d mtypes.Vertex) (psk NoisePresharedKey) {
+	if s > d {
+		s, d = d, s
+	}
+	vp := VPair{
+		s: s,
+		d: d,
+	}
+	pski, ok := D.db.Load(vp)
+	if !ok {
+		psk = RandomPSK()
+		pski, _ = D.db.LoadOrStore(vp, psk)
+		return pski.(NoisePresharedKey)
+	}
+	return pski.(NoisePresharedKey)
+}
+
+func (D *PSKDB) DelNode(n mtypes.Vertex) {
+	D.db.Range(func(key, value interface{}) bool {
+		vp := key.(VPair)
+		if vp.s == n || vp.d == n {
+			D.db.Delete(vp)
+		}
+		return true
+	})
 }
 
 func (device *Device) LookupPeer(pk NoisePublicKey) *Peer {
@@ -452,20 +487,20 @@ func (device *Device) LookupPeerByStr(pks string) *Peer {
 	return device.LookupPeer(pk)
 }
 
-func (pk *NoisePublicKey) ToString() string {
+func (pk NoisePublicKey) ToString() string {
 	if bytes.Equal(pk[:], make([]byte, len(pk))) {
 		return ""
 	}
 	return string(base64.StdEncoding.EncodeToString(pk[:]))
 }
 
-func (pk *NoisePrivateKey) ToString() (result string) {
+func (pk NoisePrivateKey) ToString() (result string) {
 	if bytes.Equal(pk[:], make([]byte, len(pk))) {
 		return ""
 	}
 	return string(base64.StdEncoding.EncodeToString(pk[:]))
 }
-func (pk *NoisePresharedKey) ToString() (result string) {
+func (pk NoisePresharedKey) ToString() (result string) {
 	if bytes.Equal(pk[:], make([]byte, len(pk))) {
 		return ""
 	}
@@ -474,7 +509,7 @@ func (pk *NoisePresharedKey) ToString() (result string) {
 
 func Str2PubKey(k string) (pk NoisePublicKey, err error) {
 	if k == "" {
-		err = errors.New("Empty public key string")
+		err = errors.New("empty public key string")
 		return
 	}
 	sk_slice, err := base64.StdEncoding.DecodeString(k)
@@ -484,7 +519,7 @@ func Str2PubKey(k string) (pk NoisePublicKey, err error) {
 
 func Str2PriKey(k string) (pk NoisePrivateKey, err error) {
 	if k == "" {
-		err = errors.New("Empty private key string")
+		err = errors.New("empty private key string")
 		return
 	}
 	sk_slice, err := base64.StdEncoding.DecodeString(k)
@@ -499,6 +534,16 @@ func Str2PSKey(k string) (pk NoisePresharedKey, err error) {
 	sk_slice, err := base64.StdEncoding.DecodeString(k)
 	copy(pk[:], sk_slice)
 	return
+}
+
+func RandomKeyPair() (pri NoisePrivateKey, pub NoisePublicKey) {
+	pri = mtypes.ByteSlice2Byte32(mtypes.RandomBytes(32, make([]byte, 32)))
+	pub = pri.PublicKey()
+	return
+}
+
+func RandomPSK() (pk NoisePresharedKey) {
+	return mtypes.ByteSlice2Byte32(mtypes.RandomBytes(32, make([]byte, 32)))
 }
 
 func (device *Device) GetConnurl(v mtypes.Vertex) string {

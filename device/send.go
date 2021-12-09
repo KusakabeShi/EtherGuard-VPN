@@ -251,14 +251,14 @@ func (device *Device) RoutineReadFromTUN() {
 		//add custom header dst_node, src_node, ttl
 		size += path.EgHeaderLen
 		elem.packet = elem.buffer[offset : offset+size]
-		EgBody, err := path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
+		EgBody, _ := path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
 		dst_nodeID := EgBody.GetDst()
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
 		if tap.IsNotUnicast(dstMacAddr) {
-			dst_nodeID = mtypes.Broadcast
+			dst_nodeID = mtypes.NodeID_Boardcast
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
-			dst_nodeID = mtypes.Broadcast
+			dst_nodeID = mtypes.NodeID_Boardcast
 		} else {
 			dst_nodeID = val.(*IdAndTime).ID
 		}
@@ -275,12 +275,12 @@ func (device *Device) RoutineReadFromTUN() {
 			continue
 		}
 
-		if dst_nodeID != mtypes.Broadcast {
+		if dst_nodeID != mtypes.NodeID_Boardcast {
 			var peer *Peer
 			next_id := device.graph.Next(device.ID, dst_nodeID)
-			if next_id != nil {
+			if next_id != mtypes.NodeID_Invalid {
 				device.peers.RLock()
-				peer = device.peers.IDMap[*next_id]
+				peer = device.peers.IDMap[next_id]
 				device.peers.RUnlock()
 				if peer == nil {
 					continue

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	nonSecureRand "math/rand"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -14,6 +15,18 @@ import (
 
 func S2TD(secs float64) time.Duration {
 	return time.Duration(secs * float64(time.Second))
+}
+
+func String2Float64(s string) (float64, error) {
+	if s == "Inf" {
+		return Infinity, nil
+	}
+	return strconv.ParseFloat(s, 64)
+}
+
+func String2NodeID(s string) (Vertex, error) {
+	ret, err := strconv.ParseUint(s, 10, 16)
+	return Vertex(ret), err
 }
 
 func RandomStr(length int, defaults string) (ret string) {

@@ -10,11 +10,11 @@ import (
 type Vertex uint16
 
 const (
-	Broadcast        Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
-	ControlMessage   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
-	SuperNodeMessage Vertex = math.MaxUint16 - iota
-	BrokenMessage    Vertex = math.MaxUint16 - iota
-	Special_NodeID   Vertex = BrokenMessage
+	NodeID_Boardcast Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
+	NodeID_AllPeer   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
+	NodeID_SuperNode Vertex = math.MaxUint16 - iota
+	NodeID_Invalid   Vertex = math.MaxUint16 - iota
+	NodeID_Special   Vertex = NodeID_Invalid
 )
 
 type EdgeConfig struct {
@@ -79,11 +79,12 @@ type InterfaceConf struct {
 }
 
 type PeerInfo struct {
-	NodeID   Vertex `yaml:"NodeID"`
-	PubKey   string `yaml:"PubKey"`
-	PSKey    string `yaml:"PSKey"`
-	EndPoint string `yaml:"EndPoint"`
-	Static   bool   `yaml:"Static"`
+	NodeID              Vertex `yaml:"NodeID"`
+	PubKey              string `yaml:"PubKey"`
+	PSKey               string `yaml:"PSKey"`
+	EndPoint            string `yaml:"EndPoint"`
+	PersistentKeepalive uint32 `yaml:"PersistentKeepalive"`
+	Static              bool   `yaml:"Static"`
 }
 
 type SuperPeerInfo struct {
@@ -106,11 +107,11 @@ type LoggerInfo struct {
 
 func (v *Vertex) ToString() string {
 	switch *v {
-	case Broadcast:
+	case NodeID_Boardcast:
 		return "Boardcast"
-	case ControlMessage:
+	case NodeID_AllPeer:
 		return "Control"
-	case SuperNodeMessage:
+	case NodeID_SuperNode:
 		return "Super"
 	default:
 		return strconv.Itoa(int(*v))
@@ -157,16 +158,17 @@ type P2PInfo struct {
 }
 
 type GraphRecalculateSetting struct {
-	StaticMode                bool    `yaml:"StaticMode"`
-	JitterTolerance           float64 `yaml:"JitterTolerance"`
-	JitterToleranceMultiplier float64 `yaml:"JitterToleranceMultiplier"`
-	DampingResistance         float64 `yaml:"DampingResistance"`
-	TimeoutCheckInterval      float64 `yaml:"TimeoutCheckInterval"`
-	RecalculateCoolDown       float64 `yaml:"RecalculateCoolDown"`
+	StaticMode                bool      `yaml:"StaticMode"`
+	ManualLatency             DistTable `yaml:"ManualLatency"`
+	JitterTolerance           float64   `yaml:"JitterTolerance"`
+	JitterToleranceMultiplier float64   `yaml:"JitterToleranceMultiplier"`
+	DampingResistance         float64   `yaml:"DampingResistance"`
+	TimeoutCheckInterval      float64   `yaml:"TimeoutCheckInterval"`
+	RecalculateCoolDown       float64   `yaml:"RecalculateCoolDown"`
 }
 
 type DistTable map[Vertex]map[Vertex]float64
-type NextHopTable map[Vertex]map[Vertex]*Vertex
+type NextHopTable map[Vertex]map[Vertex]Vertex
 
 type API_connurl struct {
 	ExternalV4 map[string]float64

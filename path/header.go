@@ -34,7 +34,7 @@ const (
 
 func NewEgHeader(pac []byte) (e EgHeader, err error) {
 	if len(pac) != EgHeaderLen {
-		err = errors.New("Invalid packet size")
+		err = errors.New("invalid packet size")
 		return
 	}
 	e.buf = pac

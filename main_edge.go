@@ -27,7 +27,7 @@ import (
 )
 
 func printExampleEdgeConf() {
-	tconfig := gencfg.GetExampleEdgeConf("")
+	tconfig := gencfg.GetExampleEdgeConf("", true)
 	toprint, _ := yaml.Marshal(tconfig)
 	fmt.Print(string(toprint))
 }
@@ -110,10 +110,13 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 
 	////////////////////////////////////////////////////
 	// Config
-	if econfig.DynamicRoute.P2P.UseP2P == false && econfig.DynamicRoute.SuperNode.UseSuperNode == false {
+	if !econfig.DynamicRoute.P2P.UseP2P && !econfig.DynamicRoute.SuperNode.UseSuperNode {
 		econfig.LogLevel.LogNTP = false // NTP in static mode is useless
 	}
-	graph := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPConfig, econfig.LogLevel)
+	graph, err := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPConfig, econfig.LogLevel)
+	if err != nil {
+		return err
+	}
 	graph.SetNHTable(econfig.NextHopTable)
 
 	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
@@ -133,7 +136,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			fmt.Println("Error decode base64 ", err)
 			return err
 		}
-		the_device.NewPeer(pk, peerconf.NodeID, false)
+		the_device.NewPeer(pk, peerconf.NodeID, false, peerconf.PersistentKeepalive)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(pk)
 			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, 0, peerconf.Static)
@@ -158,7 +161,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				fmt.Println("Error decode base64 ", err)
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, mtypes.SuperNodeMessage, true)
+			peer, err := the_device.NewPeer(pk, mtypes.NodeID_SuperNode, true, 0)
 			if err != nil {
 				return err
 			}
@@ -179,7 +182,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				fmt.Println("Error decode base64 ", err)
 				return err
 			}
-			peer, err := the_device.NewPeer(pk, mtypes.SuperNodeMessage, true)
+			peer, err := the_device.NewPeer(pk, mtypes.NodeID_SuperNode, true, 0)
 			if err != nil {
 				return err
 			}
@@ -192,7 +195,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				S6 = false
 			}
 			if !(S4 || S6) {
-				return errors.New("Failed to connect to supernode.")
+				return errors.New("failed to connect to supernode")
 			}
 		}
 		the_device.Chan_Supernode_OK <- struct{}{}
@@ -229,7 +232,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 
 		cmdarg, err := shlex.Split(econfig.PostScript)
 		if err != nil {
-			return fmt.Errorf("Error parse PostScript %v\n", err)
+			return fmt.Errorf("error parse PostScript %v", err)
 		}
 		if econfig.LogLevel.LogInternal {
 			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
@@ -241,7 +244,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		}
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("exec.Command(%v) failed with %v\n", cmdarg, err)
+			return fmt.Errorf("exec.Command(%v) failed with %v", cmdarg, err)
 		}
 		if econfig.LogLevel.LogInternal {
 			fmt.Printf("PostScript output: %s\n", string(out))

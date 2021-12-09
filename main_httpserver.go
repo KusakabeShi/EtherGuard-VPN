@@ -7,13 +7,11 @@ package main
 
 import (
 	"crypto/md5"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,6 +40,7 @@ type http_shared_objects struct {
 	http_NhTableStr    []byte
 	http_PeerInfo      mtypes.API_Peers
 	http_super_chains  *mtypes.SUPER_Events
+	http_pskdb         device.PSKDB
 
 	http_passwords       mtypes.Passwords
 	http_StateExpire     time.Time
@@ -90,15 +89,6 @@ type PeerState struct {
 	JETSecret             atomic.Value // mtypes.JWTSecret
 	httpPostCount         atomic.Value // uint64
 	LastSeen              atomic.Value // time.Time
-}
-
-type client struct {
-	ConnV4  net.Addr
-	ConnV6  net.Addr
-	InterV4 []net.Addr
-	InterV6 []net.Addr
-	notify4 string
-	notify6 string
 }
 
 func extractParamsStr(params url.Values, key string, w http.ResponseWriter) (string, error) {
@@ -151,7 +141,7 @@ func extractParamsUint(params url.Values, key string, bitSize int, w http.Respon
 func extractParamsVertex(params url.Values, key string, w http.ResponseWriter) (mtypes.Vertex, error) {
 	val, err := extractParamsUint(params, key, 16, w)
 	if err != nil {
-		return mtypes.BrokenMessage, err
+		return mtypes.NodeID_Invalid, err
 	}
 	return mtypes.Vertex(val), nil
 }
@@ -208,7 +198,7 @@ func edge_get_superparams(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if NodeID >= mtypes.Special_NodeID {
+	if NodeID >= mtypes.NodeID_Special {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Paramater NodeID: Can't use special nodeID."))
 		return
@@ -227,7 +217,7 @@ func edge_get_superparams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, has := httpobj.http_PeerState[PubKey]; has == false {
+	if _, has := httpobj.http_PeerState[PubKey]; !has {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Paramater PubKey: Not found in httpobj.http_PeerState, this shouldn't happen. Please report to the author."))
 		return
@@ -250,7 +240,6 @@ func edge_get_superparams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(SuperParamStr))
-	return
 }
 
 func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +257,7 @@ func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if NodeID >= mtypes.Special_NodeID {
+	if NodeID >= mtypes.NodeID_Special {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Paramater NodeID: Can't use special nodeID."))
 		return
@@ -291,7 +280,7 @@ func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Paramater State: State not correct"))
 		return
 	}
-	if _, has := httpobj.http_PeerState[PubKey]; has == false {
+	if _, has := httpobj.http_PeerState[PubKey]; !has {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Paramater PubKey: Not found in httpobj.http_PeerState, this shouldn't happen. Please report to the author."))
 		return
@@ -303,21 +292,11 @@ func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
 
 	for PeerPubKey, peerinfo := range httpobj.http_PeerInfo {
 		if httpobj.http_sconfig.UsePSKForInterEdge {
-			h := sha256.New()
-			if NodeID > peerinfo.NodeID {
-				h.Write([]byte(PubKey))
-				h.Write([]byte(PeerPubKey))
-			} else if NodeID < peerinfo.NodeID {
-				h.Write([]byte(PeerPubKey))
-				h.Write([]byte(PubKey))
-			} else {
+			if NodeID == peerinfo.NodeID {
 				continue
 			}
-			h.Write(httpobj.http_HashSalt)
-			bs := h.Sum(nil)
-			var psk device.NoisePresharedKey
-			copy(psk[:], bs[:])
-			peerinfo.PSKey = psk.ToString()
+			PSK := httpobj.http_pskdb.GetPSK(NodeID, peerinfo.NodeID)
+			peerinfo.PSKey = PSK.ToString()
 		} else {
 			peerinfo.PSKey = ""
 		}
@@ -332,7 +311,6 @@ func edge_get_peerinfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(api_peerinfo_str_byte)
-	return
 }
 
 func edge_get_nhtable(w http.ResponseWriter, r *http.Request) {
@@ -350,7 +328,7 @@ func edge_get_nhtable(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if NodeID >= mtypes.Special_NodeID {
+	if NodeID >= mtypes.NodeID_Special {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Paramater NodeID: Can't use special nodeID."))
 		return
@@ -373,7 +351,7 @@ func edge_get_nhtable(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Paramater State: State not correct"))
 		return
 	}
-	if _, has := httpobj.http_PeerState[PubKey]; has == false {
+	if _, has := httpobj.http_PeerState[PubKey]; !has {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Paramater PubKey: Not found in httpobj.http_PeerState, this shouldn't happen. Please report to the author."))
 		return
@@ -383,7 +361,6 @@ func edge_get_nhtable(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(httpobj.http_NhTableStr))
-	return
 }
 
 func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +374,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if NodeID >= mtypes.Special_NodeID {
+	if NodeID >= mtypes.NodeID_Special {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Paramater NodeID: Can't use special nodeID."))
 		return
@@ -436,7 +413,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	token, err := jwt.ParseWithClaims(string(JWTSig), &token_claims, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		JWTSecretB := JWTSecret.Load().(mtypes.JWTSecret)
 		return JWTSecretB[:], nil
@@ -448,7 +425,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	}
 	if !token.Valid {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Paramater JWTSig: Signature verification failed: Invalid token")))
+		w.Write([]byte("Paramater JWTSig: Signature verification failed: Invalid token"))
 		return
 	}
 
@@ -471,7 +448,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 	client_body, err = mtypes.GUzip(client_body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Request body: gzip unzip failed")))
+		w.Write([]byte("Request body: gzip unzip failed"))
 		return
 	}
 	client_report, err := mtypes.ParseAPI_report_peerinfo(client_body)
@@ -515,8 +492,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 		PushNhTable(false)
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("OK")))
-	return
+	w.Write([]byte("OK"))
 }
 
 func checkPassword(s1 string, s2 string) bool {
@@ -549,9 +525,9 @@ func manage_get_peerstate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if checkPassword(password, httpobj.http_passwords.ShowState) == false {
+	if !checkPassword(password, httpobj.http_passwords.ShowState) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Wrong password"))
+		w.Write([]byte("Paramater Password: Wrong password"))
 		return
 	}
 	httpobj.RLock()
@@ -560,7 +536,7 @@ func manage_get_peerstate(w http.ResponseWriter, r *http.Request) {
 		hs := HttpState{
 			PeerInfo: make(map[mtypes.Vertex]HttpPeerInfo),
 			NhTable:  httpobj.http_graph.GetNHTable(false),
-			Infinity: path.Infinity,
+			Infinity: mtypes.Infinity,
 			Edges:    httpobj.http_graph.GetEdges(false, false),
 			Edges_Nh: httpobj.http_graph.GetEdges(true, true),
 			Dist:     httpobj.http_graph.GetDtst(),
@@ -578,7 +554,6 @@ func manage_get_peerstate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(httpobj.http_StateString_tmp)
-	return
 }
 
 func manage_peeradd(w http.ResponseWriter, r *http.Request) {
@@ -587,9 +562,9 @@ func manage_peeradd(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if checkPassword(password, httpobj.http_passwords.AddPeer) == false {
+	if !checkPassword(password, httpobj.http_passwords.AddPeer) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Wrong password"))
+		w.Write([]byte("Paramater Password: Wrong password"))
 		return
 	}
 
@@ -620,7 +595,7 @@ func manage_peeradd(w http.ResponseWriter, r *http.Request) {
 
 	SkipLocalIP := strings.EqualFold(SkipLocalIPS, "true")
 
-	PSKey, err := extractParamsStr(r.Form, "PSKey", nil)
+	PSKey, _ := extractParamsStr(r.Form, "PSKey", nil)
 
 	httpobj.Lock()
 	defer httpobj.Unlock()
@@ -642,7 +617,7 @@ func manage_peeradd(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if httpobj.http_sconfig.GraphRecalculateSetting.StaticMode == true {
+	if httpobj.http_sconfig.GraphRecalculateSetting.StaticMode {
 		NhTableStr := r.Form.Get("NextHopTable")
 		if NhTableStr == "" {
 			w.WriteHeader(http.StatusExpectationFailed)
@@ -705,12 +680,11 @@ func manage_peeradd(w http.ResponseWriter, r *http.Request) {
 	ret_str_byte, _ := yaml.Marshal(&httpobj.http_econfig_tmp)
 	w.WriteHeader(http.StatusOK)
 	w.Write(ret_str_byte)
-	return
 }
 
 func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	toUpdate := mtypes.Broadcast
+	toUpdate := mtypes.NodeID_Boardcast
 
 	var err error
 	var NodeID mtypes.Vertex
@@ -719,7 +693,7 @@ func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if checkPassword(password, httpobj.http_passwords.UpdatePeer) == false {
+	if !checkPassword(password, httpobj.http_passwords.UpdatePeer) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Paramater Password: Wrong password"))
 		return
@@ -787,7 +761,6 @@ func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
 	for k, v := range Updated_params {
 		w.Write([]byte(fmt.Sprintf("%v = %v\n", k, v)))
 	}
-	return
 }
 
 func manage_superupdate(w http.ResponseWriter, r *http.Request) {
@@ -799,7 +772,7 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if checkPassword(password, httpobj.http_passwords.UpdateSuper) == false {
+	if !checkPassword(password, httpobj.http_passwords.UpdateSuper) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Paramater Password: Wrong password"))
 		return
@@ -817,7 +790,7 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		if PeerAliveTimeout <= 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("Paramater PeerAliveTimeout: Must > 0.\n")))
+			w.Write([]byte(fmt.Sprintf("Paramater PeerAliveTimeout %v: Must > 0.\n", PeerAliveTimeout)))
 			return
 		}
 		Updated_params["PeerAliveTimeout"] = fmt.Sprintf("%v", PeerAliveTimeout)
@@ -879,12 +852,11 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 	for k, v := range Updated_params {
 		w.Write([]byte(fmt.Sprintf("%v = %v\n", k, v)))
 	}
-	return
 }
 
 func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	toDelete := mtypes.Broadcast
+	toDelete := mtypes.NodeID_Boardcast
 
 	var err error
 	var NodeID mtypes.Vertex
@@ -928,7 +900,7 @@ func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 				toDelete = peerinfo.NodeID
 			}
 		}
-		if toDelete == mtypes.Broadcast {
+		if toDelete == mtypes.NodeID_Boardcast {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(fmt.Sprintf("Paramater PrivKey: \"%v\" not found", PubKey)))
 			return
@@ -949,7 +921,6 @@ func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 	ioutil.WriteFile(httpobj.http_sconfig_path, mtypesBytes, 0644)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("NodeID: " + toDelete.ToString() + " deleted."))
-	return
 }
 
 func HttpServer(edgeListen string, manageListen string, apiprefix string) (err error) {

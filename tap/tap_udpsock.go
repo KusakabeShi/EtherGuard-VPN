@@ -14,7 +14,6 @@ type UdpSockTap struct {
 	recv    *net.UDPConn
 	send    *net.UDPAddr
 	static  bool
-	L2mode  L2MODE
 	events  chan Event
 }
 
@@ -28,7 +27,6 @@ func CreateUDPSockTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex) (tapde
 		recv:    nil,
 		send:    nil,
 		static:  false,
-		L2mode:  GetL2Mode(iconfig.L2HeaderMode),
 		events:  make(chan Event, 1<<5),
 	}
 

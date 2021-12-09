@@ -73,14 +73,14 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 
 func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage path.Usage, packet []byte, offset int) { // Send packet to all connected peers
 	send_list := device.graph.GetBoardcastList(device.ID)
-	for node_id, _ := range skip_list {
+	for node_id := range skip_list {
 		send_list[node_id] = false
 	}
 	device.peers.RLock()
 	for node_id, should_send := range send_list {
 		if should_send {
-			peer_out, _ := device.peers.IDMap[node_id]
-			device.SendPacket(peer_out, usage, packet, offset)
+			peer_out := device.peers.IDMap[node_id]
+			go device.SendPacket(peer_out, usage, packet, offset)
 		}
 	}
 	device.peers.RUnlock()
@@ -95,20 +95,25 @@ func (device *Device) SpreadPacket(skip_list map[mtypes.Vertex]bool, usage path.
 			}
 			continue
 		}
-		device.SendPacket(peer_out, usage, packet, MessageTransportOffsetContent)
+		go device.SendPacket(peer_out, usage, packet, MessageTransportOffsetContent)
 	}
 	device.peers.RUnlock()
 }
 
 func (device *Device) TransitBoardcastPacket(src_nodeID mtypes.Vertex, in_id mtypes.Vertex, usage path.Usage, packet []byte, offset int) {
-	node_boardcast_list := device.graph.GetBoardcastThroughList(device.ID, in_id, src_nodeID)
+	node_boardcast_list, errs := device.graph.GetBoardcastThroughList(device.ID, in_id, src_nodeID)
+	if device.LogLevel.LogControl {
+		for _, err := range errs {
+			fmt.Printf("Internal: Can't boardcast: %v", err)
+		}
+	}
 	device.peers.RLock()
 	for peer_id := range node_boardcast_list {
 		peer_out := device.peers.IDMap[peer_id]
 		if device.LogLevel.LogTransit {
 			fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
 		}
-		device.SendPacket(peer_out, usage, packet, offset)
+		go device.SendPacket(peer_out, usage, packet, offset)
 	}
 	device.peers.RUnlock()
 }
@@ -120,7 +125,7 @@ func (device *Device) Send2Super(usage path.Usage, packet []byte, offset int) {
 			/*if device.LogTransit {
 				fmt.Printf("Send to supernode %s\n", peer_out.endpoint.DstToString())
 			}*/
-			device.SendPacket(peer_out, usage, packet, offset)
+			go device.SendPacket(peer_out, usage, packet, offset)
 		}
 	}
 	device.peers.RUnlock()
@@ -147,7 +152,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 				return device.server_process_Pong(peer, content)
 			}
 		default:
-			err = errors.New("Not a valid msg_type")
+			err = errors.New("not a valid msg_type")
 		}
 	} else {
 		switch msg_type {
@@ -172,7 +177,7 @@ func (device *Device) process_received(msg_type path.Usage, peer *Peer, body []b
 				return device.process_BoardcastPeerMsg(peer, content)
 			}
 		default:
-			err = errors.New("Not a valid msg_type")
+			err = errors.New("not a valid msg_type")
 		}
 	}
 	return
@@ -229,7 +234,7 @@ func (device *Device) GeneratePingPacket(src_nodeID mtypes.Vertex, request_reply
 	if err != nil {
 		return nil, path.PingPacket, err
 	}
-	header.SetDst(mtypes.ControlMessage)
+	header.SetDst(mtypes.NodeID_AllPeer)
 	header.SetTTL(0)
 	header.SetSrc(device.ID)
 	header.SetPacketLength(uint16(len(body)))
@@ -270,7 +275,7 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.Regi
 			Params:  fmt.Sprintf("Your nodeID: %v is not match with registered nodeID: %v", content.Node_id, peer.ID),
 		}
 	}
-	if compareVersion(content.Version, device.Version) == false {
+	if !compareVersion(content.Version, device.Version) {
 		ServerUpdateMsg = mtypes.ServerUpdateMsg{
 			Node_id: peer.ID,
 			Action:  mtypes.ThrowError,
@@ -284,12 +289,12 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.Regi
 			return err
 		}
 		buf := make([]byte, path.EgHeaderLen+len(body))
-		header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
+		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
 		header.SetSrc(device.ID)
 		header.SetTTL(0)
 		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
-		header.SetDst(mtypes.SuperNodeMessage)
+		header.SetDst(mtypes.NodeID_SuperNode)
 		device.SendPacket(peer, path.ServerUpdate, buf, MessageTransportOffsetContent)
 		return nil
 	}
@@ -321,17 +326,17 @@ func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 		return err
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
+	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
 	header.SetSrc(device.ID)
 	header.SetTTL(device.EdgeConfig.DefaultTTL)
 	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
 	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
-		header.SetDst(mtypes.SuperNodeMessage)
+		header.SetDst(mtypes.NodeID_SuperNode)
 		device.Send2Super(path.PongPacket, buf, MessageTransportOffsetContent)
 	}
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P {
-		header.SetDst(mtypes.ControlMessage)
+		header.SetDst(mtypes.NodeID_AllPeer)
 		device.SpreadPacket(make(map[mtypes.Vertex]bool), path.PongPacket, buf, MessageTransportOffsetContent)
 	}
 	go device.SendPing(peer, content.RequestReply, 0, 3)
@@ -352,7 +357,7 @@ func (device *Device) process_pong(peer *Peer, content mtypes.PongMsg) error {
 				return err
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
-			header, err := path.NewEgHeader(buf[:path.EgHeaderLen])
+			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
 			header.SetSrc(device.ID)
 			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetPacketLength(uint16(len(body)))
@@ -379,6 +384,10 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error
 		}
 		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/peerinfo" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
 		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
@@ -444,13 +453,13 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error
 				if device.LogLevel.LogControl {
 					fmt.Println("Control: Add new peer to local ID:" + peerinfo.NodeID.ToString() + " PubKey:" + PubKey)
 				}
-				if device.graph.Weight(device.ID, peerinfo.NodeID, false) == path.Infinity { // add node to graph
-					device.graph.UpdateLatency(device.ID, peerinfo.NodeID, path.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
+				if device.graph.Weight(device.ID, peerinfo.NodeID, false) == mtypes.Infinity { // add node to graph
+					device.graph.UpdateLatency(device.ID, peerinfo.NodeID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 				}
-				if device.graph.Weight(peerinfo.NodeID, device.ID, false) == path.Infinity { // add node to graph
-					device.graph.UpdateLatency(peerinfo.NodeID, device.ID, path.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
+				if device.graph.Weight(peerinfo.NodeID, device.ID, false) == mtypes.Infinity { // add node to graph
+					device.graph.UpdateLatency(peerinfo.NodeID, device.ID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 				}
-				device.NewPeer(sk, peerinfo.NodeID, false)
+				device.NewPeer(sk, peerinfo.NodeID, false, 0)
 				thepeer = device.LookupPeer(sk)
 			}
 			if peerinfo.PSKey != "" {
@@ -492,6 +501,10 @@ func (device *Device) process_UpdateNhTableMsg(peer *Peer, State_hash string) er
 		}
 		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/nhtable" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
 		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
@@ -543,6 +556,10 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 		}
 		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/superparams" ////////////////////////////////////////////////////////////////////////////////////////////////
 		req, err := http.NewRequest("GET", downloadurl, nil)
+		if err != nil {
+			device.log.Errorf(err.Error())
+			return err
+		}
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
 		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
@@ -601,7 +618,7 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 }
 
 func (device *Device) process_ServerUpdateMsg(peer *Peer, content mtypes.ServerUpdateMsg) error {
-	if peer.ID != mtypes.SuperNodeMessage {
+	if peer.ID != mtypes.NodeID_SuperNode {
 		if device.LogLevel.LogControl {
 			fmt.Println("Control: Ignored UpdateErrorMsg. Not from supernode.")
 		}
@@ -634,7 +651,7 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P {
 		device.peers.RLock()
 		for pubkey, peer := range device.peers.keyMap {
-			if peer.ID >= mtypes.Special_NodeID {
+			if peer.ID >= mtypes.NodeID_Special {
 				continue
 			}
 			if peer.endpoint == nil {
@@ -661,7 +678,7 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
-			header.SetDst(mtypes.ControlMessage)
+			header.SetDst(mtypes.NodeID_AllPeer)
 			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetSrc(device.ID)
 			header.SetPacketLength(uint16(len(body)))
@@ -688,13 +705,13 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content mtypes.Boardc
 			if device.LogLevel.LogControl {
 				fmt.Println("Control: Add new peer to local ID:" + content.NodeID.ToString() + " PubKey:" + pk.ToString())
 			}
-			if device.graph.Weight(device.ID, content.NodeID, false) == path.Infinity { // add node to graph
-				device.graph.UpdateLatency(device.ID, content.NodeID, path.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
+			if device.graph.Weight(device.ID, content.NodeID, false) == mtypes.Infinity { // add node to graph
+				device.graph.UpdateLatency(device.ID, content.NodeID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 			}
-			if device.graph.Weight(content.NodeID, device.ID, false) == path.Infinity { // add node to graph
-				device.graph.UpdateLatency(content.NodeID, device.ID, path.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
+			if device.graph.Weight(content.NodeID, device.ID, false) == mtypes.Infinity { // add node to graph
+				device.graph.UpdateLatency(content.NodeID, device.ID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 			}
-			device.NewPeer(pk, content.NodeID, false)
+			device.NewPeer(pk, content.NodeID, false, 0)
 		}
 		if !thepeer.IsPeerAlive() {
 			//Peer died, try to switch to this new endpoint
@@ -772,7 +789,7 @@ func (device *Device) RoutineSendPing(startchan <-chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.P2P.UseP2P || device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	waitchan := make(<-chan time.Time)
+	var waitchan <-chan time.Time
 	for {
 		if device.EdgeConfig.DynamicRoute.SendPingInterval > 0 {
 			waitchan = time.After(mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval))
@@ -798,7 +815,7 @@ func (device *Device) RoutineRegister(startchan chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	waitchan := time.After(8 * time.Second)
+	var waitchan <-chan time.Time
 	startchan <- struct{}{}
 	for {
 		if device.EdgeConfig.DynamicRoute.SendPingInterval > 0 {
@@ -830,7 +847,7 @@ func (device *Device) RoutineRegister(startchan chan struct{}) {
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
-		header.SetDst(mtypes.SuperNodeMessage)
+		header.SetDst(mtypes.NodeID_SuperNode)
 		header.SetTTL(0)
 		header.SetSrc(device.ID)
 		header.SetPacketLength(uint16(len(body)))
@@ -843,7 +860,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
-	waitchan := make(<-chan time.Time)
+	var waitchan <-chan time.Time
 	for {
 		if device.SuperConfig.HttpPostInterval > 0 {
 			waitchan = time.After(mtypes.S2TD(device.SuperConfig.HttpPostInterval))
@@ -852,7 +869,6 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 		}
 		select {
 		case <-waitchan:
-			break
 		case <-startchan:
 			if device.LogLevel.LogControl {
 				fmt.Println("Control: Start RoutinePostPeerInfo()")
@@ -872,7 +888,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 					Src_nodeID:  device.ID,
 					Dst_nodeID:  id,
 					Timediff:    peer.SingleWayLatency,
-					TimeToAlive: time.Now().Sub(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
+					TimeToAlive: time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 				}
 				pongs = append(pongs, pong)
 				if device.LogLevel.LogControl {
@@ -914,13 +930,17 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 			PostCount: device.HttpPostCount,
 			BodyHash:  bodyhash,
 		})
-		tokenString, err := token.SignedString(device.JWTSecret[:])
+		tokenString, _ := token.SignedString(device.JWTSecret[:])
 		// Construct post request
 		client := &http.Client{
 			Timeout: 8 * time.Second,
 		}
 		downloadurl := device.EdgeConfig.DynamicRoute.SuperNode.EndpointEdgeAPIUrl + "/edge/post/nodeinfo"
 		req, err := http.NewRequest("POST", downloadurl, bytes.NewReader(body))
+		if err != nil {
+			device.log.Errorf(err.Error())
+			continue
+		}
 		q := req.URL.Query()
 		q.Add("NodeID", device.ID.ToString())
 		q.Add("PubKey", device.staticIdentity.publicKey.ToString())
@@ -955,9 +975,7 @@ func (device *Device) RoutineRecalculateNhTable() {
 	}
 	for {
 		if time.Now().After(device.graph.NhTableExpire) {
-			if device.graph.CheckAnyShouldUpdate() {
-				device.graph.RecalculateNhTable(false)
-			}
+			device.graph.RecalculateNhTable(false)
 		}
 		time.Sleep(device.graph.TimeoutCheckInterval)
 	}
@@ -971,7 +989,7 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.P2P.SendPeerInterval)
 	for {
 		device.process_RequestPeerMsg(mtypes.QueryPeerMsg{
-			Request_ID: uint32(mtypes.Broadcast),
+			Request_ID: uint32(mtypes.NodeID_Boardcast),
 		})
 		time.Sleep(timeout)
 	}

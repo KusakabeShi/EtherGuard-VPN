@@ -10,17 +10,17 @@ import (
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 )
 
-func GetExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
-	tconfig := mtypes.EdgeConfig{}
+func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
+	econfig := mtypes.EdgeConfig{}
 	if templatePath != "" {
-		err := mtypes.ReadYaml(templatePath, &tconfig)
+		err := mtypes.ReadYaml(templatePath, &econfig)
 		if err == nil {
-			return tconfig
+			return econfig
 		}
 	}
 	v1 := mtypes.Vertex(1)
 	v2 := mtypes.Vertex(2)
-	tconfig = mtypes.EdgeConfig{
+	econfig = mtypes.EdgeConfig{
 		Interface: mtypes.InterfaceConf{
 			IType:         "tap",
 			Name:          "tap1",
@@ -73,9 +73,17 @@ func GetExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
 					StaticMode:                false,
 					JitterTolerance:           50,
 					JitterToleranceMultiplier: 1.1,
-					DampingResistance:         0.8,
+					DampingResistance:         0.9,
 					TimeoutCheckInterval:      5,
 					RecalculateCoolDown:       5,
+					ManualLatency: mtypes.DistTable{
+						mtypes.Vertex(1): {
+							mtypes.Vertex(2): 2,
+						},
+						mtypes.Vertex(2): {
+							mtypes.Vertex(1): 2,
+						},
+					},
 				},
 			},
 			NTPConfig: mtypes.NTPInfo{
@@ -109,43 +117,50 @@ func GetExampleEdgeConf(templatePath string) mtypes.EdgeConfig {
 		},
 		NextHopTable: mtypes.NextHopTable{
 			mtypes.Vertex(1): {
-				mtypes.Vertex(2): &v2,
+				mtypes.Vertex(2): v2,
 			},
 			mtypes.Vertex(2): {
-				mtypes.Vertex(1): &v1,
+				mtypes.Vertex(1): v1,
 			},
 		},
 		ResetConnInterval: 86400,
 		Peers: []mtypes.PeerInfo{
 			{
-				NodeID:   2,
-				PubKey:   "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
-				PSKey:    "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
-				EndPoint: "127.0.0.1:3002",
-				Static:   true,
+				NodeID:              2,
+				PubKey:              "dHeWQtlTPQGy87WdbUARS4CtwVaR2y7IQ1qcX4GKSXk=",
+				PSKey:               "juJMQaGAaeSy8aDsXSKNsPZv/nFiPj4h/1G70tGYygs=",
+				EndPoint:            "127.0.0.1:3002",
+				PersistentKeepalive: 30,
+				Static:              true,
 			},
 		},
 	}
-	g := path.NewGraph(3, false, tconfig.DynamicRoute.P2P.GraphRecalculateSetting, tconfig.DynamicRoute.NTPConfig, mtypes.LoggerInfo{})
+	if getDemo {
+		g, _ := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPConfig, mtypes.LoggerInfo{})
+		g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(2, 3, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(3, 2, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(2, 4, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(4, 2, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(3, 4, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(4, 3, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(5, 3, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(3, 5, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(6, 4, 0.5, 99999, 0, false, false)
+		g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
+		_, next, _ := g.FloydWarshall(false)
+		econfig.NextHopTable = next
 
-	g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(2, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 2, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(5, 3, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(3, 5, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(6, 4, 0.5, 99999, 0, false, false)
-	g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
-	_, next, _ := g.FloydWarshall(false)
-	tconfig.NextHopTable = next
-	return tconfig
+	} else {
+		econfig.Peers = []mtypes.PeerInfo{}
+		econfig.NextHopTable = make(mtypes.NextHopTable)
+		econfig.DynamicRoute.P2P.GraphRecalculateSetting.ManualLatency = make(mtypes.DistTable)
+	}
+	return econfig
 }
 
-func GetExampleSuperConf(templatePath string) mtypes.SuperConfig {
+func GetExampleSuperConf(templatePath string, getDemo bool) mtypes.SuperConfig {
 	sconfig := mtypes.SuperConfig{}
 	if templatePath != "" {
 		err := mtypes.ReadYaml(templatePath, &sconfig)
@@ -189,18 +204,18 @@ func GetExampleSuperConf(templatePath string) mtypes.SuperConfig {
 		},
 		GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
 			StaticMode:                false,
-			JitterTolerance:           50,
+			JitterTolerance:           30,
 			JitterToleranceMultiplier: 1.01,
-			DampingResistance:         0.8,
+			DampingResistance:         0.9,
 			TimeoutCheckInterval:      5,
 			RecalculateCoolDown:       5,
 		},
 		NextHopTable: mtypes.NextHopTable{
 			mtypes.Vertex(1): {
-				mtypes.Vertex(2): &v2,
+				mtypes.Vertex(2): v2,
 			},
 			mtypes.Vertex(2): {
-				mtypes.Vertex(1): &v1,
+				mtypes.Vertex(1): v1,
 			},
 		},
 		EdgeTemplate:       "example_config/super_mode/n1.yaml",
@@ -221,6 +236,11 @@ func GetExampleSuperConf(templatePath string) mtypes.SuperConfig {
 				AdditionalCost: 10,
 			},
 		},
+	}
+	if !getDemo {
+		sconfig.Peers = []mtypes.SuperPeerInfo{}
+		sconfig.NextHopTable = make(mtypes.NextHopTable)
+		sconfig.GraphRecalculateSetting.ManualLatency = make(mtypes.DistTable)
 	}
 	return sconfig
 }

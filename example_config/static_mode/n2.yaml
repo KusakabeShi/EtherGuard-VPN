@@ -1,72 +1,66 @@
-interface:
-  itype: stdio
-  name: tap2
-  vppifaceid: 2
-  vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD
-  mtu: 1416
-  recvaddr: 127.0.0.1:4002
-  sendaddr: 127.0.0.1:5002
-  l2headermode: kbdbg
-nodeid: 2
-nodename: Node02
-defaultttl: 200
-l2fibtimeout: 3600
-privkey: UNZMzPX5fG/8yGC8edVj/ksF9N6ARRqdq7fqE/PD7ls=
-listenport: 3002
-loglevel:
-  loglevel: error
-  logtransit: true
-  logcontrol: true
-  lognormal: true
-  loginternal: true
-  logntp: true
-dynamicroute:
-  sendpinginterval: 20
-  peeralivetimeout: 30
-  dupchecktimeout: 40
-  conntimeout: 30
-  connnexttry: 5
-  savenewpeers: false
-  supernode:
-    usesupernode: false
-    connurlv4: 127.0.0.1:3000
-    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: '[::1]:3000'
-    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
-    apiurl: http://127.0.0.1:3000/api
-    supernodeinfotimeout: 40
-  p2p:
-    usep2p: false
-    sendpeerinterval: 20
-    graphrecalculatesetting:
-      staticmode: false
-      jittertolerance: 20
-      jittertolerancemultiplier: 1.1
-      nodereporttimeout: 40
-      recalculatecooldown: 5
-  ntpconfig:
-    usentp: false
-    maxserveruse: 8
-    synctimeinterval: 3600
-    ntptimeout: 10
-    servers:
-    - time.google.com
-    - time1.google.com
-    - time2.google.com
-    - time3.google.com
-    - time4.google.com
-    - time1.facebook.com
-    - time2.facebook.com
-    - time3.facebook.com
-    - time4.facebook.com
-    - time5.facebook.com
-    - time.cloudflare.com
-    - time.apple.com
-    - time.asia.apple.com
-    - time.euro.apple.com
-    - time.windows.com
-nexthoptable:
+Interface:
+  IType: stdio
+  Name: tap1
+  VPPIFaceID: 1
+  VPPBridgeID: 4242
+  MacAddrPrefix: 8E:AA:C8:4B
+  IPv4CIDR: 192.168.76.0/24
+  IPv6CIDR: fd95:71cb:a3df:e586::/64
+  IPv6LLPrefix: fe80::a3df:0/112
+  MTU: 1416
+  RecvAddr: 127.0.0.1:4001
+  SendAddr: 127.0.0.1:5001
+  L2HeaderMode: kbdbg
+NodeID: 2
+NodeName: Node2
+PostScript: ""
+DefaultTTL: 200
+L2FIBTimeout: 3600
+PrivKey: WaeR98bFhy0rxw7unsaTo7aR2RmySo9l185IZqPWl1c=
+ListenPort: 3002
+LogLevel:
+  LogLevel: error
+  LogTransit: true
+  LogControl: true
+  LogNormal: true
+  LogInternal: true
+  LogNTP: true
+DynamicRoute:
+  SendPingInterval: 16
+  PeerAliveTimeout: 70
+  DupCheckTimeout: 40
+  ConnTimeOut: 20
+  ConnNextTry: 5
+  AdditionalCost: 10
+  SaveNewPeers: true
+  SuperNode:
+    UseSuperNode: false
+    PSKey: ""
+    EndpointV4: ""
+    PubKeyV4: ""
+    EndpointV6: ""
+    PubKeyV6: ""
+    EndpointEdgeAPIUrl: ""
+    SkipLocalIP: false
+    SuperNodeInfoTimeout: 50
+  P2P:
+    UseP2P: false
+    SendPeerInterval: 20
+    GraphRecalculateSetting:
+      StaticMode: false
+      ManualLatency: {}
+      JitterTolerance: 50
+      JitterToleranceMultiplier: 1.1
+      DampingResistance: 0.9
+      TimeoutCheckInterval: 5
+      RecalculateCoolDown: 5
+  NTPConfig:
+    UseNTP: true
+    MaxServerUse: 8
+    SyncTimeInterval: 3600
+    NTPTimeout: 3
+    Servers: []
+NextHopTable:
   1:
     2: 2
     3: 2
@@ -103,20 +97,23 @@ nexthoptable:
     3: 4
     4: 4
     5: 4
-resetconninterval: 86400
-peers:
-- nodeid: 1
-  pubkey: CooSkIP7/wiC7Rh83UYnB2yPkJijkNFmhtorHtyYlzY=
-  pskey: ""
-  endpoint: 127.0.0.1:3001
-  static: true
-- nodeid: 3
-  pubkey: 0meQ0pQCAkLZdpfyMqggpnk0k3UKG2M8jfIMlQjTRWs=
-  pskey: ""
-  endpoint: 127.0.0.1:3003
-  static: true
-- nodeid: 4
-  pubkey: 2EfY85KF1S+3dZ3A55eZcyi0QU+sOzOyuADtJs2U2Ww=
-  pskey: ""
-  endpoint: 127.0.0.1:3004
-  static: true
+ResetConnInterval: 86400
+Peers:
+- NodeID: 1
+  PubKey: iDhQA9pgL01Gb0MrPzbiV80P4Uv3+uY/s+wNTQye0Qo=
+  PSKey: kWDwCaC11UvYjfiXBMwYpR6Pujo1vaVW8JTusp1Kkrw=
+  EndPoint: 127.0.0.1:3001
+  PersistentKeepalive: 0
+  Static: true
+- NodeID: 3
+  PubKey: 1vg9bSyqjDL8oUdqpKXn/RR96cjTHPCBga0vaw86WzU=
+  PSKey: f2/34zUTLx8RP9cYisESoQlxz55oGZlTemqxv25VVa8=
+  EndPoint: 127.0.0.1:3003
+  PersistentKeepalive: 0
+  Static: true
+- NodeID: 4
+  PubKey: WkBYMUcQwWwUlDYh7uLu4YefiH1yXb3Tkf3wGEtE6HY=
+  PSKey: zkG1ywPqS4MiGofuWmxHHBs8YBlnYd04B4T9IhkbXYM=
+  EndPoint: 127.0.0.1:3004
+  PersistentKeepalive: 30
+  Static: true

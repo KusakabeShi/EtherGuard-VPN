@@ -33,11 +33,6 @@ func (g *IG) InitNTP() {
 	}
 }
 
-type ntp_result_pair struct {
-	URL string
-	VAL ntp.Response
-}
-
 func (g *IG) RoutineSyncTime() {
 	if !g.ntp_info.UseNTP {
 		return
@@ -80,7 +75,7 @@ func (g *IG) SyncTimeMultiple(count int) {
 	results := make([]time.Duration, count)
 	for _, url := range g.ntp_servers.Keys() {
 		val, has := g.ntp_servers.Get(url)
-		if has == false {
+		if !has {
 			continue
 		}
 		result := val.(ntp.Response)

@@ -18,7 +18,6 @@ import (
 
 	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
-	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"gopkg.in/yaml.v2"
 )
 
@@ -51,7 +50,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 	newmap_super := make(map[string]*endpoint_tryitem)
 	if urls.IsEmpty() {
 		if et.peer.device.LogLevel.LogInternal {
-			fmt.Println(fmt.Sprintf("Internal: Peer %v : Reset trylist(super) %v", et.peer.ID.ToString(), "nil"))
+			fmt.Printf("Internal: Peer %v : Reset trylist(super) %v\n", et.peer.ID.ToString(), "nil")
 		}
 	}
 	for url, it := range urls.GetList(UseLocalIP) {
@@ -61,18 +60,18 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 		_, err := conn.LookupIP(url, 0)
 		if err != nil {
 			if et.peer.device.LogLevel.LogInternal {
-				fmt.Println(fmt.Sprintf("Internal: Peer %v : Update trylist(super) %v error: %v", et.peer.ID.ToString(), url, err))
+				fmt.Printf("Internal: Peer %v : Update trylist(super) %v error: %v\n", et.peer.ID.ToString(), url, err)
 			}
 			continue
 		}
 		if val, ok := et.trymap_super[url]; ok {
 			if et.peer.device.LogLevel.LogInternal {
-				fmt.Println(fmt.Sprintf("Internal: Peer %v : Update trylist(super) %v", et.peer.ID.ToString(), url))
+				fmt.Printf("Internal: Peer %v : Update trylist(super) %v\n", et.peer.ID.ToString(), url)
 			}
 			newmap_super[url] = val
 		} else {
 			if et.peer.device.LogLevel.LogInternal {
-				fmt.Println(fmt.Sprintf("Internal: Peer %v : New trylist(super) %v", et.peer.ID.ToString(), url))
+				fmt.Printf("Internal: Peer %v : New trylist(super) %v\n", et.peer.ID.ToString(), url)
 			}
 			newmap_super[url] = &endpoint_tryitem{
 				URL:      url,
@@ -93,7 +92,7 @@ func (et *endpoint_trylist) UpdateP2P(url string) {
 	defer et.Unlock()
 	if _, ok := et.trymap_p2p[url]; !ok {
 		if et.peer.device.LogLevel.LogInternal {
-			fmt.Println(fmt.Sprintf("Internal: Peer %v : Add trylist(p2p) %v", et.peer.ID.ToString(), url))
+			fmt.Printf("Internal: Peer %v : Add trylist(p2p) %v\n", et.peer.ID.ToString(), url)
 		}
 		et.trymap_p2p[url] = &endpoint_tryitem{
 			URL:      url,
@@ -123,7 +122,7 @@ func (et *endpoint_trylist) GetNextTry() (bool, string) {
 	for url, v := range et.trymap_p2p {
 		if v.firstTry.After(time.Time{}) && v.firstTry.Add(et.timeout).Before(time.Now()) {
 			if et.peer.device.LogLevel.LogInternal {
-				fmt.Println(fmt.Sprintf("Internal: Peer %v : Delete trylist(p2p) %v", et.peer.ID.ToString(), url))
+				fmt.Printf("Internal: Peer %v : Delete trylist(p2p) %v\n", et.peer.ID.ToString(), url)
 			}
 			delete(et.trymap_p2p, url)
 		}
@@ -203,15 +202,15 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
-func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool) (*Peer, error) {
-	if isSuper == false {
-		if id < mtypes.Special_NodeID {
+func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool, PersistentKeepalive uint32) (*Peer, error) {
+	if !isSuper {
+		if id < mtypes.NodeID_Special {
 			//pass check
 		} else {
 			return nil, errors.New(fmt.Sprint("ID ", uint32(id), " is a special NodeID"))
 		}
 	} else {
-		if id == mtypes.SuperNodeMessage {
+		if id == mtypes.NodeID_SuperNode {
 			//pass check
 		} else {
 			return nil, errors.New(fmt.Sprint("ID", uint32(id), "is not a supernode NodeID"))
@@ -221,7 +220,6 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
-
 	// lock resources
 	device.staticIdentity.RLock()
 	defer device.staticIdentity.RUnlock()
@@ -239,6 +237,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 		fmt.Println("Internal: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
 	}
 	peer := new(Peer)
+	atomic.SwapUint32(&peer.persistentKeepaliveInterval, PersistentKeepalive)
 	peer.LastPacketReceivedAdd1Sec.Store(&time.Time{})
 	peer.Lock()
 	defer peer.Unlock()
@@ -246,7 +245,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
 	peer.endpoint_trylist = NewEndpoint_trylist(peer, mtypes.S2TD(device.EdgeConfig.DynamicRoute.PeerAliveTimeout))
-	peer.SingleWayLatency = path.Infinity
+	peer.SingleWayLatency = mtypes.Infinity
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
@@ -272,7 +271,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 	peer.endpoint = nil
 
 	// add
-	if id == mtypes.SuperNodeMessage { // To communicate with supernode
+	if id == mtypes.NodeID_SuperNode { // To communicate with supernode
 		device.peers.SuperPeer[pk] = peer
 		device.peers.keyMap[pk] = peer
 	} else { // Regular peer, other edgenodes
@@ -285,7 +284,6 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool)
 	if peer.device.isUp() {
 		peer.Start()
 	}
-
 	return peer, nil
 }
 
@@ -452,7 +450,7 @@ func (peer *Peer) Stop() {
 }
 
 func (peer *Peer) SetPSK(psk NoisePresharedKey) {
-	if peer.device.IsSuperNode == false && peer.ID < mtypes.Special_NodeID && peer.device.EdgeConfig.DynamicRoute.P2P.UseP2P == true {
+	if !peer.device.IsSuperNode && peer.ID < mtypes.NodeID_Special && peer.device.EdgeConfig.DynamicRoute.P2P.UseP2P {
 		peer.device.log.Verbosef("Preshared keys disabled in P2P mode.")
 		return
 	}
@@ -490,8 +488,15 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 		return
 	}
 	peer.Lock()
-	if peer.ID == mtypes.SuperNodeMessage {
+	defer peer.Unlock()
+	if peer.ID == mtypes.NodeID_SuperNode {
 		conn, err := net.Dial("udp", endpoint.DstToString())
+		if err != nil {
+			if peer.device.LogLevel.LogControl {
+				fmt.Printf("Control: Set endpoint to peer %v failed: %v", peer.ID, err)
+			}
+			return
+		}
 		defer conn.Close()
 		if err == nil {
 			IP := conn.LocalAddr().(*net.UDPAddr).IP
@@ -504,7 +509,7 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 	}
 	peer.device.SaveToConfig(peer, endpoint)
 	peer.endpoint = endpoint
-	peer.Unlock()
+
 }
 
 func (peer *Peer) GetEndpointSrcStr() string {
@@ -525,7 +530,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 	if device.IsSuperNode { //Can't use in super mode
 		return
 	}
-	if peer.StaticConn == true { //static conn do not write new endpoint to config
+	if peer.StaticConn { //static conn do not write new endpoint to config
 		return
 	}
 	if !device.EdgeConfig.DynamicRoute.P2P.UseP2P { //Must in p2p mode
@@ -545,7 +550,7 @@ func (device *Device) SaveToConfig(peer *Peer, endpoint conn.Endpoint) {
 	for _, peerfile := range device.EdgeConfig.Peers {
 		if peerfile.NodeID == peer.ID && peerfile.PubKey == pubkeystr {
 			foundInFile = true
-			if peerfile.Static == false {
+			if !peerfile.Static {
 				peerfile.EndPoint = url
 			}
 		} else if peerfile.NodeID == peer.ID || peerfile.PubKey == pubkeystr {
