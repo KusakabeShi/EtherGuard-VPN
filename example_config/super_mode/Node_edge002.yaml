@@ -1,28 +1,28 @@
 Interface:
   IType: stdio
-  Name: tap1
+  Name: Node002
   VPPIFaceID: 1
   VPPBridgeID: 4242
-  MacAddrPrefix: AA:BB:CC:DD
-  IPv4CIDR: ""
-  IPv6CIDR: ""
-  IPv6LLPrefix: ""
+  MacAddrPrefix: CE:51:BA:B4
+  IPv4CIDR: 192.168.76.0/24
+  IPv6CIDR: fd95:71cb:a3df:e586::/64
+  IPv6LLPrefix: fe80::a3df:0/112
   MTU: 1416
-  RecvAddr: 127.0.0.1:4001
-  SendAddr: 127.0.0.1:5001
+  RecvAddr: 127.0.0.1:4002
+  SendAddr: 127.0.0.1:5002
   L2HeaderMode: kbdbg
-NodeID: 1
-NodeName: Node01
+NodeID: 2
+NodeName: Node002
 PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
-PrivKey: 6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=
-ListenPort: 0
+PrivKey: AErxhLXdZvidPZVXRYgD+84fa2qYWG9ft4MRuCbAtt8=
+ListenPort: 3002
 LogLevel:
   LogLevel: error
-  LogTransit: true
+  LogTransit: false
   LogControl: true
-  LogNormal: true
+  LogNormal: false
   LogInternal: true
   LogNTP: true
 DynamicRoute:
@@ -35,12 +35,12 @@ DynamicRoute:
   SaveNewPeers: true
   SuperNode:
     UseSuperNode: true
-    PSKey: iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI=
-    EndpointV4: 127.0.0.1:3000
-    PubKeyV4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    EndpointV6: '[::1]:3000'
-    PubKeyV6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
-    EndpointEdgeAPIUrl: http://127.0.0.1:3000/eg_api
+    PSKey: iCw096jsW2aWyMwPyzVEvL8C3XXqMpB+jOeWqDC34uU=
+    EndpointV4: 127.0.0.1:3456
+    PubKeyV4: Id/VoZ6HmTU3FSqhxBUswfuHHB0mQxfzcbdoJNGBRzQ=
+    EndpointV6: :3456
+    PubKeyV6: 40tADRhJTvaortwE5Ur4qNXhP+SOMX7ZuSvl251Yxnc=
+    EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false
     SuperNodeInfoTimeout: 50
   P2P:
@@ -48,8 +48,10 @@ DynamicRoute:
     SendPeerInterval: 20
     GraphRecalculateSetting:
       StaticMode: false
-      JitterTolerance: 20
+      ManualLatency: {}
+      JitterTolerance: 50
       JitterToleranceMultiplier: 1.1
+      DampingResistance: 0
       TimeoutCheckInterval: 5
       RecalculateCoolDown: 5
   NTPConfig:

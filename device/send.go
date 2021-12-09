@@ -256,9 +256,9 @@ func (device *Device) RoutineReadFromTUN() {
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer
 		if tap.IsNotUnicast(dstMacAddr) {
-			dst_nodeID = mtypes.NodeID_Boardcast
+			dst_nodeID = mtypes.NodeID_Broadcast
 		} else if val, ok := device.l2fib.Load(dstMacAddr); !ok { //Lookup failed
-			dst_nodeID = mtypes.NodeID_Boardcast
+			dst_nodeID = mtypes.NodeID_Broadcast
 		} else {
 			dst_nodeID = val.(*IdAndTime).ID
 		}
@@ -275,7 +275,7 @@ func (device *Device) RoutineReadFromTUN() {
 			continue
 		}
 
-		if dst_nodeID != mtypes.NodeID_Boardcast {
+		if dst_nodeID != mtypes.NodeID_Broadcast {
 			var peer *Peer
 			next_id := device.graph.Next(device.ID, dst_nodeID)
 			if next_id != mtypes.NodeID_Invalid {

@@ -189,7 +189,7 @@ func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, ch
 		newval := pong_msg.Timediff
 		if _, ok := g.gsetting.ManualLatency[u]; ok {
 			if _, ok := g.gsetting.ManualLatency[u][v]; ok {
-				newval = g.gsetting.ManualLatency[u][v]
+				newval = g.gsetting.ManualLatency[u][v] / 1000 // s to ms
 			}
 		}
 		w := newval
@@ -206,7 +206,7 @@ func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, ch
 		g.edgelock.Unlock()
 		oldval := g.OldWeight(u, v, false)
 		g.edgelock.Lock()
-		if oldval != mtypes.Infinity {
+		if oldval != mtypes.Infinity && g.IsSuperMode && g.gsetting.DampingResistance > 0 {
 			w = oldval*g.gsetting.DampingResistance + newval*(1-g.gsetting.DampingResistance)
 		}
 		should_update = should_update || g.ShouldUpdate(oldval, w, false)

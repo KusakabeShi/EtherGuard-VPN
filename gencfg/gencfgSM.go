@@ -220,7 +220,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		pbyte := mtypes.RandomBytes(4, []byte{0xaa, 0xbb, 0xcc, 0xdd})
 		pbyte[0] &^= 0b00000001
 		pbyte[0] |= 0b00000010
-		MacPrefix = fmt.Sprintf("%X:%X:%X:%X", pbyte[0], pbyte[1], pbyte[2], pbyte[3])
+		MacPrefix = fmt.Sprintf("%02X:%02X:%02X:%02X", pbyte[0], pbyte[1], pbyte[2], pbyte[3])
 	}
 
 	IPv4Block := SMCfg.EdgeNode.IPv4Range
@@ -264,6 +264,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		peerceconf.DynamicRoute.SuperNode.EndpointV4 = EndpointV4 + ":" + ListenPort
 		peerceconf.DynamicRoute.SuperNode.EndpointV6 = EndpointV6 + ":" + ListenPort
 		peerceconf.DynamicRoute.SuperNode.EndpointEdgeAPIUrl = EndpointEdgeAPIUrl
+		peerceconf.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance = 0
 		peerceconf.Interface.MacAddrPrefix = MacPrefix
 		peerceconf.Interface.IPv4CIDR = IPv4Block
 		peerceconf.Interface.IPv6CIDR = IPv6Block

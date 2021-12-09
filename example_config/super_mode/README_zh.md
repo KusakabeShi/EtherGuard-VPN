@@ -1,42 +1,81 @@
 # Etherguard
-[English](README.md)
-
-Super Mode的[範例配置檔](./)的說明文件
-在了解Super Mode的運作之前，建議您先閱讀[Static Mode的運作](../static_mode/README_zh.md)方法，再閱讀本篇會比較好
+[English](README.md) | [中文](#)
 
 ## Super Mode
 
 Super Mode是受到[n2n](https://github.com/ntop/n2n)的啟發  
-分為super node和edge node兩種節點  
+分為SuperNode和EdgeNode兩種節點  
 
-全部節點都會和supernode建立連線  
-藉由supernode交換其他節點的資訊，以及udp打洞  
-由supernode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給全部edge node
+全部節點都會和SuperNode建立連線  
+藉由SuperNode交換其他節點的資訊，以及udp打洞  
+由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給全部edge node
 
-在edge node的super模式下，設定檔裡面的`nexthoptable`以及`peers`是無效的。  
-這些資訊都是從super node上面下載  
-同時，supernode會幫每個連線生成Preshared Key，分發給edge使用(如果`usepskforinteredge`有啟用的話)。  
-```golang
-psk = shs256("PubkeyPeerA" + "PubkeyPeerB" + "主廚特調當季精選海鹽")[:32]
+
+## Quick start
+
+首先按需求修改`gensuper.yaml`
+
+```yaml
+Config output dir: /tmp/eg_gen
+ConfigTemplate for super node: ""
+ConfigTemplate for edge node: ""
+Network name: eg_net
+Super Node:
+  Listen port: 3456
+  EdgeAPI prefix: /eg_net/eg_api
+  Endpoint(IPv4)(optional): example.com
+  Endpoint(IPv6)(optional): example.com
+  Endpoint(EdgeAPI): http://example.com:3456/eg_net/eg_api
+Edge Node:
+  Node IDs: "[1~10,11,19,23,29,31,55~66,88~99]"
+  MacAddress prefix: ""                 # 留空隨機產生
+  IPv4 range: 192.168.76.0/24           # IP的部分可以直接省略沒關係
+  IPv6 range: fd95:71cb:a3df:e586::/64  # 這個欄位唯一的目的只是在啟動以後，調用ip命令，幫tap接口加個ip  
+  IPv6 LL range: fe80::a3df:0/112       # 和VPN本身運作完全無關  
+```
+接著執行這個，就會生成所需設定檔了。
+```
+$ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/gensuper.yaml
 ```
 
+把一個super，2個edge分別搬去三台機器  
+或是2台機器，super和edge可以是同一台
+
+在Supernode執行  
+```
+./etherguard-go -config [設定檔位置] -mode super
+```
+在EdgeNode執行  
+```
+./etherguard-go -config [設定檔位置] -mode edge
+```
+
+## Documentation
+
+在了解Super Mode的運作之前，建議您先閱讀[Static Mode的運作](../static_mode/README_zh.md)方法，再閱讀本篇會比較好
+
+
+在EdgeNode的SuperMode下，設定檔裡面的`NextHopTable`以及`Peers`是無效的。  
+這些資訊都是從SuperNode上面下載  
+同時，SuperNode會幫每個連線生成pre-shared key，分發給edge使用(如果啟用`UsePSKForInterEdge`的話)。  
+
 ### SuperMsg
-但是比起Static mode，Super mode引入了一種新的 `終點ID` 叫做 `SuperMsg`。  
-所有送往Super node的封包都會是這種類型。  
-這種封包不會在edge node之間傳播，收到也會不會轉給任何人，如同`終點ID == 自己`一般
+但是比起StaticMode，SuperMode引入了一種新的 `終點ID` 叫做 `NodeID_SuperNode`。  
+所有送往SuperNode的封包都會是這種類型。  
+這種封包不會在EdgeNode之間傳播，收到也會不會轉給任何人，如同`終點ID == 自己`一般
 
 ## Control Message
-從Super mode開始，我們有了Static mode不存在的Control Message。他會控制EtherGuard一些行為  
-在Super mode下，我們不會轉發任何控制消息。 我們只會直接接收或發送給目標。  
+從SuperMode開始，我們有了StaticMode不存在的Control Message。他會控制EtherGuard一些行為  
+在SuperMode下，我們不會轉發任何控制消息。 我們只會直接接收或發送給目標。  
 下面列出Super Mode會出現的Control message
 
 ### Register
 具體運作方式類似這張圖  
 ![Register運作流程](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS01.png)  
-1. edge node發送`Register`給super node  
-2. super node收到以後就知道這個edge的endpoint IP和埠號。  
+1. EdgeNode發送`Register`給sSuperNode 
+2. SuperNode收到以後就知道這個EdgeNode的Endpoint IP和Port number。  
 3. 更新進資料庫以後發布`UpdatePeerMsg`。  
-4. 其他edge node收到以後就用HTTP API去下載完整的peer list。並且把自己沒有的peer通通加到本地
+4. 其他edge node收到以後就用HTTP EdgeAPI去下載完整的peer list。並且把自己沒有的peer通通加到本地
 
 ### Ping/Pong
 有了peer list以後，接下來的運作方式類似這張圖  
@@ -46,18 +85,58 @@ Edge node 會嘗試向其他所有peer發送`Ping`，裡面會攜帶節點自己
 收到`Ping`，就會產生一個`Pong`，並攜帶時間差。這個時間就是單向延遲  
 但是他不會把`Pong`送回給原節點，而是送給Super node
 
+### <a name="AdditionalCost"></a>AdditionalCost
+有了各個節點的延遲以後，還不會立刻計算`Floyd-Warshall`，而是要先加上`AdditionalCost`  
+
+以這張圖片的情境為例:  
+![EGS08](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS08.png)  
+Path    | Latency |Cost|Win
+--------|:--------|:---|:--
+A->B->C | 3ms     | 3  |
+A->C    | 4ms     | 4  | O
+
+但是這個情境，3ms 4ms 只相差1ms  
+為了這1ms而多繞一趟實在浪費，而且轉發本身也要時間
+
+每個節點有了`AdditionalCost`參數，就能設定經過這個節點轉發，所需額外增加的成本
+
+假如ABC全部設定了`AdditionalCost=10`
+Path    | Latency |AdditionalCost|Cost|Win
+--------|:--------|:-------------|:---|:--
+A->B->C | 3ms     | 20           | 23 |
+A->C    | 4ms     | 10           | 14 | O
+
+A->C 就換選擇直連，不會為了省下1ms而繞路  
+這邊`AdditionalCost=10`可以解釋為: 必須能省下10ms，才會繞這條路
+
+這個參數也有別的用途  
+針對流量比較貴的節點，可以設定`AdditionalCost=10000`  
+別人就不會走他中轉了，而是盡量繞別的路，或是直連  
+除非別條路線全掛，只剩這挑Cost 10000的路線
+
+還有一個用法，全部節點都設定`AdditionalCost=10000`  
+無視延遲，全節點都盡量直連，打動失敗才繞路
+
 ### UpdateNhTable   
 Super node收到節點們傳來的Pong以後，就知道他們的單向延遲了。接下來的運作方式類似這張圖  
 ![image](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS03.png)  
 Super node收到Pong以後，就會更新它裡面的`Distance matrix`，並且重新計算轉發表  
 如果有變動，就發布`UpdateNhTableMsg`  
-其他edge node收到以後就用HTTP API去下載完整的轉發表
+其他edge node收到以後就用HTTP EdgeAPI去下載完整的轉發表
 
-### UpdateError
-通知edges有錯誤發生，關閉egde端程式  
-發生在版本號不匹被，該edge的NodeID配置錯誤，還有該Edge被刪除時觸發
+### ServerUpdate
+通知EdgeNode有事情發生
+1. 關閉EdgeNode程式  
+    * 版本號不匹配
+    * 該edge的NodeID配置錯誤
+    * 該Edge被刪除
+2. 通知EdgeNode有更新
+    * UpdateNhTable
+    * UpdatePeer
+    * UpdateSuperParams
 
-### HTTP API  
+
+## HTTP EdgeAPI  
 為什麼要用HTTP額外下載呢?直接`UpdateXXX`夾帶資訊不好嗎?  
 因為udp是不可靠協議，能攜帶的內容量也有上限。  
 但是peer list包含了全部的peer資訊，長度不是固定的，可能超過  
@@ -68,12 +147,15 @@ Super node收到Pong以後，就會更新它裡面的`Distance matrix`，並且�
 這樣super node收到HTTP API看到`state hash`就知道這個edge node確實有收到`UpdateXXX`了。  
 不然每隔一段時間就會重新發送`UpdateXXX`給該節點
 
+預設配置是走HTTP。但為**了你的安全著想，建議使用nginx反代理成https**  
+有想過SuperNode開發成直接支援https，但是證書動態更新太麻煩就沒有做了  
+
 ## HTTP Manage API
-HTTP還有一些個API，給前端使用，幫助管理整個網路
+HTTP還有5個Manage API，給前端使用，幫助管理整個網路
 
 ### super/state  
 ```bash
-curl "http://127.0.0.1:3000/eg_api/manage/super/state?Password=passwd_showstate"
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/super/state?Password=passwd_showstate"
 ```  
 可以給前端看的，用來顯示現在各節點之間的單向延遲狀況  
 之後可以用來畫力導向圖。
@@ -145,10 +227,10 @@ curl "http://127.0.0.1:3000/eg_api/manage/super/state?Password=passwd_showstate"
 再來是新增peer，可以不用重啟Supernode就新增Peer
 
 範例:  
-```
-curl -X POST "http://127.0.0.1:3000/eg_api/manage/peer/add?Password=passwd_addpeer" \
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/add?Password=passwd_addpeer" \
  -H "Content-Type: application/x-www-form-urlencoded" \
- -d "NodeID=100&Name=Node_100&PubKey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM=&AdditionalCost=1000&PSKey=j9dS%2FlYvL16svSeC5lh%2Bldlq2iZX2MWwZfM3NNWpULI%3D&SkipLocalIP=false"
+ -d "NodeID=100&Name=Node_100&PubKey=Bax6wOJpisSVJtrU92ujn8D%2F2oGUyhyPrKTXkHbGamM%3D&AdditionalCost=1000&PSKey=Gfp2RkPNrKTeGKrCJNEvSyiBqYYRmzVnVG6CBuUKUNc%3D&SkipLocalIP=false"
 ```
 參數:
 1. URL query: Password: 新增peer用的密碼，在設定檔配置
@@ -172,13 +254,13 @@ curl -X POST "http://127.0.0.1:3000/eg_api/manage/peer/add?Password=passwd_addpe
 設計上分別是給管理員使用，或是給加入網路的人，想離開網路使用
 
 使用Password刪除可以刪除任意節點，以上面新增的節點為例，使用這個API即可刪除剛剛新增的節點
-```
-curl "http://127.0.0.1:3000/eg_api/manage/peer/del?Password=passwd_delpeer&NodeID=100"
+```bash
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?Password=passwd_delpeer&NodeID=100"
 ```
 
 也可以使用privkey刪除，同上，但是只要附上privkey參數就好
-```
-curl "http://127.0.0.1:3000/eg_api/manage/peer/del?PrivKey=IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ="
+```bash
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?PrivKey=a04BVvT%2BYbrX1ejjvMQVI6k5VRFlBkEX8tuLGWNyNrY%3D"
 ```
 
 參數:
@@ -193,65 +275,121 @@ curl "http://127.0.0.1:3000/eg_api/manage/peer/del?PrivKey=IJtpnkm9ytbuCukx4VBME
 
 ### peer/update
 更新節點的一些參數
-```
-curl -X POST "http://127.0.0.1:12369/eg_net/eg_api/manage/peer/update?Password=e05znou1_updatepeer&NodeID=1" \
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/peer/update?Password=e05znou1_updatepeer&NodeID=1" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "AdditionalCost=10&SkipLocalIP=false"
 ```
 
 ### super/update
 更新SuperNode的一些參數
-```
-curl -X POST "http://127.0.0.1:12369/eg_net/eg_api/manage/super/update?Password=e05znou1_updatesuper" \
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/super/update?Password=e05znou1_updatesuper" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70"
 ```
 
+### SuperNode Config Parameter
 
-## Config Parameters
+Key               | Description
+--------------    |:-----
+NodeName| 節點名稱
+PostScript          | 初始化完畢之後要跑的腳本
+PrivKeyV4           | IPv4通訊使用的私鑰
+PrivKeyV6           | IPv6通訊使用的私鑰
+ListenPort          | udp監聽埠
+ListenPort_EdgeAPI  | HTTP EdgeAPI 的監聽埠
+ListenPort_ManageAPI| HTTP ManageAPI 的監聽埠
+API_Prefix          | HTTP API prefix
+RePushConfigInterval| 重新push`UpdateXXX`的間格
+HttpPostInterval    | EdgeNode 使用EdgeAPI回報狀態的頻率
+PeerAliveTimeout    | 判定斷線Timeout
+SendPingInterval    | EdgeNode 之間使用Ping/Pong測量延遲的間格
+[LogLevel](../static_mode/README_zh.md#LogLevel)| 紀錄log
+[Passwords](#Passwords) | HTTP ManageAPI 的密碼，5個API密碼是獨立的
+[GraphRecalculateSetting](#GraphRecalculateSetting) | 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
+[NextHopTable](../static_mode/README_zh.md#NextHopTable) | StaticMode 模式下使用的轉發表
+EdgeTemplate        | HTTP ManageAPI `peer/add` 返回的edge的參考設定檔
+UsePSKForInterEdge  | 幫Edge生成PreSharedKey，供edge之間直接連線使用
+[Peers](#EdgeNodes)     | EdgeNode資訊
 
-### Super mode的edge node有幾個參數
-1. `usesupernode`: 是否啟用Super mode
-1. `pskey`: 和supernode建立連線用的Pre shared Key
-1. `connurlv4`: Super node的IPv4連線地址
-1. `pubkeyv4`: Super node的IPv4工鑰
-1. `connurlv6`: Super node的IPv6連線地址
-1. `pubkeyv6`: Super node的IPv6工鑰
-1. `apiurl`: Super node的HTTP(S) API連線地址
-1. `supernodeinfotimeout`: Supernode Timeout
-1. `httppostinterval`: 15
-1. `skiplocalip`: 打洞時，一律使用supernode蒐集到的外部ip，不使用edge自行回報的local ip
+<a name="Passwords"></a>Passwords      | Description
+--------------------|:-----
+ShowState   | HTTP ManageAPI `super/state` 的密碼
+AddPeer     | HTTP ManageAPI `peer/add` 的密碼
+DelPeer     | HTTP ManageAPI `peer/del` 的密碼
+UpdatePeer  | HTTP ManageAPI `peer/update` 的密碼
+UpdateSuper | HTTP ManageAPI `super/update` 的密碼
 
-### Super node本身的設定檔
+<a name="GraphRecalculateSetting"></a>GraphRecalculateSetting      | Description
+--------------------|:-----
+StaticMode                 | 關閉`Floyd-Warshall`演算法，只使用設定檔提供的NextHopTable`。SuperNode單純用來輔助打洞
+ManualLatency              | 手動設定延遲，不採用EdgeNode回報的延遲(單位: 毫秒)
+JitterTolerance            | 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算<br>比較對象是上次更新使用的值。如果37 37 41 43 .. 100 ，每次變動一點點，總變動量超過域值還是會更新
+JitterToleranceMultiplier  | 抖動容許誤差的放大係數，高ping的話允許更多誤差<br>https://www.desmos.com/calculator/raoti16r5n
+DampingResistance          | 防抖阻尼系數，`latency = latency_old * resistance + latency_in * (1-resistance)`
+TimeoutCheckInterval       | 週期性檢查節點的連線狀況，是否斷線需要重新規劃線路
+RecalculateCoolDown        | Floyd-Warshal是O(n^3)時間複雜度，不能太常算。<br>設個冷卻時間<br>有節點加入/斷線觸發的重新計算，無視這個CoolDown
 
-1. nodename: 節點名稱
-1. privkeyv4: ipv4用的私鑰
-1. privkeyv6: ipv6用的私鑰
-1. listenport: 監聽udp埠號
-1. loglevel: 參考 [README_zh.md](../README_zh.md)
-1. repushconfiginterval: 重新push`UpdateXXX`的間格
-1. passwords: HTTP API 密碼
-    1. showstate: 節點資訊
-    1. addpeer: 新增peer
-    1. delpeer: 刪除peer
-1. graphrecalculatesetting: 一些和[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)相關的參數
-    1. staticmode: 關閉Floyd-Warshall演算法，只使用一開始載入的nexthoptable。Supernode單純用來輔助打洞
-    1. recalculatecooldown: Floyd-Warshal是O(n^3)時間複雜度，不能太常算。設個冷卻時間
-    1. jittertolerance: 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算
-    1. jittertolerancemultiplier: 一樣是抖動容許誤差，但是高ping的話允許更多誤差  
-                                    https://www.desmos.com/calculator/raoti16r5n
-    1. nodereporttimeout: 收到的`Pong`封包的有效期限。太久沒收到就變回Infinity
-    1. timeoutcheckinterval: 固定間格檢查，有沒有人的Pong封包超過有效期限，要重算轉發表
-1. nexthoptable: 僅在`staticmode==true` 有效，手動設定的nexthoptable
-1. edgetemplate: 給`addpeer`API用的。參考這個設定檔，顯示一個範例設定檔給edge
-1. usepskforinteredge: 是否啟用edge間pre shares key通信。若啟用則幫edge們自動生成PSK
-1. peers: Peer列表，參考 [README_zh.md](../README_zh.md)
-    1.   nodeid: Peer的節點ID
-    1.   name: Peer名稱(顯示在前端)
-    1.   pubkey: peer 公鑰
-    1.   pskey: preshared key 該peer和本Supernode連線的PSK
-    1.   additionalcost: 此節點進行封包轉發的額外成本。單位: 毫秒
+<a name="EdgeNodes"></a>Peers      | Description
+--------------------|:-----
+NodeID              | 節點ID
+PubKey              | 公鑰
+PSKey               | 預共享金鑰
+[AdditionalCost](#AdditionalCost)      | 繞路成本(單位: 毫秒)<br>設定-1代表使用EdgeNode自身設定
+SkipLocalIP         | 打洞時，不使用EdgeNode回報的本地IP，僅使用SuperNode蒐集到的外部IP
 
+### EdgeNode Config Parameter
+
+Key               | Description
+--------------    |:-----
+[Interface](../static_mode/README_zh.md#Interface)| 接口相關設定。VPN有兩端，一端是VPN網路，另一端則是本地接口
+NodeID            | 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
+NodeName          | 節點名稱
+PostScript        | 初始化完畢之後要跑的腳本
+DefaultTTL        | TTL，etherguard層使用，和乙太層不共通
+L2FIBTimeout      | MacAddr-> NodeID 查找表的 timeout(秒) ，類似ARP table
+PrivKey           | 私鑰，和wireguard規格一樣
+ListenPort        | 監聽的udp埠
+[LogLevel](../static_mode/README_zh.md#LogLevel)| 紀錄log
+[DynamicRoute](#DynamicRoute)      | 動態路由相關設定
+NextHopTable      | 轉發表， SuperMode由SuperNode計算，EdgeNode用不到
+ResetConnInterval | 如果對方是動態ip就要用這個。每隔一段時間就會重置連線，重新解析域名
+[Peers](#Peers)   | 鄰居節點，SuperMode從SuperNode計算，EdgeNode用不到
+
+<a name="DynamicRoute"></a>DynamicRoute      | Description
+--------------------|:-----
+SendPingInterval   | 發送Ping訊息的間隔(秒)
+PeerAliveTimeout   | 每次收到封包就重置，超過時間(秒)沒收到就標記該peer離線
+DupCheckTimeout    | 重複封包檢查的timeout(秒)<br>完全相同的封包收第二次會被丟棄
+ConnTimeOut        | 檢查peer離線的時間間格<br>如果標記離線，就切換下一個endpoint<br>SuperNode可能傳了多個endpoint過來
+ConnNextTry        | 切換下一個endpoint的間隔
+[AdditionalCost](#AdditionalCost)     | 繞路成本(毫秒)。僅限SuperNode設定-1時生效
+SaveNewPeers       | 是否把下載來的鄰居資訊存到本地設定檔裡面
+[SuperNode](#SuperNode)          | SuperNode相關設定
+P2P                | P2P相關設定，SuperMode用不到
+[NTPConfig](#NTPConfig)          | NTP時間同步相關設定
+
+<a name="SuperNode"></a>SuperNode      | Description
+---------------------|:-----
+UseSuperNode         | 是否啟用SuperNode
+PSKey                | 和SuperNode通訊用的PreShared Key
+EndpointV4           | SuperNode的IPv4 Endpoint
+PubKeyV4             | SuperNode的IPv4公鑰
+EndpointV6           | SuperNode的IPv6 Endpoint
+PubKeyV6             | SuperNode的IPv6公鑰
+EndpointEdgeAPIUrl   | SuperNode的EdgeAPI存取路徑
+SkipLocalIP          | 不回報本地IP，避免和其他Edge內網直連
+SuperNodeInfoTimeout | 實驗性選項，SuperNode離線超時，切換成P2P模式<br>需先打開P2P模式<br>`UseP2P=false`本選項無效<br>P2P模式尚未測試，穩定性未知，不推薦使用
+
+
+<a name="NTPConfig"></a>NTPConfig      | Description
+--------------------|:-----
+UseNTP            | 是否使用NTP同步時間
+MaxServerUse      | 向多少NTP伺服器發送請求
+SyncTimeInterval  | 多久同步一次時間
+NTPTimeout        | NTP伺服器連線Timeout
+Servers           | NTP伺服器列表
 
 ## V4 V6 兩個公鑰
 為什麼要分開IPv4和IPv6呢?  
@@ -284,12 +422,14 @@ Relay node其實也是一個edge node，只不過被設定成為interface=dummy�
 因為如果用127.0.0.1連接supernode，supernode看到封包的src IP就是127.0.0.1，就會把127.0.0.1分發給`Node_1`和`Node_2`  
 `Node_1`和`Node_2`看到`Node_R`的連線地址是`127.0.0.1`，就連不上了
 
-## Quick start
-執行此範例設定檔(請開三個terminal):
+#### Run example config
+
+在**不同terminal**分別執行以下命令
+
 ```bash
-./etherguard-go -config example_config/super_mode/s1.yaml -mode super
-./etherguard-go -config example_config/super_mode/n1.yaml -mode edge
-./etherguard-go -config example_config/super_mode/n2.yaml -mode edge
+./etherguard-go -config example_config/super_mode/Node_super.yaml -mode super
+./etherguard-go -config example_config/super_mode/Node_edge001.yaml -mode edge
+./etherguard-go -config example_config/super_mode/Node_edge002.yaml -mode edge
 ```
 因為是stdio模式，stdin會讀入VPN網路  
 請在其中一個edge視窗中鍵入

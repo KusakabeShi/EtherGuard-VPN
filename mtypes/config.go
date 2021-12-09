@@ -10,11 +10,11 @@ import (
 type Vertex uint16
 
 const (
-	NodeID_Boardcast Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
+	NodeID_Broadcast         Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
 	NodeID_AllPeer   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
 	NodeID_SuperNode Vertex = math.MaxUint16 - iota
-	NodeID_Invalid   Vertex = math.MaxUint16 - iota
-	NodeID_Special   Vertex = NodeID_Invalid
+	NodeID_Invalid           Vertex = math.MaxUint16 - iota
+	NodeID_Special           Vertex = NodeID_Invalid
 )
 
 type EdgeConfig struct {
@@ -99,15 +99,15 @@ type SuperPeerInfo struct {
 type LoggerInfo struct {
 	LogLevel    string `yaml:"LogLevel"`
 	LogTransit  bool   `yaml:"LogTransit"`
-	LogControl  bool   `yaml:"LogControl"`
 	LogNormal   bool   `yaml:"LogNormal"`
+	LogControl  bool   `yaml:"LogControl"`
 	LogInternal bool   `yaml:"LogInternal"`
 	LogNTP      bool   `yaml:"LogNTP"`
 }
 
 func (v *Vertex) ToString() string {
 	switch *v {
-	case NodeID_Boardcast:
+	case NodeID_Broadcast:
 		return "Boardcast"
 	case NodeID_AllPeer:
 		return "Control"

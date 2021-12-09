@@ -82,8 +82,6 @@ VPN起來以後，自己手動加ip也行
 $ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/gensuper.yaml
 ```
 
-
-
 把一個super，2個edge分別搬去三台機器  
 或是2台機器，super和edge可以是同一台
 

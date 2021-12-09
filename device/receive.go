@@ -470,39 +470,76 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		packet_type = elem.Type
 
 		if device.IsSuperNode {
-			switch dst_nodeID {
-			case mtypes.NodeID_AllPeer:
+			if packet_type.IsControl_Edge2Super() {
 				should_process = true
+			} else {
+				device.log.Errorf("received unsupported packet_type %v from %v %v", packet_type, src_nodeID, peer.endpoint.DstToString())
+				goto skip
+			}
+			switch dst_nodeID {
 			case mtypes.NodeID_SuperNode:
 				should_process = true
 			default:
-				device.log.Errorf("Invalid dst_nodeID received. Check your code for bug")
+				device.log.Errorf("received invalid dst_nodeID %v from  %v %v", dst_nodeID, src_nodeID, peer.endpoint.DstToString())
+				goto skip
 			}
 		} else {
-			switch dst_nodeID {
-			case mtypes.NodeID_Boardcast:
-				should_receive = true
-				should_transfer = true
-			case mtypes.NodeID_SuperNode:
-				should_process = true
-			case mtypes.NodeID_AllPeer:
-				packet := elem.packet[path.EgHeaderLen:] //true packet
-				if device.CheckNoDup(packet) {
+			// Set should_receive and should_process
+			if packet_type.IsNormal() {
+				switch dst_nodeID {
+				case device.ID:
+					should_receive = true
+				case mtypes.NodeID_Broadcast:
+					should_receive = true
+				case mtypes.NodeID_AllPeer:
+					should_receive = true
+				}
+			}
+			if packet_type.IsControl_Edge2Edge() {
+				switch dst_nodeID {
+				case device.ID:
 					should_process = true
+				case mtypes.NodeID_Broadcast:
+					should_process = true
+				case mtypes.NodeID_AllPeer:
+					should_process = true
+				}
+			}
+			if packet_type.IsControl_Super2Edge() {
+				if peer.ID == mtypes.NodeID_SuperNode {
+					switch dst_nodeID {
+					case device.ID:
+						should_process = true
+					case mtypes.NodeID_SuperNode:
+						should_process = true
+					}
+
+				} else {
+					device.log.Errorf("received ServerUpdate packet from non supernode %v %v", src_nodeID, peer.endpoint.DstToString())
+					goto skip
+				}
+			}
+
+			// Set should_transfer
+			switch dst_nodeID {
+			case mtypes.NodeID_Broadcast:
+				should_transfer = true
+			case mtypes.NodeID_AllPeer:
+				packet := elem.packet[path.EgHeaderLen:] //packet body
+				if device.CheckNoDup(packet) {
 					should_transfer = true
 				} else {
-					should_process = false
-					should_transfer = false
 					if device.LogLevel.LogTransit {
-						fmt.Printf("Transit: Duplicate packet received from %d through %d , src_nodeID = %d . Dropeed.\n", peer.ID, device.ID, src_nodeID)
+						fmt.Printf("Transit: Duplicate packet received from %d through %d , src_nodeID = %d . Dropped.\n", peer.ID, device.ID, src_nodeID)
 					}
+					goto skip
 				}
 			case device.ID:
-				if packet_type == path.NormalPacket {
-					should_receive = true
-				} else {
-					should_process = true
-				}
+				should_transfer = false
+			case mtypes.NodeID_SuperNode:
+				should_transfer = false
+			case mtypes.NodeID_Invalid:
+				should_transfer = false
 			default:
 				if device.graph.Next(device.ID, dst_nodeID) != mtypes.NodeID_Invalid {
 					should_transfer = true
@@ -517,7 +554,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
 				EgHeader.SetTTL(l2ttl - 1)
-				if dst_nodeID == mtypes.NodeID_Boardcast { //Regular transfer algorithm
+				if dst_nodeID == mtypes.NodeID_Broadcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == mtypes.NodeID_AllPeer { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[mtypes.Vertex]bool)
@@ -534,7 +571,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						if device.LogLevel.LogTransit {
 							fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
 						}
-						device.SendPacket(peer_out, elem.Type, elem.packet, MessageTransportOffsetContent)
+						go device.SendPacket(peer_out, elem.Type, elem.packet, MessageTransportOffsetContent)
 					}
 				}
 			}

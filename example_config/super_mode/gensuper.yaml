@@ -1,15 +1,15 @@
-Config output dir: /tmp/eg_gen
+Config output dir: /tmp/eg_gen_super
 ConfigTemplate for super node: ""
 ConfigTemplate for edge node: ""
-Network name: eg_net
+Network name: EgNet
 Super Node:
   Listen port: 3456
   EdgeAPI prefix: /eg_net/eg_api
-  Endpoint(IPv4)(optional): example.com
-  Endpoint(IPv6)(optional): example.com
-  Endpoint(EdgeAPI): http://example.com:3456/eg_net/eg_api
+  Endpoint(IPv4)(optional): 127.0.0.1
+  Endpoint(IPv6)(optional): 
+  Endpoint(EdgeAPI): http://127.0.0.1:3456/eg_net/eg_api
 Edge Node:
-  Node IDs: "[1~10,11,19,23,29,31,55~66,88~99]"
+  Node IDs: "[1~2,100]"
   MacAddress prefix: ""
   IPv4 range: 192.168.76.0/24
   IPv6 range: fd95:71cb:a3df:e586::/64

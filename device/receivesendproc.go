@@ -309,17 +309,20 @@ func (device *Device) server_process_Pong(peer *Peer, content mtypes.PongMsg) er
 
 func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 	Timediff := device.graph.GetCurrentTime().Sub(content.Time).Seconds()
-	peer.SingleWayLatency = Timediff
+	NewTimediff := peer.SingleWayLatency.Load().(float64)
+	DR := NewTimediff * device.EdgeConfig.DynamicRoute.P2P.GraphRecalculateSetting.DampingResistance
+	NewTimediff = NewTimediff*DR + Timediff*(1-DR)
+	peer.SingleWayLatency.Store(NewTimediff)
 
 	PongMSG := mtypes.PongMsg{
 		Src_nodeID:     content.Src_nodeID,
 		Dst_nodeID:     device.ID,
-		Timediff:       Timediff,
+		Timediff:       NewTimediff,
 		TimeToAlive:    device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 		AdditionalCost: device.EdgeConfig.DynamicRoute.AdditionalCost,
 	}
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P && time.Now().After(device.graph.NhTableExpire) {
-		device.graph.UpdateLatency(content.Src_nodeID, device.ID, PongMSG.Timediff, device.EdgeConfig.DynamicRoute.PeerAliveTimeout, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
+		device.graph.UpdateLatencyMulti([]mtypes.PongMsg{PongMSG}, true, false)
 	}
 	body, err := mtypes.GetByte(&PongMSG)
 	if err != nil {
@@ -887,7 +890,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 					RequestID:   0,
 					Src_nodeID:  device.ID,
 					Dst_nodeID:  id,
-					Timediff:    peer.SingleWayLatency,
+					Timediff:    peer.SingleWayLatency.Load().(float64),
 					TimeToAlive: time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 				}
 				pongs = append(pongs, pong)
@@ -989,7 +992,7 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	timeout := mtypes.S2TD(device.EdgeConfig.DynamicRoute.P2P.SendPeerInterval)
 	for {
 		device.process_RequestPeerMsg(mtypes.QueryPeerMsg{
-			Request_ID: uint32(mtypes.NodeID_Boardcast),
+			Request_ID: uint32(mtypes.NodeID_Broadcast),
 		})
 		time.Sleep(timeout)
 	}

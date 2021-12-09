@@ -92,17 +92,18 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 		if !all_verts[NodeID] {
 			return fmt.Errorf("duplicate definition: NodeID %v ", NodeID)
 		}
-		_, err = conn.LookupIP(endpoint, 0)
-		if err != nil {
-			return err
+		if endpoint != "" {
+			_, err = conn.LookupIP(endpoint, 0)
+			if err != nil {
+				return err
+			}
 		}
 		pri, pub := device.RandomKeyPair()
 		edge_infos[NodeID] = edge_info{
-			Endpoint:            endpoint,
-			PrivKey:             pri.ToString(),
-			PubKey:              pub.ToString(),
-			PersistentKeepalive: edgeinfo.PersistentKeepalive,
-			ConnectedEdge:       make(map[mtypes.Vertex]bool),
+			Endpoint:      endpoint,
+			PrivKey:       pri.ToString(),
+			PubKey:        pub.ToString(),
+			ConnectedEdge: make(map[mtypes.Vertex]bool),
 		}
 		all_verts[NodeID] = false
 		if NodeID > MaxNodeID {
@@ -118,7 +119,7 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 		s := edge.Src_nodeID
 		d := edge.Dst_nodeID
 		if len(edge_infos[s].Endpoint)+len(edge_infos[d].Endpoint) == 0 {
-			return fmt.Errorf("there are an edge between node %v and %v, but non of them have endpoint", s, d)
+			return fmt.Errorf("there are an edge between node [%v , %v], but non of them have endpoint", s, d)
 		}
 		edge_infos[s].ConnectedEdge[d] = true
 		edge_infos[d].ConnectedEdge[s] = true
@@ -132,7 +133,7 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 		pbyte := mtypes.RandomBytes(4, []byte{0xaa, 0xbb, 0xcc, 0xdd})
 		pbyte[0] &^= 0b00000001
 		pbyte[0] |= 0b00000010
-		NMCfg.EdgeNode.MacPrefix = fmt.Sprintf("%X:%X:%X:%X", pbyte[0], pbyte[1], pbyte[2], pbyte[3])
+		NMCfg.EdgeNode.MacPrefix = fmt.Sprintf("%02X:%02X:%02X:%02X", pbyte[0], pbyte[1], pbyte[2], pbyte[3])
 	}
 
 	dist, next, err := g.FloydWarshall(false)
@@ -177,6 +178,8 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 		econfig.NodeID = NodeID
 		idstr := fmt.Sprintf("%0"+strconv.Itoa(len(MaxNodeID.ToString()))+"d", NodeID)
 		econfig.NodeName = NMCfg.NetworkName + idstr
+		PersistentKeepalive := uint32(30)
+		econfig.ListenPort = 0
 		if Edge.Endpoint != "" {
 			ps := strings.Split(Edge.Endpoint, ":")
 			pss := ps[len(ps)-1]
@@ -185,6 +188,7 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 				return err
 			}
 			econfig.ListenPort = int(port)
+			PersistentKeepalive = 0
 		}
 		econfig.Peers = make([]mtypes.PeerInfo, 0)
 		for CNodeID, _ := range Edge.ConnectedEdge {
@@ -193,7 +197,7 @@ func GenNMCfg(NMCinfigPath string, printExample bool) (err error) {
 				PubKey:              edge_infos[CNodeID].PubKey,
 				PSKey:               pskdb.GetPSK(NodeID, CNodeID).ToString(),
 				EndPoint:            edge_infos[CNodeID].Endpoint,
-				PersistentKeepalive: Edge.PersistentKeepalive,
+				PersistentKeepalive: PersistentKeepalive,
 				Static:              true,
 			})
 		}

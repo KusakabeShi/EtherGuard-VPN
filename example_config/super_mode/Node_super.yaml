@@ -1,0 +1,55 @@
+NodeName: NodeSP
+PostScript: ""
+PrivKeyV4: 2P0mV5RkpFFyg+aLPK841sml5RobQGrxAV5ld4En9Kk=
+PrivKeyV6: 9JrdnAk1ljXUTn9VFb1uFyey20tQEQuzJJtVueM4vsw=
+ListenPort: 3456
+ListenPort_EdgeAPI: "3456"
+ListenPort_ManageAPI: "3456"
+API_Prefix: /eg_net/eg_api
+RePushConfigInterval: 30
+HttpPostInterval: 50
+PeerAliveTimeout: 70
+SendPingInterval: 15
+LogLevel:
+  LogLevel: normal
+  LogTransit: false
+  LogNormal: false
+  LogControl: true
+  LogInternal: true
+  LogNTP: true
+Passwords:
+  ShowState: passwd_showstate
+  AddPeer: passwd_addpeer
+  DelPeer: passwd_delpeer
+  UpdatePeer: passwd_updatepeer
+  UpdateSuper: passwd_updatesuper
+GraphRecalculateSetting:
+  StaticMode: false
+  ManualLatency: {}
+  JitterTolerance: 30
+  JitterToleranceMultiplier: 1.01
+  DampingResistance: 0.9
+  TimeoutCheckInterval: 5
+  RecalculateCoolDown: 5
+NextHopTable: {}
+EdgeTemplate: ""
+UsePSKForInterEdge: true
+Peers:
+- NodeID: 1
+  Name: Node001
+  PubKey: awnuKYQOgCywkJbHAynqMzKi5QEGsG0w4iBy2Ja1MDQ=
+  PSKey: j2f9Fhdhw2O2zLqUqfL5nTFStjVWPnEXpw7Iqz6VX9M=
+  AdditionalCost: 10
+  SkipLocalIP: false
+- NodeID: 2
+  Name: Node002
+  PubKey: WUyblc/DZzPNU5sOQQS2lS0aP53zFEVNjqCHjkhkdzE=
+  PSKey: iCw096jsW2aWyMwPyzVEvL8C3XXqMpB+jOeWqDC34uU=
+  AdditionalCost: 10
+  SkipLocalIP: false
+- NodeID: 100
+  Name: Node_100
+  PubKey: Bax6wOJpisSVJtrU92ujn8D/2oGUyhyPrKTXkHbGamM=
+  PSKey: Gfp2RkPNrKTeGKrCJNEvSyiBqYYRmzVnVG6CBuUKUNc=
+  AdditionalCost: 1000
+  SkipLocalIP: false

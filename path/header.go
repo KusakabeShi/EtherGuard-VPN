@@ -32,6 +32,64 @@ const (
 	BroadcastPeer
 )
 
+func (v Usage) IsNormal() bool {
+	return v == NormalPacket
+}
+
+func (v Usage) IsControl() bool {
+	switch v {
+	case Register:
+		return true
+	case ServerUpdate:
+		return true
+	case PingPacket:
+		return true
+	case PongPacket:
+		return true
+	case QueryPeer:
+		return true
+	case BroadcastPeer:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v Usage) IsControl_Super2Edge() bool {
+	switch v {
+	case ServerUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v Usage) IsControl_Edge2Super() bool {
+	switch v {
+	case Register:
+		return true
+	case PongPacket:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v Usage) IsControl_Edge2Edge() bool {
+	switch v {
+	case PingPacket:
+		return true
+	case PongPacket:
+		return true
+	case QueryPeer:
+		return true
+	case BroadcastPeer:
+		return true
+	default:
+		return false
+	}
+}
+
 func NewEgHeader(pac []byte) (e EgHeader, err error) {
 	if len(pac) != EgHeaderLen {
 		err = errors.New("invalid packet size")

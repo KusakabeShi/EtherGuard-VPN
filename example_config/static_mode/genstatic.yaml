@@ -1,6 +1,6 @@
 Config output dir: /tmp/eg_gen_static
-ConfigTemplate for edge node: "n1.yaml"
-Network name: "Node"
+ConfigTemplate for edge node: "" # "EgNet_edge1.yaml"
+Network name: "EgNet"
 Edge Node:
   MacAddress prefix: ""
   IPv4 range: 192.168.76.0/24
@@ -9,27 +9,21 @@ Edge Node:
 Edge Nodes:
   1:
     Endpoint(optional): 127.0.0.1:3001
-    PersistentKeepalive: 30
   2:
     Endpoint(optional): 127.0.0.1:3002
-    PersistentKeepalive: 30
   3:
     Endpoint(optional): 127.0.0.1:3003
-    PersistentKeepalive: 30
   4:
     Endpoint(optional): 127.0.0.1:3004
-    PersistentKeepalive: 30
   5:
     Endpoint(optional): 127.0.0.1:3005
-    PersistentKeepalive: 30
   6:
     Endpoint(optional): 127.0.0.1:3006
-    PersistentKeepalive: 30
 Distance matrix for all nodes: |-
   X 1   2   3   4   5   6
-  1 0   1   Inf Inf Inf Inf
-  2 1   0   1   1   Inf Inf
-  3 Inf 1   0   1   1   Inf
-  4 Inf 1   1   0   Inf 1  
-  5 Inf Inf 1   Inf 0   Inf
-  6 Inf Inf Inf 1   Inf 0
+  1 0   1.0 Inf Inf Inf Inf
+  2 1.0 0   1.0 1.0 Inf Inf
+  3 Inf 1.0 0   1   1.0 Inf
+  4 Inf 1.0 1.0 0   Inf 1.0
+  5 Inf Inf 1.0 Inf 1.0 Inf
+  6 Inf Inf Inf 1.0 Inf 1.0

@@ -100,10 +100,11 @@ func (tap *StdIOTap) Read(buf []byte, offset int) (int, error) {
 	}
 } // read a packet from the device (without any additional headers)
 func (tap *StdIOTap) Write(buf []byte, offset int) (size int, err error) {
-	packet := make([]byte, len(buf[offset:]))
-	copy(packet, buf[offset:])
+	packet := buf[offset:]
 	switch tap.L2mode {
 	case KeyboardDebug:
+		packet = make([]byte, len(buf[offset:]))
+		copy(packet, buf[offset:])
 		src := Mac2charForm(packet[6:12])
 		dst := Mac2charForm(packet[0:6])
 		packet[10] = dst

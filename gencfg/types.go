@@ -68,5 +68,4 @@ type edge_info struct {
 	ConnectedEdge       map[mtypes.Vertex]bool
 	PrivKey             string
 	PubKey              string
-	PersistentKeepalive uint32
 }

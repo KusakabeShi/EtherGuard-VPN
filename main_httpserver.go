@@ -684,7 +684,7 @@ func manage_peeradd(w http.ResponseWriter, r *http.Request) {
 
 func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	toUpdate := mtypes.NodeID_Boardcast
+	toUpdate := mtypes.NodeID_Broadcast
 
 	var err error
 	var NodeID mtypes.Vertex
@@ -856,7 +856,7 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 
 func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
-	toDelete := mtypes.NodeID_Boardcast
+	toDelete := mtypes.NodeID_Broadcast
 
 	var err error
 	var NodeID mtypes.Vertex
@@ -900,7 +900,7 @@ func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 				toDelete = peerinfo.NodeID
 			}
 		}
-		if toDelete == mtypes.NodeID_Boardcast {
+		if toDelete == mtypes.NodeID_Broadcast {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(fmt.Sprintf("Paramater PrivKey: \"%v\" not found", PubKey)))
 			return
