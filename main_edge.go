@@ -253,11 +253,16 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 			fmt.Printf("PostScript output: %s\n", string(out))
 		}
 	}
-	mtypes.SdNotify(false, mtypes.SdNotifyReady)
 
 	// wait for program to terminate
 	signal.Notify(term, syscall.SIGTERM)
 	signal.Notify(term, os.Interrupt)
+
+	mtypes.SdNotify(false, mtypes.SdNotifyReady)
+	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
+	if econfig.LogLevel.LogInternal {
+		fmt.Printf("Internal: SdNotify:%v err:%v", SdNotify, err)
+	}
 
 	select {
 	case <-term:
