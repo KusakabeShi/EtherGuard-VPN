@@ -471,8 +471,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		packet_type = elem.Type
 
 		packetlan = int(EgHeader.GetPacketLength() + path.EgHeaderLen)
-		if packetlan >= len(elem.packet) {
-			device.log.Errorf("received invalid packet content: %v S:%v D:%v From:%v IP:%v", base64.StdEncoding.EncodeToString([]byte(elem.packet)), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
+		if packetlan > len(elem.packet) {
+			if device.LogLevel.LogTransit {
+				fmt.Printf("Transit: invalid packet %v PL:%v RealPL:%v S:%v D:%v From:%v IP:%v\n", base64.StdEncoding.EncodeToString([]byte(elem.packet)), packetlan, len(elem.packet), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
+			}
 			goto skip
 		}
 		elem.packet = elem.packet[:packetlan] // EG header + true packet
