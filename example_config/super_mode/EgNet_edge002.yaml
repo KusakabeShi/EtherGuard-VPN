@@ -20,8 +20,8 @@ PrivKey: 2swvwMtyuOKd2HsrfSY1eEYKRjhS4dCr2Cwtj9or0us=
 ListenPort: 0
 LogLevel:
   LogLevel: error
-  LogTransit: false
-  LogNormal: false
+  LogTransit: true
+  LogNormal: true
   LogControl: true
   LogInternal: true
   LogNTP: true

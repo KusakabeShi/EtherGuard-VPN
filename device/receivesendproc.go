@@ -36,27 +36,28 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 	}
 	if usage == path.NormalPacket && len(packet)-path.EgHeaderLen <= 12 {
 		if device.LogLevel.LogNormal {
-			fmt.Println("Normal: Invalid packet: Ethernet packet too small")
+			fmt.Printf("Normal: Send Len:%v Invalid packet: Ethernet packet too small\n", len(packet))
 		}
 		return
 	}
 
 	if device.LogLevel.LogNormal {
-		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
+		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		if usage == path.NormalPacket && EgHeader.GetSrc() == device.ID {
 			dst_nodeID := EgHeader.GetDst()
 			packet_len := len(packet) - path.EgHeaderLen
-			fmt.Println("Normal: Send Normal packet To:" + peer.GetEndpointDstStr() + " SrcID:" + device.ID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(packet_len))
+			fmt.Printf("Normal: Send Len%v S:%v D:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
 			packet := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 			fmt.Println(packet.Dump())
 		}
 	}
 	if device.LogLevel.LogControl {
-		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen])
+		EgHeader, _ := path.NewEgHeader(packet[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		if usage != path.NormalPacket {
 			if peer.GetEndpointDstStr() != "" {
+				src_nodeID := EgHeader.GetSrc()
 				dst_nodeID := EgHeader.GetDst()
-				fmt.Printf("Control: Send D:%v %v To:%v\n", dst_nodeID.ToString(), device.sprint_received(usage, packet[path.EgHeaderLen:]), peer.GetEndpointDstStr())
+				fmt.Printf("Control: Send %v S:%v D:%v To:%v IP:%v\n", device.sprint_received(usage, packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
 			}
 		}
 	}
@@ -246,7 +247,7 @@ func (device *Device) GeneratePingPacket(src_nodeID mtypes.Vertex, request_reply
 		return nil, path.PingPacket, err
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
+	header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 	if err != nil {
 		return nil, path.PingPacket, err
 	}
@@ -305,7 +306,7 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.Regi
 			return err
 		}
 		buf := make([]byte, path.EgHeaderLen+len(body))
-		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		header.SetSrc(device.ID)
 		header.SetTTL(0)
 		header.SetPacketLength(uint16(len(body)))
@@ -348,7 +349,7 @@ func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 		return err
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 	header.SetSrc(device.ID)
 	header.SetTTL(device.EdgeConfig.DefaultTTL)
 	header.SetPacketLength(uint16(len(body)))
@@ -379,7 +380,7 @@ func (device *Device) process_pong(peer *Peer, content mtypes.PongMsg) error {
 				return err
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
-			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 			header.SetSrc(device.ID)
 			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetPacketLength(uint16(len(body)))
@@ -702,7 +703,7 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 				continue
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
-			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
+			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 			header.SetDst(mtypes.NodeID_AllPeer)
 			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetSrc(device.ID)
@@ -874,7 +875,7 @@ func (device *Device) RoutineRegister(startchan chan struct{}) {
 			HttpPostCount:       device.HttpPostCount,
 		})
 		buf := make([]byte, path.EgHeaderLen+len(body))
-		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen])
+		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		header.SetDst(mtypes.NodeID_SuperNode)
 		header.SetTTL(0)
 		header.SetSrc(device.ID)

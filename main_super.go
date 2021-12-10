@@ -333,7 +333,7 @@ func super_peerdel_notify(toDelete mtypes.Vertex, PubKey string) {
 	for i := 0; i < 10; i++ {
 		body, _ := mtypes.GetByte(&ServerUpdateMsg)
 		buf := make([]byte, path.EgHeaderLen+len(body))
-		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], 1416)
 		header.SetSrc(mtypes.NodeID_SuperNode)
 		header.SetTTL(0)
 		header.SetPacketLength(uint16(len(body)))
@@ -464,7 +464,7 @@ func PushNhTable(force bool) {
 		return
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], 1416)
 	header.SetDst(mtypes.NodeID_SuperNode)
 	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(mtypes.NodeID_SuperNode)
@@ -499,7 +499,7 @@ func PushPeerinfo(force bool) {
 		return
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
-	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], 1416)
 	header.SetDst(mtypes.NodeID_SuperNode)
 	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(mtypes.NodeID_SuperNode)
@@ -541,7 +541,7 @@ func PushServerParams(force bool) {
 				return
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
-			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen])
+			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], 1416)
 			header.SetDst(mtypes.NodeID_SuperNode)
 			header.SetPacketLength(uint16(len(body)))
 			header.SetSrc(mtypes.NodeID_SuperNode)

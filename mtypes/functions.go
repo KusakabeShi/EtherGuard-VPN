@@ -93,3 +93,10 @@ func ReadYaml(filePath string, out interface{}) (err error) {
 	err = yaml.Unmarshal(yamlFile, out)
 	return
 }
+
+func AbsInt(a int) int {
+	if a < 0 {
+		a *= -1
+	}
+	return a
+}

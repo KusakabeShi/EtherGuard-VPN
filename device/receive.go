@@ -7,6 +7,7 @@ package device
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -427,6 +428,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		should_process := false
 		should_receive := false
 		should_transfer := false
+		packetlan := 0
 		currentTime := time.Now()
 		storeTime := currentTime.Add(time.Second)
 		if currentTime.After((*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time))) {
@@ -463,24 +465,30 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			device.log.Errorf("Invalid EgHeader from peer %v", peer)
 			goto skip
 		}
-		EgHeader, _ = path.NewEgHeader(elem.packet[0:path.EgHeaderLen]) // EG header
+		EgHeader, _ = path.NewEgHeader(elem.packet[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU) // EG header
 		src_nodeID = EgHeader.GetSrc()
 		dst_nodeID = EgHeader.GetDst()
-		elem.packet = elem.packet[:EgHeader.GetPacketLength()+path.EgHeaderLen] // EG header + true packet
 		packet_type = elem.Type
+
+		packetlan = int(EgHeader.GetPacketLength() + path.EgHeaderLen)
+		if packetlan >= len(elem.packet) {
+			device.log.Errorf("received invalid packet content: %v S:%v D:%v From:%v IP:%v", base64.StdEncoding.EncodeToString([]byte(elem.packet)), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
+			goto skip
+		}
+		elem.packet = elem.packet[:packetlan] // EG header + true packet
 
 		if device.IsSuperNode {
 			if packet_type.IsControl_Edge2Super() {
 				should_process = true
 			} else {
-				device.log.Errorf("received unsupported packet_type %v from %v %v", packet_type, src_nodeID, peer.endpoint.DstToString())
+				device.log.Errorf("received unsupported packet_type %v S:%v From:%v IP:%v", packet_type, src_nodeID, peer.ID.ToString(), peer.endpoint.DstToString())
 				goto skip
 			}
 			switch dst_nodeID {
 			case mtypes.NodeID_SuperNode:
 				should_process = true
 			default:
-				device.log.Errorf("received invalid dst_nodeID %v from  %v %v", dst_nodeID, src_nodeID, peer.endpoint.DstToString())
+				device.log.Errorf("received invalid dst_nodeID: %v S:%v From:%v IP:%v", dst_nodeID, src_nodeID, peer.ID.ToString(), peer.endpoint.DstToString())
 				goto skip
 			}
 		} else {
@@ -515,7 +523,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					}
 
 				} else {
-					device.log.Errorf("received ServerUpdate packet from non supernode %v %v", src_nodeID, peer.endpoint.DstToString())
+					device.log.Errorf("received ServerUpdate packet from non supernode S:%v From:%v IP:%v", src_nodeID, peer.ID.ToString(), peer.endpoint.DstToString())
 					goto skip
 				}
 			}
@@ -530,7 +538,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_transfer = true
 				} else {
 					if device.LogLevel.LogTransit {
-						fmt.Printf("Transit: Duplicate packet received from %d through %d , src_nodeID = %d . Dropped.\n", peer.ID, device.ID, src_nodeID)
+						fmt.Printf("Transit: Duplicate packet dropped. From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
 					}
 					goto skip
 				}
@@ -569,7 +577,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						peer_out = device.peers.IDMap[next_id]
 						device.peers.RUnlock()
 						if device.LogLevel.LogTransit {
-							fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", peer.ID, device.ID, peer_out.ID)
+							fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
 						}
 						go device.SendPacket(peer_out, elem.Type, elem.packet, MessageTransportOffsetContent)
 					}
@@ -581,7 +589,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NormalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Printf("Control: Received S:%v D:%v %v From:%v\n", src_nodeID.ToString(), dst_nodeID.ToString(), device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]), peer.ID.ToString())
+						fmt.Printf("Control: Recv %v S:%v D:%v From:%v IP:%v\n", device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])
@@ -599,7 +607,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				}
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
-					fmt.Println("Normal: Reveived Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(packet_len))
+					fmt.Println("Normal: Recv Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(packet_len))
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}

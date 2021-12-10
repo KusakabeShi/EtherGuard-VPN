@@ -334,7 +334,7 @@ func getIFIndex(name string) (ret int32, err error) {
 	return *(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])), nil
 }
 
-func (tap *NativeTap) setMTU(n int) (err error) {
+func (tap *NativeTap) setMTU(n uint16) (err error) {
 	name, err := tap.Name()
 	if err != nil {
 		return err

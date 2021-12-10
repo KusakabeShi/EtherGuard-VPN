@@ -90,7 +90,7 @@ func (v Usage) IsControl_Edge2Edge() bool {
 	}
 }
 
-func NewEgHeader(pac []byte) (e EgHeader, err error) {
+func NewEgHeader(pac []byte, mtu uint16) (e EgHeader, err error) {
 	if len(pac) != EgHeaderLen {
 		err = errors.New("invalid packet size")
 		return
@@ -120,8 +120,9 @@ func (e EgHeader) SetTTL(ttl uint8) {
 	e.buf[4] = ttl
 }
 
-func (e EgHeader) GetPacketLength() uint16 {
-	return binary.BigEndian.Uint16(e.buf[5:7])
+func (e EgHeader) GetPacketLength() (ret uint16) {
+	ret = binary.BigEndian.Uint16(e.buf[5:7])
+	return
 }
 func (e EgHeader) SetPacketLength(length uint16) {
 	binary.BigEndian.PutUint16(e.buf[5:7], length)

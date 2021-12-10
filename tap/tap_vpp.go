@@ -133,7 +133,7 @@ func CreateVppTAP(iconfig mtypes.InterfaceConf, NodeID mtypes.Vertex, loglevel s
 
 	tap := &VppTap{
 		name:          iconfig.Name,
-		mtu:           iconfig.MTU,
+		mtu:           int(iconfig.MTU),
 		ifuid:         iconfig.VPPIFaceID,
 		SwIfIndex:     0,
 		memifSockPath: path.Join(vppMemifSocketDir, iconfig.Name+".sock"),

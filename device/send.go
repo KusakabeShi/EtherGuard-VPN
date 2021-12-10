@@ -251,7 +251,7 @@ func (device *Device) RoutineReadFromTUN() {
 		//add custom header dst_node, src_node, ttl
 		size += path.EgHeaderLen
 		elem.packet = elem.buffer[offset : offset+size]
-		EgBody, _ := path.NewEgHeader(elem.packet[0:path.EgHeaderLen])
+		EgBody, _ := path.NewEgHeader(elem.packet[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		dst_nodeID := EgBody.GetDst()
 		dstMacAddr := tap.GetDstMacAddr(elem.packet[path.EgHeaderLen:])
 		// lookup peer

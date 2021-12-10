@@ -2,8 +2,8 @@ git.fd.io/govpp.git v0.3.6-0.20210927044411-385ccc0d8ba9 h1:QFHVGWCWf6e226vMy1zU
 git.fd.io/govpp.git v0.3.6-0.20210927044411-385ccc0d8ba9/go.mod h1:OCVd4W8SH+666KRQoMj6PM+oipLDZAHhqMz9B1TGbgI=
 git.fd.io/govpp.git/extras v0.0.0-20211129071605-0a0c03d45954 h1:F4tLgA7dY1lY1GQ6D7dMiLie39FV6QXinM7BU9cRENY=
 git.fd.io/govpp.git/extras v0.0.0-20211129071605-0a0c03d45954/go.mod h1:GhryuN3x7qZ/wYLlEiPUVi6glJvh5S5V6E+XASV4774=
-github.com/KusakabeSi/go-cache v0.0.0-20210823132304-22b5b1d22b41 h1:o6o1+n8vqD/Qsxw26x7aLH6QQzPGGmQdKQqQRpkA/ac=
-github.com/KusakabeSi/go-cache v0.0.0-20210823132304-22b5b1d22b41/go.mod h1:u+fcGXuY9eUnv1Lw58RgBJcfNxv8rT2jHNI3tdDUHp0=
+github.com/KusakabeSi/go-cache v0.0.0-20211210164531-8ee1215c700a h1:5OUSCHnmA6F0QtzSl8Am/QDBI9d16pidq6SbHiPO69U=
+github.com/KusakabeSi/go-cache v0.0.0-20211210164531-8ee1215c700a/go.mod h1:u+fcGXuY9eUnv1Lw58RgBJcfNxv8rT2jHNI3tdDUHp0=
 github.com/beevik/ntp v0.3.0 h1:xzVrPrE4ziasFXgBVBZJDP0Wg/KpMwk2KHJ4Ba8GrDw=
 github.com/beevik/ntp v0.3.0/go.mod h1:hIHWr+l3+/clUnF44zdK+CWW7fO8dR5cIylAQ76NRpg=
 github.com/bennyscetbun/jsongo v1.1.0/go.mod h1:suxbVmjBV8+A2BBAM5EYVh6Uj8j3rqJhzWf3hv7Ff8U=

@@ -73,7 +73,7 @@ type InterfaceConf struct {
 	IPv4CIDR      string `yaml:"IPv4CIDR"`
 	IPv6CIDR      string `yaml:"IPv6CIDR"`
 	IPv6LLPrefix  string `yaml:"IPv6LLPrefix"`
-	MTU           int    `yaml:"MTU"`
+	MTU           uint16 `yaml:"MTU"`
 	RecvAddr      string `yaml:"RecvAddr"`
 	SendAddr      string `yaml:"SendAddr"`
 	L2HeaderMode  string `yaml:"L2HeaderMode"`
