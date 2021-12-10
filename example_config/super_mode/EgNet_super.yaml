@@ -19,11 +19,11 @@ LogLevel:
   LogInternal: true
   LogNTP: true
 Passwords:
-  ShowState: zOWP0T9O_showstate
-  AddPeer: zOWP0T9O_addpeer
-  DelPeer: zOWP0T9O_delpeer
-  UpdatePeer: zOWP0T9O_updatepeer
-  UpdateSuper: zOWP0T9O_updatesuper
+  ShowState: passwd_showstate
+  AddPeer: passwd_addpeer
+  DelPeer: passwd_delpeer
+  UpdatePeer: passwd_updatepeer
+  UpdateSuper: passwd_updatesuper
 GraphRecalculateSetting:
   StaticMode: false
   ManualLatency: {}

@@ -276,7 +276,7 @@ curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?PrivKey=iquaLyD%2BYLzW
 ### peer/update
 更新節點的一些參數
 ```bash
-curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/peer/update?Password=e05znou1_updatepeer&NodeID=1" \
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/update?Password=passwd_updatepeer&NodeID=1" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "AdditionalCost=10&SkipLocalIP=false"
 ```
@@ -284,9 +284,9 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/peer/update?Pass
 ### super/update
 更新SuperNode的一些參數
 ```bash
-curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/eg_api/manage/super/update?Password=e05znou1_updatesuper" \
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/super/update?Password=passwd_updatesuper" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70DampingResistance=0.9"
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingResistance=0.9"
 ```
 
 ### SuperNode Config Parameter

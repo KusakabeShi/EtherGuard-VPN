@@ -22,7 +22,7 @@
             "program": "${workspaceFolder}",
             "buildFlags": "-tags 'novpp'",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
-            "args":["-config","example_config/p2p_mode/EgNet_edge1.yaml","-mode","edge"/*,"-example"*/],
+            "args":["-config","example_config/super_mode/EgNet_edge001.yaml","-mode","edge"/*,"-example"*/],
         },
         {
             "name": "Launch GenCfg",
