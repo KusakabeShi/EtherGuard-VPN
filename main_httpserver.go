@@ -939,7 +939,7 @@ func manage_peerdel(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("NodeID: " + toDelete.ToString() + " deleted."))
 }
 
-func HttpServer(edgeListen string, manageListen string, apiprefix string) (err error) {
+func HttpServer(edgeListen string, manageListen string, apiprefix string, errchan chan error) {
 	if len(apiprefix) > 0 && apiprefix[0] != '/' {
 		apiprefix = "/" + apiprefix
 	}
@@ -960,7 +960,13 @@ func HttpServer(edgeListen string, manageListen string, apiprefix string) (err e
 		mux.HandleFunc(apiprefix+"/manage/peer/update", manage_peerupdate)
 		mux.HandleFunc(apiprefix+"/manage/super/state", manage_get_peerstate)
 		mux.HandleFunc(apiprefix+"/manage/super/update", manage_superupdate)
-		err = http.ListenAndServe(edgeListen, mux)
+
+		go func() {
+			err := http.ListenAndServe(edgeListen, mux)
+			if err != nil {
+				errchan <- err
+			}
+		}()
 		return
 	} else {
 		edgemux := http.NewServeMux()
@@ -974,14 +980,22 @@ func HttpServer(edgeListen string, manageListen string, apiprefix string) (err e
 		managemux.HandleFunc(apiprefix+"/manage/peer/update", manage_peerupdate)
 		managemux.HandleFunc(apiprefix+"/manage/super/state", manage_get_peerstate)
 		managemux.HandleFunc(apiprefix+"/manage/super/update", manage_superupdate)
-		err = http.ListenAndServe(edgeListen, edgemux)
-		if err != nil {
-			return
-		}
+
+		go func() {
+			err := http.ListenAndServe(edgeListen, edgemux)
+			if err != nil {
+				errchan <- err
+			}
+		}()
+
 		if manageListen != "" {
-			err = http.ListenAndServe(manageListen, managemux)
+			go func() {
+				err := http.ListenAndServe(manageListen, managemux)
+				if err != nil {
+					errchan <- err
+				}
+			}()
 		}
-		return
 	}
 
 }

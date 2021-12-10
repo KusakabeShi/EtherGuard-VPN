@@ -204,10 +204,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 	go Event_server_event_hendler(httpobj.http_graph, httpobj.http_super_chains)
 	go RoutinePushSettings(mtypes.S2TD(sconfig.RePushConfigInterval))
 	go RoutineTimeoutCheck()
-	err = HttpServer(sconfig.ListenPort_EdgeAPI, sconfig.ListenPort_ManageAPI, sconfig.API_Prefix)
-	if err != nil {
-		return err
-	}
+	HttpServer(sconfig.ListenPort_EdgeAPI, sconfig.ListenPort_ManageAPI, sconfig.API_Prefix, errs)
 
 	if sconfig.PostScript != "" {
 		envs := make(map[string]string)
