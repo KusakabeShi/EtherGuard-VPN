@@ -12,7 +12,7 @@ import (
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
 )
 
-const DefaultMTU = 1420
+const DefaultMTU = 1416
 
 func (device *Device) RoutineTUNEventReader() {
 	device.log.Verbosef("Routine: event worker - started")

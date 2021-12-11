@@ -356,7 +356,7 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.SuperConfigPath = configpath
 		device.SuperConfig = sconfig
 		device.EdgeConfig = &mtypes.EdgeConfig{}
-		device.EdgeConfig.Interface.MTU = 1416
+		device.EdgeConfig.Interface.MTU = DefaultMTU
 		device.Chan_server_pong = superevents.Event_server_pong
 		device.Chan_server_register = superevents.Event_server_register
 		device.LogLevel = sconfig.LogLevel

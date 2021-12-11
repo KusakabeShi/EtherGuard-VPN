@@ -250,9 +250,12 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool,
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
 	// map public key
-	_, ok := device.peers.keyMap[pk]
+	oldpeer, ok := device.peers.keyMap[pk]
 	if ok {
-		return nil, fmt.Errorf("adding existing peer pubkey: %v", pk.ToString())
+		if oldpeer.ID != id {
+			oldpeer = nil
+		}
+		return oldpeer, fmt.Errorf("adding existing peer pubkey: %v", pk.ToString())
 	}
 	_, ok = device.peers.IDMap[id]
 	if ok {
