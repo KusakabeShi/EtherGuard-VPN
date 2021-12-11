@@ -482,8 +482,11 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error
 				if device.graph.Weight(peerinfo.NodeID, device.ID, false) == mtypes.Infinity { // add node to graph
 					device.graph.UpdateLatency(peerinfo.NodeID, device.ID, mtypes.Infinity, 0, device.EdgeConfig.DynamicRoute.AdditionalCost, true, false)
 				}
-				device.NewPeer(sk, peerinfo.NodeID, false, 0)
-				thepeer = device.LookupPeer(sk)
+				thepeer, err = device.NewPeer(sk, peerinfo.NodeID, false, 0)
+				if err != nil {
+					device.log.Errorf("Failed to create peer with ID:%v PunKey:%v :%v", peerinfo.NodeID.ToString(), PubKey, err)
+					continue
+				}
 			}
 			if peerinfo.PSKey != "" {
 				pk, err := Str2PSKey(peerinfo.PSKey)

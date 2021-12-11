@@ -215,7 +215,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 			return fmt.Errorf("error parse PostScript %v", err)
 		}
 		if sconfig.LogLevel.LogInternal {
-			fmt.Printf("PostScript: exec.Command(%v)", cmdarg)
+			fmt.Printf("PostScript: exec.Command(%v)\n", cmdarg)
 		}
 		cmd := exec.Command(cmdarg[0], cmdarg[1:]...)
 		out, err := cmd.CombinedOutput()
@@ -229,7 +229,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 
 	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	if sconfig.LogLevel.LogInternal {
-		fmt.Printf("Internal: SdNotify:%v err:%v", SdNotify, err)
+		fmt.Printf("Internal: SdNotify:%v err:%v\n", SdNotify, err)
 	}
 
 	signal.Notify(term, syscall.SIGTERM)

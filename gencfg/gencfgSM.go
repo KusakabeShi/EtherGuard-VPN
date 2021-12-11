@@ -261,8 +261,12 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		idstr := fmt.Sprintf("%0"+strconv.Itoa(len(strconv.Itoa(ModeIDmax)))+"d", i)
 
 		allec[i] = peerceconf
-		peerceconf.DynamicRoute.SuperNode.EndpointV4 = EndpointV4 + ":" + ListenPort
-		peerceconf.DynamicRoute.SuperNode.EndpointV6 = EndpointV6 + ":" + ListenPort
+		if EndpointV4 != "" {
+			peerceconf.DynamicRoute.SuperNode.EndpointV4 = EndpointV4 + ":" + ListenPort
+		}
+		if EndpointV6 != "" {
+			peerceconf.DynamicRoute.SuperNode.EndpointV6 = EndpointV6 + ":" + ListenPort
+		}
 		peerceconf.DynamicRoute.SuperNode.EndpointEdgeAPIUrl = EndpointEdgeAPIUrl
 		peerceconf.Interface.MacAddrPrefix = MacPrefix
 		peerceconf.Interface.IPv4CIDR = IPv4Block

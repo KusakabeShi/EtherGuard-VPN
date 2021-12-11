@@ -261,7 +261,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	if econfig.LogLevel.LogInternal {
-		fmt.Printf("Internal: SdNotify:%v err:%v", SdNotify, err)
+		fmt.Printf("Internal: SdNotify:%v err:%v\n", SdNotify, err)
 	}
 
 	select {

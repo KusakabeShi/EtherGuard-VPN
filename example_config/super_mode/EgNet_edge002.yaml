@@ -39,7 +39,7 @@ DynamicRoute:
     PSKey: Ye1vd4P8vZWCLmuhYq8yiu1ziB84AGwuO+/cexQObqc=
     EndpointV4: 127.0.0.1:3456
     PubKeyV4: 10CPQrpXKqXxnjtpdxDwnYqLglnuRnCFsiSAjxMrMTc=
-    EndpointV6: :3456
+    EndpointV6: ""
     PubKeyV6: KhpV1fJ+jtNT6S5wKUZJbb0oFlDNMS5qxO0f5Ow/QQU=
     EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false

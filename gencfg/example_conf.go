@@ -156,6 +156,8 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
 		econfig.Peers = []mtypes.PeerInfo{}
 		econfig.NextHopTable = make(mtypes.NextHopTable)
 		econfig.DynamicRoute.P2P.GraphRecalculateSetting.ManualLatency = make(mtypes.DistTable)
+		econfig.DynamicRoute.SuperNode.EndpointV4 = ""
+		econfig.DynamicRoute.SuperNode.EndpointV6 = ""
 	}
 	return econfig
 }
