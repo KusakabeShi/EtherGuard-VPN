@@ -7,7 +7,7 @@ import (
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
-const EgHeaderLen =4
+const EgHeaderLen = 4
 
 type EgHeader struct {
 	buf []byte
@@ -31,6 +31,42 @@ const (
 	QueryPeer
 	BroadcastPeer
 )
+
+func (v Usage) IsValid_EgType() bool {
+	if v >= NormalPacket && v <= BroadcastPeer {
+		return true
+	}
+	return false
+}
+
+func (v Usage) ToString() string {
+	switch v {
+	case MessageInitiationType:
+		return "MessageInitiationType"
+	case MessageResponseType:
+		return "MessageResponseType"
+	case MessageCookieReplyType:
+		return "MessageCookieReplyType"
+	case MessageTransportType:
+		return "MessageTransportType"
+	case NormalPacket:
+		return "NormalPacket"
+	case Register:
+		return "Register"
+	case ServerUpdate:
+		return "ServerUpdate"
+	case PingPacket:
+		return "PingPacket"
+	case PongPacket:
+		return "PongPacket"
+	case QueryPeer:
+		return "QueryPeer"
+	case BroadcastPeer:
+		return "BroadcastPeer"
+	default:
+		return "Unknown:" + string(uint8(v))
+	}
+}
 
 func (v Usage) IsNormal() bool {
 	return v == NormalPacket

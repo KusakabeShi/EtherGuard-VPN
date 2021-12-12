@@ -7,6 +7,7 @@ package device
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -470,7 +471,12 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		src_nodeID = EgHeader.GetSrc()
 		dst_nodeID = EgHeader.GetDst()
 		packet_type = elem.Type
-
+		if !packet_type.IsValid_EgType() {
+			if device.LogLevel.LogTransit {
+				fmt.Printf("Transit: Invalid packet usage:%v ttl:%v, content %v PL:%v S:%v D:%v From:%v IP:%v\n", elem.Type.ToString(), elem.TTL, base64.StdEncoding.EncodeToString([]byte(elem.packet)), len(elem.packet), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
+			}
+			goto skip
+		}
 		if device.IsSuperNode {
 			if packet_type.IsControl_Edge2Super() {
 				should_process = true
@@ -574,6 +580,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 							fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
 						}
 						go device.SendPacket(peer_out, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
+					} else {
+						if device.LogLevel.LogTransit {
+							fmt.Printf("Transit: No route to %v,usage:%v ttl:%v, content %v PL:%v S:%v D:%v From:%v IP:%v\n", dst_nodeID.ToString(), elem.Type.ToString(), elem.TTL, base64.StdEncoding.EncodeToString([]byte(elem.packet)), len(elem.packet), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
+						}
 					}
 				}
 			}

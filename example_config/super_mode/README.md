@@ -9,7 +9,7 @@ The SuperNode runs [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floy
 
 ## Quick start
 
-首先按需求修改`gensuper.yaml`
+Edit the file `gensuper.yaml` based on your requirement first.
 
 ```yaml
 Config output dir: /tmp/eg_gen
