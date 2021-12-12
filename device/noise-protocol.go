@@ -57,16 +57,16 @@ const (
 	MessageInitiationSize      = 145                                           // size of handshake initiation message
 	MessageResponseSize        = 89                                            // size of response message
 	MessageCookieReplySize     = 61                                            // size of cookie reply message
-	MessageTransportHeaderSize = 13                                            // size of data preceding content in transport message
+	MessageTransportHeaderSize = 14                                            // size of data preceding content in transport message
 	MessageTransportSize       = MessageTransportHeaderSize + poly1305.TagSize // size of empty transport
 	MessageKeepaliveSize       = MessageTransportSize                          // size of keepalive
 	MessageHandshakeSize       = MessageInitiationSize                         // size of largest handshake related message
 )
 
 const (
-	MessageTransportOffsetReceiver = 1
-	MessageTransportOffsetCounter  = 5
-	MessageTransportOffsetContent  = 13
+	MessageTransportOffsetReceiver = 2
+	MessageTransportOffsetCounter  = 6
+	MessageTransportOffsetContent  = 14
 )
 
 /* Type is an 8-bit field, followed by 3 nul bytes,

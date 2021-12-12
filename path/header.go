@@ -7,7 +7,7 @@ import (
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 )
 
-const EgHeaderLen = 7
+const EgHeaderLen =4
 
 type EgHeader struct {
 	buf []byte
@@ -111,19 +111,4 @@ func (e EgHeader) GetSrc() mtypes.Vertex {
 }
 func (e EgHeader) SetSrc(node_ID mtypes.Vertex) {
 	binary.BigEndian.PutUint16(e.buf[2:4], uint16(node_ID))
-}
-
-func (e EgHeader) GetTTL() uint8 {
-	return e.buf[4]
-}
-func (e EgHeader) SetTTL(ttl uint8) {
-	e.buf[4] = ttl
-}
-
-func (e EgHeader) GetPacketLength() (ret uint16) {
-	ret = binary.BigEndian.Uint16(e.buf[5:7])
-	return
-}
-func (e EgHeader) SetPacketLength(length uint16) {
-	binary.BigEndian.PutUint16(e.buf[5:7], length)
 }

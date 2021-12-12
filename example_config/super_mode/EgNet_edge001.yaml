@@ -7,7 +7,7 @@ Interface:
   IPv4CIDR: 192.168.76.0/24
   IPv6CIDR: fd95:71cb:a3df:e586::/64
   IPv6LLPrefix: fe80::a3df:0/112
-  MTU: 1402
+  MTU: 1404
   RecvAddr: 127.0.0.1:4001
   SendAddr: 127.0.0.1:5001
   L2HeaderMode: kbdbg
@@ -19,7 +19,7 @@ L2FIBTimeout: 3600
 PrivKey: 12CRJpzWOTRQDOdtROtwwWb68B4HHjSbrS1WySAkWYI=
 ListenPort: 0
 LogLevel:
-  LogLevel: error
+  LogLevel: verbose
   LogTransit: true
   LogNormal: true
   LogControl: true

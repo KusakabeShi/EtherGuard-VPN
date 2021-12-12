@@ -336,16 +336,14 @@ func super_peerdel_notify(toDelete mtypes.Vertex, PubKey string) {
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.DefaultMTU)
 		header.SetSrc(mtypes.NodeID_SuperNode)
-		header.SetTTL(0)
-		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
 		header.SetDst(toDelete)
 
 		peer4 := httpobj.http_device4.LookupPeerByStr(PubKey)
-		httpobj.http_device4.SendPacket(peer4, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+		httpobj.http_device4.SendPacket(peer4, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 
 		peer6 := httpobj.http_device6.LookupPeerByStr(PubKey)
-		httpobj.http_device6.SendPacket(peer6, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+		httpobj.http_device6.SendPacket(peer6, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 		time.Sleep(mtypes.S2TD(0.1))
 	}
 	httpobj.http_device4.RemovePeerByID(toDelete)
@@ -467,9 +465,7 @@ func PushNhTable(force bool) {
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.DefaultMTU)
 	header.SetDst(mtypes.NodeID_SuperNode)
-	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(mtypes.NodeID_SuperNode)
-	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
@@ -478,10 +474,10 @@ func PushNhTable(force bool) {
 		}
 		if force || peerstate.NhTableState.Load().(string) != httpobj.http_NhTable_Hash {
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil && peer.GetEndpointDstStr() != "" {
-				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}
@@ -502,9 +498,7 @@ func PushPeerinfo(force bool) {
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.DefaultMTU)
 	header.SetDst(mtypes.NodeID_SuperNode)
-	header.SetPacketLength(uint16(len(body)))
 	header.SetSrc(mtypes.NodeID_SuperNode)
-	header.SetTTL(0)
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
@@ -513,10 +507,10 @@ func PushPeerinfo(force bool) {
 		}
 		if force || peerstate.PeerInfoState.Load().(string) != httpobj.http_PeerInfo_hash {
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}
@@ -544,16 +538,14 @@ func PushServerParams(force bool) {
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.DefaultMTU)
 			header.SetDst(mtypes.NodeID_SuperNode)
-			header.SetPacketLength(uint16(len(body)))
 			header.SetSrc(mtypes.NodeID_SuperNode)
-			header.SetTTL(0)
 			copy(buf[path.EgHeaderLen:], body)
 
 			if peer := httpobj.http_device4.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device4.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 			if peer := httpobj.http_device6.LookupPeerByStr(pkstr); peer != nil {
-				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, buf, device.MessageTransportOffsetContent)
+				httpobj.http_device6.SendPacket(peer, path.ServerUpdate, 0, buf, device.MessageTransportOffsetContent)
 			}
 		}
 	}

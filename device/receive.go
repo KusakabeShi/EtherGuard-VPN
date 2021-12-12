@@ -7,7 +7,6 @@ package device
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -36,6 +35,7 @@ type QueueHandshakeElement struct {
 
 type QueueInboundElement struct {
 	Type path.Usage
+	TTL  uint8
 	sync.Mutex
 	buffer   *[MaxMessageSize]byte
 	packet   []byte
@@ -127,6 +127,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 
 		packet := buffer[:size]
 		msgType := path.Usage(packet[0])
+		msgTTL := uint8(packet[1])
 		msgType_wg := msgType
 		if msgType >= path.MessageTransportType {
 			msgType_wg = path.MessageTransportType
@@ -167,6 +168,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 			peer := value.peer
 			elem := device.GetInboundElement()
 			elem.Type = msgType
+			elem.TTL = msgTTL
 			elem.packet = packet
 			elem.buffer = buffer
 			elem.keypair = keypair
@@ -428,7 +430,6 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		should_process := false
 		should_receive := false
 		should_transfer := false
-		packetlan := 0
 		currentTime := time.Now()
 		storeTime := currentTime.Add(time.Second)
 		if currentTime.After((*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time))) {
@@ -469,15 +470,6 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		src_nodeID = EgHeader.GetSrc()
 		dst_nodeID = EgHeader.GetDst()
 		packet_type = elem.Type
-
-		packetlan = int(EgHeader.GetPacketLength() + path.EgHeaderLen)
-		if packetlan > len(elem.packet) {
-			if device.LogLevel.LogTransit {
-				fmt.Printf("Transit: invalid packet %v PL:%v RealPL:%v S:%v D:%v From:%v IP:%v\n", base64.StdEncoding.EncodeToString([]byte(elem.packet)), packetlan, len(elem.packet), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.endpoint.DstToString())
-			}
-			goto skip
-		}
-		elem.packet = elem.packet[:packetlan] // EG header + true packet
 
 		if device.IsSuperNode {
 			if packet_type.IsControl_Edge2Super() {
@@ -559,18 +551,18 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 		}
 		if should_transfer {
-			l2ttl := EgHeader.GetTTL()
+			l2ttl := elem.TTL
 			if l2ttl == 0 {
 				device.log.Verbosef("TTL is 0 %v", dst_nodeID)
 			} else {
-				EgHeader.SetTTL(l2ttl - 1)
+				l2ttl = l2ttl - 1
 				if dst_nodeID == mtypes.NodeID_Broadcast { //Regular transfer algorithm
-					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
+					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == mtypes.NodeID_Spread { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[mtypes.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
-					device.SpreadPacket(skip_list, elem.Type, elem.packet, MessageTransportOffsetContent)
+					device.SpreadPacket(skip_list, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 
 				} else {
 					next_id := device.graph.Next(device.ID, dst_nodeID)
@@ -581,7 +573,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						if device.LogLevel.LogTransit {
 							fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
 						}
-						go device.SendPacket(peer_out, elem.Type, elem.packet, MessageTransportOffsetContent)
+						go device.SendPacket(peer_out, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 					}
 				}
 			}

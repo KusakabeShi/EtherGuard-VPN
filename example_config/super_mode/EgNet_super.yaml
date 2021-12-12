@@ -12,7 +12,7 @@ PeerAliveTimeout: 70
 SendPingInterval: 15
 DampingResistance: 0.9
 LogLevel:
-  LogLevel: normal
+  LogLevel: verbose
   LogTransit: false
   LogNormal: false
   LogControl: true

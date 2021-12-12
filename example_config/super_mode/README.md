@@ -306,7 +306,7 @@ interface:
   vppifaceid: 1
   vppbridgeid: 4242
   macaddrprefix: AA:BB:CC:DD
-  mtu: 1402
+  mtu: 1404
   recvaddr: 127.0.0.1:4001
   sendaddr: 127.0.0.1:5001
   l2headermode: kbdbg

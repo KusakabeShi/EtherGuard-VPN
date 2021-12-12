@@ -28,7 +28,7 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
-func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, offset int) {
+func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet []byte, offset int) {
 	if peer == nil {
 		return
 	} else if peer.endpoint == nil {
@@ -66,6 +66,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 	elem = device.NewOutboundElement()
 	copy(elem.buffer[offset:offset+len(packet)], packet)
 	elem.Type = usage
+	elem.TTL = ttl
 	elem.packet = elem.buffer[offset : offset+len(packet)]
 	if peer.isRunning.Get() {
 		peer.StagePacket(elem)
@@ -74,7 +75,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 	}
 }
 
-func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage path.Usage, packet []byte, offset int) { // Send packet to all connected peers
+func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage path.Usage, ttl uint8, packet []byte, offset int) { // Send packet to all connected peers
 	send_list := device.graph.GetBoardcastList(device.ID)
 	for node_id := range skip_list {
 		send_list[node_id] = false
@@ -83,13 +84,13 @@ func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage pa
 	for node_id, should_send := range send_list {
 		if should_send {
 			peer_out := device.peers.IDMap[node_id]
-			go device.SendPacket(peer_out, usage, packet, offset)
+			go device.SendPacket(peer_out, usage, ttl, packet, offset)
 		}
 	}
 	device.peers.RUnlock()
 }
 
-func (device *Device) SpreadPacket(skip_list map[mtypes.Vertex]bool, usage path.Usage, packet []byte, offset int) { // Send packet to all peers no matter it is alive
+func (device *Device) SpreadPacket(skip_list map[mtypes.Vertex]bool, usage path.Usage, ttl uint8, packet []byte, offset int) { // Send packet to all peers no matter it is alive
 	device.peers.RLock()
 	for peer_id, peer_out := range device.peers.IDMap {
 		if _, ok := skip_list[peer_id]; ok {
@@ -98,12 +99,12 @@ func (device *Device) SpreadPacket(skip_list map[mtypes.Vertex]bool, usage path.
 			}
 			continue
 		}
-		go device.SendPacket(peer_out, usage, packet, MessageTransportOffsetContent)
+		go device.SendPacket(peer_out, usage, ttl, packet, offset)
 	}
 	device.peers.RUnlock()
 }
 
-func (device *Device) TransitBoardcastPacket(src_nodeID mtypes.Vertex, in_id mtypes.Vertex, usage path.Usage, packet []byte, offset int) {
+func (device *Device) TransitBoardcastPacket(src_nodeID mtypes.Vertex, in_id mtypes.Vertex, usage path.Usage, ttl uint8, packet []byte, offset int) {
 	node_boardcast_list, errs := device.graph.GetBoardcastThroughList(device.ID, in_id, src_nodeID)
 	if device.LogLevel.LogControl {
 		for _, err := range errs {
@@ -116,19 +117,19 @@ func (device *Device) TransitBoardcastPacket(src_nodeID mtypes.Vertex, in_id mty
 		if device.LogLevel.LogTransit {
 			fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
 		}
-		go device.SendPacket(peer_out, usage, packet, offset)
+		go device.SendPacket(peer_out, usage, ttl, packet, offset)
 	}
 	device.peers.RUnlock()
 }
 
-func (device *Device) Send2Super(usage path.Usage, packet []byte, offset int) {
+func (device *Device) Send2Super(usage path.Usage, ttl uint8, packet []byte, offset int) {
 	device.peers.RLock()
 	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
 		for _, peer_out := range device.peers.SuperPeer {
 			/*if device.LogTransit {
 				fmt.Printf("Send to supernode %s\n", peer_out.endpoint.DstToString())
 			}*/
-			go device.SendPacket(peer_out, usage, packet, offset)
+			go device.SendPacket(peer_out, usage, ttl, packet, offset)
 		}
 	}
 	device.peers.RUnlock()
@@ -237,32 +238,30 @@ func (device *Device) sprint_received(msg_type path.Usage, body []byte) string {
 	}
 }
 
-func (device *Device) GeneratePingPacket(src_nodeID mtypes.Vertex, request_reply int) ([]byte, path.Usage, error) {
+func (device *Device) GeneratePingPacket(src_nodeID mtypes.Vertex, request_reply int) ([]byte, path.Usage, uint8, error) {
 	body, err := mtypes.GetByte(&mtypes.PingMsg{
 		Src_nodeID:   src_nodeID,
 		Time:         device.graph.GetCurrentTime(),
 		RequestReply: request_reply,
 	})
 	if err != nil {
-		return nil, path.PingPacket, err
+		return nil, path.PingPacket, 0, err
 	}
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 	if err != nil {
-		return nil, path.PingPacket, err
+		return nil, path.PingPacket, 0, err
 	}
 	header.SetDst(mtypes.NodeID_Spread)
-	header.SetTTL(0)
 	header.SetSrc(device.ID)
-	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
-	return buf, path.PingPacket, nil
+	return buf, path.PingPacket, 0, nil
 }
 
 func (device *Device) SendPing(peer *Peer, times int, replies int, interval float64) {
 	for i := 0; i < times; i++ {
-		packet, usage, _ := device.GeneratePingPacket(device.ID, replies)
-		device.SendPacket(peer, usage, packet, MessageTransportOffsetContent)
+		packet, usage, ttl, _ := device.GeneratePingPacket(device.ID, replies)
+		device.SendPacket(peer, usage, ttl, packet, MessageTransportOffsetContent)
 		time.Sleep(mtypes.S2TD(interval))
 	}
 }
@@ -308,11 +307,9 @@ func (device *Device) server_process_RegisterMsg(peer *Peer, content mtypes.Regi
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		header.SetSrc(device.ID)
-		header.SetTTL(0)
-		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
 		header.SetDst(mtypes.NodeID_SuperNode)
-		device.SendPacket(peer, path.ServerUpdate, buf, MessageTransportOffsetContent)
+		device.SendPacket(peer, path.ServerUpdate, 0, buf, MessageTransportOffsetContent)
 		return nil
 	}
 	device.Chan_server_register <- content
@@ -351,16 +348,14 @@ func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 	buf := make([]byte, path.EgHeaderLen+len(body))
 	header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 	header.SetSrc(device.ID)
-	header.SetTTL(device.EdgeConfig.DefaultTTL)
-	header.SetPacketLength(uint16(len(body)))
 	copy(buf[path.EgHeaderLen:], body)
 	if device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode {
 		header.SetDst(mtypes.NodeID_SuperNode)
-		device.Send2Super(path.PongPacket, buf, MessageTransportOffsetContent)
+		device.Send2Super(path.PongPacket, 0, buf, MessageTransportOffsetContent)
 	}
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P {
 		header.SetDst(mtypes.NodeID_Spread)
-		device.SpreadPacket(make(map[mtypes.Vertex]bool), path.PongPacket, buf, MessageTransportOffsetContent)
+		device.SpreadPacket(make(map[mtypes.Vertex]bool), path.PongPacket, device.EdgeConfig.DefaultTTL, buf, MessageTransportOffsetContent)
 	}
 	go device.SendPing(peer, content.RequestReply, 0, 3)
 	return nil
@@ -382,10 +377,8 @@ func (device *Device) process_pong(peer *Peer, content mtypes.PongMsg) error {
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 			header.SetSrc(device.ID)
-			header.SetTTL(device.EdgeConfig.DefaultTTL)
-			header.SetPacketLength(uint16(len(body)))
 			copy(buf[path.EgHeaderLen:], body)
-			device.SendPacket(peer, path.QueryPeer, buf, MessageTransportOffsetContent)
+			device.SendPacket(peer, path.QueryPeer, device.EdgeConfig.DefaultTTL, buf, MessageTransportOffsetContent)
 		}
 	}
 	return nil
@@ -708,11 +701,9 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 			header.SetDst(mtypes.NodeID_Spread)
-			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetSrc(device.ID)
-			header.SetPacketLength(uint16(len(body)))
 			copy(buf[path.EgHeaderLen:], body)
-			device.SpreadPacket(make(map[mtypes.Vertex]bool), path.BroadcastPeer, buf, MessageTransportOffsetContent)
+			device.SpreadPacket(make(map[mtypes.Vertex]bool), path.BroadcastPeer, device.EdgeConfig.DefaultTTL, buf, MessageTransportOffsetContent)
 		}
 		device.peers.RUnlock()
 	}
@@ -838,8 +829,8 @@ func (device *Device) RoutineSendPing(startchan <-chan struct{}) {
 			}
 		case <-waitchan:
 		}
-		packet, usage, _ := device.GeneratePingPacket(device.ID, 0)
-		device.SpreadPacket(make(map[mtypes.Vertex]bool), usage, packet, MessageTransportOffsetContent)
+		packet, usage, ttl, _ := device.GeneratePingPacket(device.ID, 0)
+		device.SpreadPacket(make(map[mtypes.Vertex]bool), usage, ttl, packet, MessageTransportOffsetContent)
 	}
 }
 
@@ -880,11 +871,9 @@ func (device *Device) RoutineRegister(startchan chan struct{}) {
 		buf := make([]byte, path.EgHeaderLen+len(body))
 		header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 		header.SetDst(mtypes.NodeID_SuperNode)
-		header.SetTTL(0)
 		header.SetSrc(device.ID)
-		header.SetPacketLength(uint16(len(body)))
 		copy(buf[path.EgHeaderLen:], body)
-		device.Send2Super(path.Register, buf, MessageTransportOffsetContent)
+		device.Send2Super(path.Register, 0, buf, MessageTransportOffsetContent)
 	}
 }
 

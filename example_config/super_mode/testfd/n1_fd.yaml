@@ -1,56 +1,65 @@
-interface:
-  itype: fd
-  name: tap1
-  vppifaceid: 1
-  vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD
-  mtu: 1402
-  recvaddr: 127.0.0.1:4001
-  sendaddr: 127.0.0.1:5001
-  l2headermode: kbdbg
-nodeid: 1
-nodename: Node01
-defaultttl: 200
-l2fibtimeout: 3600
-privkey: 6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=
-listenport: 3001
-loglevel:
-  loglevel: normal
-  logtransit: true
-  logcontrol: true
-  lognormal: true
-  logntp: true
-dynamicroute:
-  sendpinginterval: 16
-  peeralivetimeout: 30
-  dupchecktimeout: 40
-  conntimeout: 30
-  connnexttry: 5
-  savenewpeers: true
-  supernode:
-    usesupernode: true
-    pskey: 'iPM8FXfnHVzwjguZHRW9bLNY+h7+B1O2oTJtktptQkI='
-    connurlv4: 127.0.0.1:3000
-    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: ''
-    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
-    apiurl: http://127.0.0.1:3000/api
-    supernodeinfotimeout: 50
-  p2p:
-    usep2p: false
-    sendpeerinterval: 20
-    graphrecalculatesetting:
-      staticmode: false
-      jittertolerance: 20
-      jittertolerancemultiplier: 1.1
-      nodereporttimeout: 40
-      recalculatecooldown: 5
-  ntpconfig:
-    usentp: true
-    maxserveruse: 8
-    synctimeinterval: 3600
-    ntptimeout: 3
-    servers:
+Interface:
+  IType: fd
+  Name: EgNet001
+  VPPIFaceID: 1
+  VPPBridgeID: 4242
+  MacAddrPrefix: 62:A6:A3:6D
+  IPv4CIDR: 192.168.76.0/24
+  IPv6CIDR: fd95:71cb:a3df:e586::/64
+  IPv6LLPrefix: fe80::a3df:0/112
+  MTU: 1404
+  RecvAddr: 127.0.0.1:4001
+  SendAddr: 127.0.0.1:5001
+  L2HeaderMode: kbdbg
+NodeID: 1
+NodeName: EgNet001
+PostScript: ""
+DefaultTTL: 200
+L2FIBTimeout: 3600
+PrivKey: 12CRJpzWOTRQDOdtROtwwWb68B4HHjSbrS1WySAkWYI=
+ListenPort: 0
+LogLevel:
+  LogLevel: verbose
+  LogTransit: true
+  LogNormal: true
+  LogControl: true
+  LogInternal: true
+  LogNTP: true
+DynamicRoute:
+  SendPingInterval: 16
+  PeerAliveTimeout: 70
+  TimeoutCheckInterval: 20
+  ConnNextTry: 5
+  DupCheckTimeout: 40
+  AdditionalCost: 10
+  DampingResistance: 0.9
+  SaveNewPeers: true
+  SuperNode:
+    UseSuperNode: true
+    PSKey: 2eOq1sJlEs3No80xYOaKJ059ElgRaSveyMu9IyQG3X8=
+    EndpointV4: 127.0.0.1:3456
+    PubKeyV4: 10CPQrpXKqXxnjtpdxDwnYqLglnuRnCFsiSAjxMrMTc=
+    EndpointV6: ""
+    PubKeyV6: KhpV1fJ+jtNT6S5wKUZJbb0oFlDNMS5qxO0f5Ow/QQU=
+    EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
+    SkipLocalIP: false
+    SuperNodeInfoTimeout: 50
+  P2P:
+    UseP2P: false
+    SendPeerInterval: 20
+    GraphRecalculateSetting:
+      StaticMode: false
+      ManualLatency: {}
+      JitterTolerance: 50
+      JitterToleranceMultiplier: 1.1
+      TimeoutCheckInterval: 5
+      RecalculateCoolDown: 5
+  NTPConfig:
+    UseNTP: true
+    MaxServerUse: 8
+    SyncTimeInterval: 3600
+    NTPTimeout: 3
+    Servers:
     - time.google.com
     - time1.google.com
     - time2.google.com
@@ -66,6 +75,11 @@ dynamicroute:
     - time.asia.apple.com
     - time.euro.apple.com
     - time.windows.com
-nexthoptable: {}
-resetconninterval: 86400
-peers: []
+    - pool.ntp.org
+    - 0.pool.ntp.org
+    - 1.pool.ntp.org
+    - 2.pool.ntp.org
+    - 3.pool.ntp.org
+NextHopTable: {}
+ResetConnInterval: 86400
+Peers: []

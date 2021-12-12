@@ -50,6 +50,7 @@ import (
 
 type QueueOutboundElement struct {
 	Type path.Usage
+	TTL  uint8
 	sync.Mutex
 	buffer  *[MaxMessageSize]byte // slice holding the packet data
 	packet  []byte                // slice of "buffer" (always!)
@@ -265,9 +266,8 @@ func (device *Device) RoutineReadFromTUN() {
 		packet_len := len(elem.packet) - path.EgHeaderLen
 		EgBody.SetSrc(device.ID)
 		EgBody.SetDst(dst_nodeID)
-		EgBody.SetPacketLength(uint16(packet_len))
-		EgBody.SetTTL(device.EdgeConfig.DefaultTTL)
 		elem.Type = path.NormalPacket
+		elem.TTL = device.EdgeConfig.DefaultTTL
 		if packet_len <= 12 {
 			if device.LogLevel.LogNormal {
 				fmt.Println("Normal: Invalid packet: Ethernet packet too small." + " Len:" + strconv.Itoa(packet_len))
@@ -298,7 +298,7 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 			}
 		} else {
-			device.BoardcastPacket(make(map[mtypes.Vertex]bool, 0), elem.Type, elem.packet, offset)
+			device.BoardcastPacket(make(map[mtypes.Vertex]bool, 0), elem.Type, elem.TTL, elem.packet, offset)
 		}
 
 	}
@@ -403,10 +403,11 @@ func (device *Device) RoutineEncryption(id int) {
 		// populate header fields
 		header := elem.buffer[:MessageTransportHeaderSize]
 
-		fieldReceiver := header[1:5]
-		fieldNonce := header[5:13]
+		fieldReceiver := header[MessageTransportOffsetReceiver:MessageTransportOffsetCounter]
+		fieldNonce := header[MessageTransportOffsetCounter:MessageTransportHeaderSize]
 
 		header[0] = uint8(elem.Type)
+		header[1] = uint8(elem.TTL)
 		binary.LittleEndian.PutUint32(fieldReceiver, elem.keypair.remoteIndex)
 		binary.LittleEndian.PutUint64(fieldNonce, elem.nonce)
 
