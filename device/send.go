@@ -373,6 +373,7 @@ func (peer *Peer) FlushStagedPackets() {
 }
 
 func calculatePaddingSize(packetSize, mtu int) int {
+	mtu = mtu + 14 + 4 // +Ether frame size + EgHeaderLen
 	lastUnit := packetSize
 	if mtu == 0 {
 		return ((lastUnit + PaddingMultiple - 1) & ^(PaddingMultiple - 1)) - lastUnit
