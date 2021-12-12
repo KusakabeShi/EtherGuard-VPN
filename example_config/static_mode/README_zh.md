@@ -5,7 +5,7 @@
 
 沒有自動選路，沒有握手伺服器  
 類似原本的wireguard，一切都要提前配置好  
-設定檔裡面的`NextHopTable`部分，只有此模式會生效  
+路由表也是如此。您需要手動配置設定檔裡面的`NextHopTable`部分
 
 這個模式下，不存在任何的Control Message，斷線偵測什麼的也不會有  
 請務必保持提前定義好的拓樸。不然如果存在中轉，中轉節點斷了，部分連線就會中斷
@@ -49,7 +49,7 @@ Distance matrix for all nodes: |-       # 左邊是起點，上面是終點，In
 ./etherguard-go -mode gencfg -cfgmode static -config example_config/static_mode/genstatic.yaml
 ```
 
-把這些設定檔不捨去對應節點，然後再執行  
+把這些設定檔部署去對應節點，然後再執行  
 ```
 ./etherguard-go -config [設定檔位置] -mode edge
 ```
@@ -127,7 +127,7 @@ X 1   2   3   4   5   6
 
 ### EdgeNode Config Parameter
 
-Key               | Description
+<a name="EdgeConfig"></a>EdgeConfig    | Description
 --------------    |:-----
 [Interface](#Interface)| 接口相關設定。VPN有兩端，一端是VPN網路，另一端則是本地接口
 NodeID            | 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
@@ -138,10 +138,10 @@ L2FIBTimeout      | MacAddr-> NodeID 查找表的 timeout(秒) ，類似ARP tabl
 PrivKey           | 私鑰，和wireguard規格一樣
 ListenPort        | 監聽的udp埠
 [LogLevel](#LogLevel)| 紀錄log
-[DynamicRoute](../super_mode/README_zh.md#DynamicRoute)      | 動態路由相關設定，Static模式用不到
-NextHopTable      | 轉發表， 下一跳 = `NhTable[起點][終點]`  
+[DynamicRoute](../super_mode/README_zh.md#DynamicRoute)      | 動態路由相關設定<br>StaticMode用不到
+NextHopTable      | 轉發表， 下一跳 = `NhTable[起點][終點]`<br>SuperMode以及P2PMode用不到
 ResetConnInterval | 如果對方是動態ip就要用這個。每隔一段時間就會重置連線，重新解析域名
-[Peers](#Peers)   | 鄰居節點，和wireguard相同
+[Peers](#Peers)   | 鄰居節點。<br>SuperMode用不到，從SuperNode接收
 
 <a name="Interface"></a>Interface      | Description
 ---------------|:-----

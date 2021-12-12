@@ -1,7 +1,6 @@
-
 # Etherguard
 
-[English](README.md)
+[English](README.md) | [中文](#)
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
 
@@ -43,56 +42,15 @@ Usage of ./etherguard-go-vpp:
         顯示版本
 ```
 
-## Mode
+## Working Mode
 
-1. Static 模式: 類似於原本的wireguard的模式。 [詳細介紹](example_config/static_mode/README_zh.md)
-2. Super 模式: 受到[n2n](https://github.com/ntop/n2n)的啟發寫的模式。 [詳細介紹](example_config/super_mode/README_zh.md)
-3. P2P 模式: 受到[tinc](https://github.com/gsliepen/tinc)的啟發寫的模式。 [詳細介紹](example_config/p2p_mode/README_zh.md)
+Mode        | Description
+------------|:-----
+Static Mode | 沒有自動選路，沒有握手伺服器<br>類似原本的wireguard，一切都要提前配置好<br>[詳細介紹](example_config/static_mode/README_zh.md)
+Static Mode | 此模式是受到[n2n](https://github.com/ntop/n2n)的啟發，分為SuperNode和EdgeNode兩種節點<br>EdgeNode首先和SuperNode建立連線，藉由SuperNode交換其他EdgeNode的資訊<br>由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給EdgeNode<br>[詳細介紹](example_config/super_mode/README_zh.md)
+P2P Mode | 此模式是受到[tinc](https://github.com/gsliepen/tinc)的啟發，只有EdgeNode，EdgeNode會彼交換資訊<br>EdgeNodes會嘗試互相連線，並且通報其他EdgeNoses連線成功與否<br>每個Edge各自執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，若不能直達則使用最短路徑<br>**此模式尚未經過長時間測試，尚不建議生產環境使用**<br>[詳細介紹](example_config/p2p_mode/README_zh.md)
 
-## Quick start
-
-內建小工具可以快速生成設定檔，搞定私鑰公鑰等等，暫時只支援Super模式
-
-首先按需求修改`example_config/super_mode/gensuper.yaml`
-
-```yaml
-Config output dir: /tmp/eg_gen
-ConfigTemplate for super node: ""
-ConfigTemplate for edge node: ""
-Network name: eg_net
-Super Node:
-  Listen port: 3456
-  EdgeAPI prefix: /eg_net/eg_api
-  Endpoint(IPv4)(optional): example.com
-  Endpoint(IPv6)(optional): example.com
-  Endpoint(EdgeAPI): http://example.com:3456/eg_net/eg_api
-Edge Node:
-  Node IDs: "[1~10,11,19,23,29,31,55~66,88~99]"
-  MacAddress prefix: "" #留空隨機產生
-  IPv4 range: 192.168.76.0/24
-  IPv6 range: fd95:71cb:a3df:e586::/64
-  IPv6 LL range: fe80::a3df:0/112
-```
-順帶一提，最後三個欄位，IP的部分可以直接省略沒關係  
-這個欄位唯一的目的只是在啟動以後，調用ip命令，幫tap接口加個ip  
-和VPN本身運作完全無關  
-VPN起來以後，自己手動加ip也行  
-
-```
-$ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/gensuper.yaml
-```
-
-把一個super，2個edge分別搬去三台機器  
-或是2台機器，super和edge可以是同一台
-
-然後在Supernode執行  
-```
-./etherguard-go -config [設定檔位置] -mode super
-```
-然後在EdgeNode執行  
-```
-./etherguard-go -config [設定檔位置] -mode edge
-```
+## [Quick start](example_config/super_mode/README_zh.md)
 
 ## Build
 

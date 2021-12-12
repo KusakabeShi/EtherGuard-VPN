@@ -19,7 +19,7 @@ L2FIBTimeout: 3600
 PrivKey: 12CRJpzWOTRQDOdtROtwwWb68B4HHjSbrS1WySAkWYI=
 ListenPort: 0
 LogLevel:
-  LogLevel: verbose
+  LogLevel: error
   LogTransit: true
   LogNormal: true
   LogControl: true

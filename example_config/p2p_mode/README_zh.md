@@ -1,16 +1,17 @@
 # Etherguard
-[English](README.md)
+[English](README.md) | [中文](#)
 
 ## P2P Mode
-受到[tinc](https://github.com/gsliepen/tinc)的啟發
-
-和[Super模式運作](../super_mode/README_zh.md)有點相似，不過也有點修改  
+此模式是受到[tinc](https://github.com/gsliepen/tinc)的啟發，只有EdgeNode，EdgeNode會彼交換資訊  
+EdgeNodes會嘗試互相連線，並且通報其他EdgeNoses連線成功與否  
+每個Edge各自執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，若不能直達則使用最短路徑  
+**此模式尚未經過長時間測試，尚不建議生產環境使用**
 
 ## Quick Start
-首先，按照需求修改`genstatic.yaml`
+首先，按照需求修改`gensp2p.yaml`
 
 ```yaml
-Config output dir: /tmp/eg_gen_static   # 設定檔輸出位置
+Config output dir: /tmp/eg_gen_p2p      # 設定檔輸出位置
 ConfigTemplate for edge node: ""        # 設定檔Template
 Network name: "EgNet"
 Edge Node:
@@ -34,7 +35,7 @@ Edge Nodes:                             # 所有的節點相關設定
 ```
 接著執行這個，就會生成所需設定檔了。
 ```
-./etherguard-go -mode gencfg -cfgmode static -config example_config/static_mode/genstatic.yaml
+./etherguard-go -mode gencfg -cfgmode p2p -config example_config/p2p_mode/gensp2p.yaml
 ```
 
 把這些設定檔不捨去對應節點，然後再執行  

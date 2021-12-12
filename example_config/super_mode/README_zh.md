@@ -3,12 +3,9 @@
 
 ## Super Mode
 
-Super Mode是受到[n2n](https://github.com/ntop/n2n)的啟發  
-分為SuperNode和EdgeNode兩種節點  
-
-全部節點都會和SuperNode建立連線  
-藉由SuperNode交換其他節點的資訊，以及udp打洞  
-由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給全部edge node
+此模式是受到[n2n](https://github.com/ntop/n2n)的啟發，分為SuperNode和EdgeNode兩種節點  
+EdgeNode首先和SuperNode建立連線，藉由SuperNode交換其他EdgeNode的資訊  
+由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給EdgeNode  
 
 
 ## Quick start
@@ -238,7 +235,7 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/add?Password=passw
     1. NodeID: Node ID
     1. Name: 節點名稱
     1. PubKey: Public Key
-    1. PSKey: Preshared Key
+    1. PSKey: Pre shared Key
     1. AdditionalCost: 此節點進行封包轉發的額外成本。單位: 毫秒
     1. SkipLocalIP: 是否使該節點不使用Local IP
     1. nexthoptable: 如果你的super node的`graphrecalculatesetting`是static mode，那麼你需要在這提供一張新的`NextHopTable`，json格式
@@ -291,9 +288,9 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/super/update?Password=p
 
 ### SuperNode Config Parameter
 
-Key               | Description
---------------    |:-----
-NodeName| 節點名稱
+Key                 | Description
+--------------------|:-----
+NodeName            | 節點名稱
 PostScript          | 初始化完畢之後要跑的腳本
 PrivKeyV4           | IPv4通訊使用的私鑰
 PrivKeyV6           | IPv6通訊使用的私鑰
@@ -327,7 +324,7 @@ StaticMode                 | 關閉`Floyd-Warshall`演算法，只使用設定�
 ManualLatency              | 手動設定延遲，不採用EdgeNode回報的延遲(單位: 毫秒)
 JitterTolerance            | 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算<br>比較對象是上次更新使用的值。如果37 37 41 43 .. 100 ，每次變動一點點，總變動量超過域值還是會更新
 JitterToleranceMultiplier  | 抖動容許誤差的放大係數，高ping的話允許更多誤差<br>https://www.desmos.com/calculator/raoti16r5n
-DampingResistance          | 防抖阻尼系數，`latency = latency_old * resistance + latency_in * (1-resistance)`
+DampingResistance          | 防抖阻尼系數<br>`latency = latency_old * resistance + latency_in * (1-resistance)`
 TimeoutCheckInterval       | 週期性檢查節點的連線狀況，是否斷線需要重新規劃線路
 RecalculateCoolDown        | Floyd-Warshal是O(n^3)時間複雜度，不能太常算。<br>設個冷卻時間<br>有節點加入/斷線觸發的重新計算，無視這個CoolDown
 
@@ -341,21 +338,7 @@ SkipLocalIP         | 打洞時，不使用EdgeNode回報的本地IP，僅使用
 
 ### EdgeNode Config Parameter
 
-Key               | Description
---------------    |:-----
-[Interface](../static_mode/README_zh.md#Interface)| 接口相關設定。VPN有兩端，一端是VPN網路，另一端則是本地接口
-NodeID            | 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
-NodeName          | 節點名稱
-PostScript        | 初始化完畢之後要跑的腳本
-DefaultTTL        | TTL，etherguard層使用，和乙太層不共通
-L2FIBTimeout      | MacAddr-> NodeID 查找表的 timeout(秒) ，類似ARP table
-PrivKey           | 私鑰，和wireguard規格一樣
-ListenPort        | 監聽的udp埠
-[LogLevel](../static_mode/README_zh.md#LogLevel)| 紀錄log
-[DynamicRoute](#DynamicRoute)      | 動態路由相關設定
-NextHopTable      | 轉發表， SuperMode由SuperNode計算，EdgeNode用不到
-ResetConnInterval | 如果對方是動態ip就要用這個。每隔一段時間就會重置連線，重新解析域名
-[Peers](#Peers)   | 鄰居節點，SuperMode從SuperNode計算，EdgeNode用不到
+#### [EdgeConfig Root](../static_mode/README_zh.md#EdgeConfig)
 
 <a name="DynamicRoute"></a>DynamicRoute      | Description
 --------------------|:-----
@@ -390,7 +373,7 @@ MaxServerUse      | 向多少NTP伺服器發送請求
 SyncTimeInterval  | 多久同步一次時間
 NTPTimeout        | NTP伺服器連線Timeout
 Servers           | NTP伺服器列表
-
+   
 ## V4 V6 兩個公鑰
 為什麼要分開IPv4和IPv6呢?  
 因為有這種情況:

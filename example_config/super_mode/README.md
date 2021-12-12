@@ -1,22 +1,55 @@
 # Etherguard
-[中文版](README_zh.md)
+[English](#) | [中文](README_zh.md)
+
+## Super mode
+
+This mode is inspired by [n2n](https://github.com/ntop/n2n). There 2 types of node: SuperNode and EdgeNode  
+EdgeNode must connect to SuperNode first，get connection info of other EdgeNode from the SuperNode  
+The SuperNode runs [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm)，and distribute the result to all other EdgeNodes.
+
+## Quick start
+
+首先按需求修改`gensuper.yaml`
+
+```yaml
+Config output dir: /tmp/eg_gen
+ConfigTemplate for super node: ""
+ConfigTemplate for edge node: ""
+Network name: eg_net
+Super Node:
+  Listen port: 3456
+  EdgeAPI prefix: /eg_net/eg_api
+  Endpoint(IPv4)(optional): example.com
+  Endpoint(IPv6)(optional): example.com
+  Endpoint(EdgeAPI): http://example.com:3456/eg_net/eg_api
+Edge Node:
+  Node IDs: "[1~10,11,19,23,29,31,55~66,88~99]"
+  MacAddress prefix: ""                 # Leave blank to generate randomly
+  IPv4 range: 192.168.76.0/24           # The IP part can be omitted
+  IPv6 range: fd95:71cb:a3df:e586::/64  # 
+  IPv6 LL range: fe80::a3df:0/112       #  
+```
+Then run this, and the required configuration file will be generated.
+```
+$ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/gensuper.yaml
+```
+
+Run this in SuperNode 
+```
+./etherguard-go -config [config path] -mode super
+```
+Run this in EdgeNode   
+```
+./etherguard-go -config [config path] -mode edge
+```
+
+## Documentation
 
 This is the documentation of the super_mode of this example_config
 Before reading this, I'd like to suggest you read the [static mode](../static_mode/README.md) first.
 
-## Super mode
-
-Super mode are inspired by [n2n](https://github.com/ntop/n2n)  
-We have two types of node, we called it super node and edge node.
-
-All edge nodes have to connect to super node, exchange data and UDP hole punch each other by super node.  
-The super node runs the [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm)， and distribute the result to all edge node.
-
-In the super mode of the edge node, the `nexthoptable` and `peers` section are useless. All infos are download from super node.  
-Meanwhile, super node will generate pre shared key for inter-edge communication(if `usepskforinteredge` enabled).
-```golang
-psk = shs256("PubkeyPeerA" + "PubkeyPeerB" + "Chef Special and Featured in the season see salt")[:32]
-```
+In the super mode of the edge node, the `NextHopTable` and `Peers` section are useless. All infos are download from super node.  
+Meanwhile, super node will generate pre shared key for inter-edge communication(if `UsePSKForInterEdge` enabled).
 
 ### SuperMsg
 There are new type of DstID called `SuperMsg`(65534). All packets sends to and receive from super node are using this packet type.  
@@ -30,46 +63,80 @@ We list all the control message we use in the super mode below.
 This control message works like this picture:
 ![Workflow of Register](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS01.png)  
 
-1. edge node send Register to the super node  
-2. Supernode knows it's external IP and port number
+1. EdgeNode send Register to the super node  
+2. SuperNode knows it's external IP and port number
 3. Update it to database and distribute `UpdatePeerMsg` to all edges
-4. Other edges get the notification, download the updated peer infos from supernode via HTTP API
+4. Other EdgeNodes get the notification, download the updated peer infos from SuperNode via HTTP API
 
 ### Ping/Pong
-While edges get the peer infos, edges will start trying to talk each other directly like this picture:
+While EdgeNodes get their peer info, they will trying to talk each other directly like this picture:
 ![Workflow of Ping/Pong](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS02.png)  
 
 1. Send `Ping` to all other edges with local time with TTL=0
-2. Received a `Ping`, Subtract the peer time from local time, we get a single way latency.
-3. Send a `Pong` to supernode, let supernode calculate the NextHopTable
-4. Wait the supernode push `UpdateNhTable` message and download it.
+2. Receive a `Ping`, Subtract the peer time from local time, we get a single way latency.
+3. Send a `Pong` to SuperNode with single way latency, let SuperNode calculate the NextHopTable
+4. Wait the SuperNode push `UpdateNhTable` message and download it.
+
+### <a name="AdditionalCost"></a>AdditionalCost
+While we have all latency data of all nodes, `AdditionalCost` will be applied before `Floyd-Warshall` calculated.
+
+Take the situation of this picture as an example:
+![EGS08](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS08.png)
+Path | Latency |Cost|Win
+--------|:--------|:---|:--
+A->B->C | 3ms | 3 |
+A->C | 4ms | 4 | O
+
+In this situation, the difference between 3ms and 4ms is only 1ms
+It’s not worth to save this 1ms, and the forwarding itself takes time
+
+With the `AdditionalCost` parameter, each node can set the additional cost of forwarding through this node
+
+If ABC is all set to `AdditionalCost=10`
+Path | Latency |AdditionalCost|Cost|Win
+--------|:--------|:-------------|:---|:--
+A->B->C | 3ms | 20 | 23 |
+A->C | 4ms | 10 | 14 | O
+
+A->C will use direct connection instead of forward via `B` in order to save 1ms  
+Here `AdditionalCost=10` can be interpreted as: It have to save 10ms to transfer by this Node.
 
 ### UpdateNhTable
-While supernode get a `Pong` message, it will run the [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm) to calculate the NextHopTable
+While supernode get a `Pong` message, it will update the `Distance matrix` and run the [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm) to calculate the NextHopTable.  
 ![image](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS03.png)  
 If there are any changes of this table, it will distribute `UpdateNhTable` to all edges to till then download the latest NextHopTable via HTTP API as soon as possible.
 
-### UpdateError
-Notify edges that an error has occurred, and close the edge  
-It occurs when the version number is not match with supernode, or the NodeID of the edge is configured incorrectly, or the edge is deleted.
+### ServerUpdate
+Send message to EdgeMode from SuperNode
+1. Turn off EdgeNode  
+    * Version Not match
+    * Wrong NodeID
+    * Deleted by SuperNode
+2. Notify EdgeNode there are something new
+    * UpdateNhTable
+    * UpdatePeer
+    * UpdateSuperParams
 
-### HTTP API 
+## HTTP EdgeAPI
 Why we use HTTP API instead of pack all information in the `UpdateXXX`?  
 Because UDP is an unreliable protocol, there is an limit on the amount of content that can be carried.  
 But the peer list contains all the peer information, the length is not fixed, it may exceed  
-So we use `UpdateXXX` to tell we have a update, please download the latest information from supernode via HTTP API as soon as possible.
+So we use `UpdateXXX` to tell we have a update, please download the latest information from SuperNode via HTTP API as soon as possible.
 And `UpdateXXX` itself is not reliable, maybe it didn't reach the edge node at all.  
 So the information of `UpdateXXX` carries the `state hash`. Bring it when with HTTP API. When the super node receives the HTTP API and sees the `state hash`, it knows that the edge node has received the `UpdateXXX`.  
 Otherwise, it will send `UpdateXXX` to the node again after few seconds.
 
-## HTTP Guest API
+The default configuration is to use HTTP. **But for the sake of your security, it is recommended to use an reverse-proxy ot convert it into https**
+I have thought about the development of SuperNode to natively support https, but the dynamic update of the certificate costs me too much time.
+
+## HTTP Manage API
 HTTP also has some APIs for the front-end to help manage the entire network
 
-### peerstate  
+### super/state   
 
 ```bash
-curl "http://127.0.0.1:3000/api/peerstate?Password=passwd"
-```  
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/super/state?Password=passwd_showstate"
+```    
 It can show some information such as single way latency or last seen time.   
 We can visualize it by Force-directed graph drawing.  
 
@@ -82,187 +149,47 @@ Example return value:
 {
   "PeerInfo": {
     "1": {
-      "Name": "hk",
-      "LastSeen": "2021-09-29 11:23:22.854700559 +0000 UTC m=+28740.116476977"
+      "Name": "Node_01",
+      "LastSeen": "2021-12-05 21:21:56.039750832 +0000 UTC m=+23.401193649"
     },
-    "1001": {
-      "Name": "relay_kr",
-      "LastSeen": "2021-09-29 11:23:21.277417897 +0000 UTC m=+28738.539194315"
-    },
-    "121": {
-      "Name": "za_north",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "33": {
-      "Name": "us_west",
-      "LastSeen": "2021-09-29 11:23:13.257033252 +0000 UTC m=+28730.518809670"
-    },
-    "49": {
-      "Name": "us_east",
-      "LastSeen": "2021-09-29 11:23:16.606165241 +0000 UTC m=+28733.867941659"
-    },
-    "51": {
-      "Name": "ca_central",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "65": {
-      "Name": "fr",
-      "LastSeen": "2021-09-29 11:23:19.4084596 +0000 UTC m=+28736.670236018"
-    },
-    "81": {
-      "Name": "au_central",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "89": {
-      "Name": "uae_north",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
-    },
-    "9": {
-      "Name": "jp_east",
-      "LastSeen": "2021-09-29 11:23:16.669505147 +0000 UTC m=+28733.931281565"
-    },
-    "97": {
-      "Name": "br_south",
-      "LastSeen": "0001-01-01 00:00:00 +0000 UTC"
+    "2": {
+      "Name": "Node_02",
+      "LastSeen": "2021-12-05 21:21:57.711616169 +0000 UTC m=+25.073058986"
     }
   },
   "Infinity": 99999,
   "Edges": {
     "1": {
-      "1001": 0.033121187,
-      "33": 0.075653164,
-      "49": 0.100471502,
-      "65": 0.065714769,
-      "9": 0.022864241
+      "2": 0.002179297
     },
-    "1001": {
-      "1": 0.018561948,
-      "33": 0.064077348,
-      "49": 0.094459818,
-      "65": 0.079481599,
-      "9": 0.011163433
+    "2": {
+      "1": -0.00030252
+    }
+  },
+  "Edges_Nh": {
+    "1": {
+      "2": 0.012179297
     },
-    "33": {
-      "1": 0.075263428,
-      "1001": 0.070029457,
-      "49": 0.032631349,
-      "65": 0.045575061,
-      "9": 0.050444255
-    },
-    "49": {
-      "1": 0.100271358,
-      "1001": 0.100182834,
-      "33": 0.034563118,
-      "65": 0.017950046,
-      "9": 0.07510982
-    },
-    "65": {
-      "1": 0.114219741,
-      "1001": 0.132759205,
-      "33": 0.095265063,
-      "49": 0.067413235,
-      "9": 0.127562362
-    },
-    "9": {
-      "1": 0.026909699,
-      "1001": 0.022555855,
-      "33": 0.056469043,
-      "49": 0.090400723,
-      "65": 0.08525314
+    "2": {
+      "1": 0.00969748
     }
   },
   "NhTable": {
     "1": {
-      "1001": 1001,
-      "33": 33,
-      "49": 49,
-      "65": 65,
-      "9": 9
+      "2": 2
     },
-    "1001": {
-      "1": 1,
-      "33": 33,
-      "49": 49,
-      "65": 65,
-      "9": 9
-    },
-    "33": {
-      "1": 1,
-      "1001": 1001,
-      "49": 49,
-      "65": 65,
-      "9": 9
-    },
-    "49": {
-      "1": 1,
-      "1001": 9,
-      "33": 33,
-      "65": 65,
-      "9": 9
-    },
-    "65": {
-      "1": 1,
-      "1001": 1001,
-      "33": 33,
-      "49": 49,
-      "9": 9
-    },
-    "9": {
-      "1": 1,
-      "1001": 1001,
-      "33": 33,
-      "49": 33,
-      "65": 65
+    "2": {
+      "1": 1
     }
   },
   "Dist": {
     "1": {
       "1": 0,
-      "1001": 0.033121187,
-      "33": 0.075119328,
-      "49": 0.102236885,
-      "65": 0.074688856,
-      "9": 0.022473723
+      "2": 0.012179297
     },
-    "1001": {
-      "1": 0.018561948,
-      "1001": 0,
-      "33": 0.064077348,
-      "49": 0.094459818,
-      "65": 0.079481599,
-      "9": 0.011163433
-    },
-    "33": {
-      "1": 0.075263428,
-      "1001": 0.070029457,
-      "33": 0,
-      "49": 0.032631349,
-      "65": 0.045575061,
-      "9": 0.050444255
-    },
-    "49": {
-      "1": 0.100271358,
-      "1001": 0.097665675,
-      "33": 0.034563118,
-      "49": 0,
-      "65": 0.017950046,
-      "9": 0.07510982
-    },
-    "65": {
-      "1": 0.114219741,
-      "1001": 0.132759205,
-      "33": 0.095265063,
-      "49": 0.067413235,
-      "65": 0,
-      "9": 0.127562362
-    },
-    "9": {
-      "1": 0.026909699,
-      "1001": 0.022555855,
-      "33": 0.056469043,
-      "49": 0.089100392,
-      "65": 0.08525314,
-      "9": 0
+    "2": {
+      "1": 0.00969748,
+      "2": 0
     }
   }
 }
@@ -270,27 +197,30 @@ Example return value:
 
 Section meaning:  
 1. PeerInfo: NodeID，Name，LastSeen
-2. Edges: The **Single way latency**，9999 or missing means unreachable(UDP hole punching failed)
+2. Edges: The **Single way latency**，99999 or missing means unreachable(UDP hole punching failed)
+3. Edges_Nh: Edges with AdditionalCost
 3. NhTable: Calculate result.
 4. Dist: The latency of **packet through Etherguard**
 
-### peeradd
-We can add new edges with this API without restart the supernode
+### peer/add
+We can add new edges with this API without restart the SuperNode
 
 Exanple:  
-```
-curl -X POST "http://127.0.0.1:3000/api/peer/add?Password=passwd_addpeer" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "nodeid=100&name=Node_100&additionalcost=1000&pubkey=6SuqwPH9pxGigtZDNp3PABZYfSEzDaBSwuThsUUAcyM="
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/add?Password=passwd_addpeer" \
+ -H "Content-Type: application/x-www-form-urlencoded" \
+ -d "NodeID=100&Name=Node_100&PubKey=DG%2FLq1bFpE%2F6109emAoO3iaC%2BshgWtdRaGBhW3soiSI%3D&AdditionalCost=1000&PSKey=w5t64vFEoyNk%2FiKJP3oeSi9eiGEiPteZmf2o0oI2q2U%3D&SkipLocalIP=false"
 ```
 
 Parameter:
 1. URL query: Password: Password. Configured in the config file.
 1. Post body:
-    1. nodeid: Node ID
-    1. pubkey: Public Key
-    1. pskey: Pre shared Key
-    1. additionalcost:  Additional cost for packet transfer. Unit: ms
+    1. NodeID: Node ID
+    1. Name: Name
+    1. PubKey: Public Key
+    1. PSKey: Pre shared Key
+    1. AdditionalCost:  Additional cost for packet transfer. Unit: ms
+    1. SkipLocalIP: Skip local IP reported by the node
     1. nexthoptable: If the `graphrecalculatesetting` of your super node is in static mode, you need to provide a new `NextHopTable` in json format in this parameter.
 
 Return value:
@@ -299,92 +229,20 @@ Return value:
     * generate by contents in `edgetemplate` with custom data (nodeid/name/pubkey)
     * Convenient for users to copy and paste
 
-```yaml
-interface:
-  itype: stdio
-  name: tap1
-  vppifaceid: 1
-  vppbridgeid: 4242
-  macaddrprefix: AA:BB:CC:DD
-  mtu: 1404
-  recvaddr: 127.0.0.1:4001
-  sendaddr: 127.0.0.1:5001
-  l2headermode: kbdbg
-nodeid: 100
-nodename: Node_100
-defaultttl: 200
-privkey: Your_Private_Key
-listenport: 3001
-loglevel:
-  loglevel: normal
-  logtransit: true
-  logcontrol: true
-  lognormal: true
-  logntp: true
-dynamicroute:
-  sendpinginterval: 16
-  peeralivetimeout: 30
-  dupchecktimeout: 40
-  conntimeout: 30
-  connnexttry: 5
-  savenewpeers: true
-  supernode:
-    usesupernode: true
-    pskey: ""
-    connurlv4: 127.0.0.1:3000
-    pubkeyv4: LJ8KKacUcIoACTGB/9Ed9w0osrJ3WWeelzpL2u4oUic=
-    connurlv6: ""
-    pubkeyv6: HCfL6YJtpJEGHTlJ2LgVXIWKB/K95P57LHTJ42ZG8VI=
-    apiurl: http://127.0.0.1:3000/api
-    supernodeinfotimeout: 50
-  p2p:
-    usep2p: false
-    sendpeerinterval: 20
-    graphrecalculatesetting:
-      jittertolerance: 20
-      jittertolerancemultiplier: 1.1
-      nodereporttimeout: 40
-      recalculatecooldown: 5
-  ntpconfig:
-    usentp: true
-    maxserveruse: 8
-    synctimeinterval: 3600
-    ntptimeout: 3
-    servers:
-    - time.google.com
-    - time1.google.com
-    - time2.google.com
-    - time3.google.com
-    - time4.google.com
-    - time1.facebook.com
-    - time2.facebook.com
-    - time3.facebook.com
-    - time4.facebook.com
-    - time5.facebook.com
-    - time.cloudflare.com
-    - time.apple.com
-    - time.asia.apple.com
-    - time.euro.apple.com
-    - time.windows.com
-nexthoptable: {}
-resetconninterval: 86400
-peers: []
-```
-
-### peerdel  
+### peer/del  
 Delete peer
 
 There are two deletion modes, namely password deletion and private key deletion.  
 Designed to be used by administrators, or for people who join the network and want to leave the network.  
 
 Use Password to delete any node. Take the newly added node above as an example, use this API to delete the node
-```
-curl "http://127.0.0.1:3000/api/peer/del?Password=passwd_delpeer&nodeid=100"
+```bash
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?Password=passwd_delpeer&NodeID=100"
 ```
 
 We can also use privkey to delete, the same as above, but use privkey parameter only.
-```
-curl "http://127.0.0.1:3000/api/peer/del?privkey=IJtpnkm9ytbuCukx4VBMENJKuLngo9KSsS1D60BqonQ="
+```bash
+curl "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/del?PrivKey=iquaLyD%2BYLzW3zvI0JGSed9GfDqHYMh%2FvUaU0PYVAbQ%3D"
 ```
 
 Parameter:
@@ -397,48 +255,112 @@ Return value:
 1. http code != 200: Error reason  
 2. http code == 200: Success message
 
-## Config Parameters
+### peer/update
 
-### Super mode of edge node
-1. `usesupernode`: Whether to enable Super mode
-1. `pskey`: Pre shared Key used to establish connection with supernode
-1. `connurlv4`: IPv4 connection address of the Super node
-1. `pubkeyv4`: IPv4 key of Super node
-1. `connurlv6`: IPv6 connection address of the Super node
-1. `pubkeyv6`: IPv6 key of Super node
-1. `apiurl`: HTTP(S) API connection address of Super node
-1. `supernodeinfotimeout`: Supernode Timeout
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/update?Password=passwd_updatepeer&NodeID=1" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "AdditionalCost=10&SkipLocalIP=false"
+```
 
-### Super node it self
+### super/update
 
-1. nodename: node name
-1. privkeyv4: private key for ipv4
-1. privkeyv6: private key for ipv6
-1. listenport: listen udp port number
-1. loglevel: Refer to [README.md](../README.md)
-1. repushconfiginterval: re-push interval of `UpdateXXX` messages
-1. passwords: HTTP API password
-    1. showstate: node information
-    1. addpeer: add peer
-    1. delpeer: delete peer
-1. graphrecalculatesetting: Some parameters related to [Floyd-Warshall algorithm](https://zh.wikipedia.org/zh-tw/Floyd-Warshall algorithm)
-    1. staticmode: Disable the Floyd-Warshall algorithm and only use the nexthoptable loaded at the beginning.  
-                   Supernode is only used to assist hole punching
-    1. recalculatecooldown: Floyd-Warshal is O(n^3) time complexity algorithm, which cannot be calculated too often. Set a cooling time
-    1. jittertolerance: jitter tolerance, after receiving Pong, one 37ms and one 39ms will not trigger recalculation
-    1. jittertolerancemultiplier: the same is the jitter tolerance, but high ping allows more errors
-                                    https://www.desmos.com/calculator/raoti16r5n
-    1. nodereporttimeout: The timeout of the received `Pong` packet. Change back to Infinity after timeout.
-    1. timeoutcheckinterval: The interval to check if there any `Pong` packet timeouted, and recalculate the NhTable
-1. nexthoptable: only works in `staticmode==true`, set nexthoptable manually
-1. edgetemplate: for `addpeer` API. Refer to this configuration file and show a sample configuration file of the edge to the user
-1. usepskforinteredge: Whether to enable pre-share key communication between edges. If enabled, supernode will generate PSKs for edges  automatically
-1. peers: Peer list, refer to [README.md](../README.md)
-    1. nodeid: Peer's node ID
-    1. name: Peer name (displayed on the front end)
-    1. pubkey: peer public key
-    1. pskey: preshared key The PSK that this peer connects to this Supernode
-    1. additionalcost: Additional cost for packet transfer. Unit: ms
+```bash
+curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/super/update?Password=passwd_updatesuper" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingResistance=0.9"
+```
+
+
+
+### SuperNode Config Parameter
+
+Key                 | Description
+--------------------|:-----
+NodeName            | node name
+PostScript          | Running script after initialized
+PrivKeyV4           | Private key for IPv4 session
+PrivKeyV6           | Private key for IPv6 session
+ListenPort          | UDP listen port
+ListenPort_EdgeAPI  | HTTP EdgeAPI listen port
+ListenPort_ManageAPI| HTTP ManageAPI listen port
+API_Prefix          | HTTP API prefix
+RePushConfigInterval| The interval of push`UpdateXXX`
+HttpPostInterval    | The interval of report by HTTP Edge API
+PeerAliveTimeout    | The time of inactive which marks peer offline
+SendPingInterval    | The interval that send pings/pongs between EdgeNodes
+[LogLevel](../static_mode/README.md#LogLevel)| Log related settings
+[Passwords](#Passwords) | Password for HTTP ManageAPI, 5 API passwords are independent
+[GraphRecalculateSetting](#GraphRecalculateSetting) | Some parameters related to [Floyd-Warshall algorithm](https://zh.wikipedia.org/zh-tw/Floyd-Warshall algorithm)
+[NextHopTable](../static_mode/README.md#NextHopTable) | `NextHopTable` used by StaticMode
+EdgeTemplate        |  for HTTP ManageAPI `peer/add`. Refer to this configuration file and show a sample configuration file of the edge to the user
+UsePSKForInterEdge  | Whether to enable pre-share key communication between edges.<br>If enabled, SuperNode will generate PSK for edges  automatically
+[Peers](#EdgeNodes)     | EdgeNode information
+
+<a name="Passwords"></a>Passwords      | Description
+--------------------|:-----
+ShowState   | HTTP ManageAPI Password for `super/state`
+AddPeer     | HTTP ManageAPI Password for `peer/add`
+DelPeer     | HTTP ManageAPI Password for `peer/del`
+UpdatePeer  | HTTP ManageAPI Password for `peer/update`
+UpdateSuper | HTTP ManageAPI Password for `super/update`
+
+<a name="GraphRecalculateSetting"></a>GraphRecalculateSetting      | Description
+--------------------|:-----
+StaticMode                 | Disable `Floyd-Warshall`, use `NextHopTable`in the configuration instead.<br>SuperNode for udp hole punching only.
+ManualLatency              | Set latency manually, ignore Edge reported latency.
+JitterTolerance            | Jitter tolerance, after receiving Pong, one 37ms and one 39ms will not trigger recalculation<br>Compared to last calculation
+JitterToleranceMultiplier  | high ping allows more errors<br>https://www.desmos.com/calculator/raoti16r5n
+DampingResistance          | Damping resistance<br>`latency = latency_old * resistance + latency_in * (1-resistance)`
+TimeoutCheckInterval       | The interval to check if there any `Pong` packet timed out, and recalculate the NhTable
+RecalculateCoolDown        | Floyd-Warshal is an O(n^3)time complexity algorithm<br>This option set a cooldown, and prevent it cost too many CPU<br>Connect/Disconnect event ignores this cooldown.
+
+<a name="EdgeNodes"></a>Peers      | Description
+--------------------|:-----
+NodeID              | Peer's node ID
+PubKey              | Peer's public key
+PSKey               | Pre shared key
+[AdditionalCost](#AdditionalCost)      | AdditionalCost(unit:ms)<br> `-1` means uses client's self configuration.
+SkipLocalIP         | Ignore Edge reported local IP, use public IP only while udp-hole-punching
+
+### EdgeNode Config Parameter
+
+#### [EdgeConfig Root](../static_mode/README.md#EdgeConfig)
+
+<a name="DynamicRoute"></a>DynamicRoute      | Description
+--------------------|:-----
+SendPingInterval     | The interval that send pings/pongs between EdgeNodes(sec)
+PeerAliveTimeout     | The time of inactive which marks peer offline(sec)
+TimeoutCheckInterval | The interval of check PeerAliveTimeout(sec)
+ConnNextTry          | After marked offline, the interval of switching Endpoint(sec)
+DupCheckTimeout      | Duplication chack timeout.(sec)
+[AdditionalCost](#AdditionalCost)     | AdditionalCost(unit:ms)
+SaveNewPeers         | Save peer info to local file.
+[SuperNode](#SuperNode)          | SuperNode related configs
+[P2P](../p2p_mode/README.md#P2P)                  | P2P related configs
+[NTPConfig](#NTPConfig)          | NTP related configs
+
+<a name="SuperNode"></a>SuperNode      | Description
+---------------------|:-----
+UseSuperNode         | Enable SuperMode
+PSKey                | PreShared Key to communicate to SuperNode
+EndpointV4           | IPv4 Endpoint of the SuperNode
+PubKeyV4             | Public Key for IPv4 session to SuperNode
+EndpointV6           | IPv6 Endpoint of the SuperNode
+PubKeyV6             | Public Key for IPv6 session to SuperNode
+EndpointEdgeAPIUrl   | The EdgeAPI of the SuperNode
+SkipLocalIP          | Do not report local IP to SuperNode.
+SuperNodeInfoTimeout | Experimental option, SuperNode offline timeout, switch to P2P mode<br>P2P mode needs to be enabled first<br>This option is useless while `UseP2P=false`<br>P2P mode has not been tested, stability is unknown, it is not recommended for production use
+
+
+<a name="NTPConfig"></a>NTPConfig      | Description
+--------------------|:-----
+UseNTP            | Sync time at startup
+MaxServerUse      | Use how many server to sync time
+SyncTimeInterval  | The interval of syncing time
+NTPTimeout        | NTP server connection Timeout
+Servers           | NTP server list
+
 
 ## V4 V6 Two Keys
 Why we split IPv4 and IPv6 into two session? 
@@ -476,9 +398,9 @@ To avoid this issue, please use the external IP of the supernode in the edge con
 ## Quick start
 Run this example_config (please open three terminals):
 ```bash
-./etherguard-go -config example_config/super_mode/s1.yaml -mode super
-./etherguard-go -config example_config/super_mode/n1.yaml -mode edge
-./etherguard-go -config example_config/super_mode/n2.yaml -mode edge
+./etherguard-go -config example_config/super_mode/Node_super.yaml -mode super
+./etherguard-go -config example_config/super_mode/Node_edge001.yaml -mode edge
+./etherguard-go -config example_config/super_mode/Node_edge002.yaml -mode edge
 ```
 Because it is in `stdio` mode, stdin will be read into the VPN network  
 Please type in one of the edge windows
