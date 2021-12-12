@@ -11,7 +11,7 @@ type Vertex uint16
 
 const (
 	NodeID_Broadcast Vertex = math.MaxUint16 - iota // Normal boardcast, boardcast with route table
-	NodeID_AllPeer   Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
+	NodeID_Spread    Vertex = math.MaxUint16 - iota // p2p mode: boardcast to every know peer and prevent dup. super mode: send to supernode
 	NodeID_SuperNode Vertex = math.MaxUint16 - iota
 	NodeID_Invalid   Vertex = math.MaxUint16 - iota
 	NodeID_Special   Vertex = NodeID_Invalid
@@ -110,8 +110,8 @@ func (v *Vertex) ToString() string {
 	switch *v {
 	case NodeID_Broadcast:
 		return "Boardcast"
-	case NodeID_AllPeer:
-		return "AllPeer"
+	case NodeID_Spread:
+		return "Spread"
 	case NodeID_SuperNode:
 		return "Super"
 	case NodeID_Invalid:

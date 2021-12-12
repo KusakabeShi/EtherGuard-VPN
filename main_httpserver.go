@@ -470,7 +470,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if info, has := httpobj.http_PeerID2Info[pong_msg.Dst_nodeID]; !has {
+		if info, has := httpobj.http_PeerID2Info[pong_msg.Dst_nodeID]; has {
 			AdditionalCost_use := info.AdditionalCost
 
 			if AdditionalCost_use >= 0 {
@@ -478,7 +478,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 			}
 			applied_pones = append(applied_pones, pong_msg)
 			if httpobj.http_sconfig.LogLevel.LogControl {
-				fmt.Println("Control: Unpack from : Post body " + pong_msg.ToString())
+				fmt.Printf("Control: Recv %v S:%v D:%v From: %v(HTTP) IP:%v\n", pong_msg.ToString(), pong_msg.Src_nodeID.ToString(), pong_msg.Dst_nodeID.ToString(), NodeID.ToString(), r.RemoteAddr)
 			}
 		}
 	}

@@ -6,6 +6,7 @@
 package gencfg
 
 import (
+	"github.com/KusakabeSi/EtherGuard-VPN/device"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 )
@@ -27,7 +28,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
 			VPPIFaceID:    1,
 			VPPBridgeID:   4242,
 			MacAddrPrefix: "AA:BB:CC:DD",
-			MTU:           1416,
+			MTU:           device.DefaultMTU,
 			RecvAddr:      "127.0.0.1:4001",
 			SendAddr:      "127.0.0.1:5001",
 			L2HeaderMode:  "nochg",

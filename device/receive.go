@@ -501,7 +501,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_receive = true
 				case mtypes.NodeID_Broadcast:
 					should_receive = true
-				case mtypes.NodeID_AllPeer:
+				case mtypes.NodeID_Spread:
 					should_receive = true
 				}
 			}
@@ -511,7 +511,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_process = true
 				case mtypes.NodeID_Broadcast:
 					should_process = true
-				case mtypes.NodeID_AllPeer:
+				case mtypes.NodeID_Spread:
 					should_process = true
 				}
 			}
@@ -534,7 +534,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			switch dst_nodeID {
 			case mtypes.NodeID_Broadcast:
 				should_transfer = true
-			case mtypes.NodeID_AllPeer:
+			case mtypes.NodeID_Spread:
 				packet := elem.packet[path.EgHeaderLen:] //packet body
 				if device.CheckNoDup(packet) {
 					should_transfer = true
@@ -566,7 +566,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				EgHeader.SetTTL(l2ttl - 1)
 				if dst_nodeID == mtypes.NodeID_Broadcast { //Regular transfer algorithm
 					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, elem.packet, MessageTransportOffsetContent)
-				} else if dst_nodeID == mtypes.NodeID_AllPeer { // Control Message will try send to every know node regardless the connectivity
+				} else if dst_nodeID == mtypes.NodeID_Spread { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[mtypes.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
@@ -604,12 +604,12 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		if should_receive { // Write message to tap device
 			if packet_type == path.NormalPacket {
 				if len(elem.packet) <= path.EgHeaderLen+12 {
-					device.log.Errorf("Invalid normal packet: Ethernet packet too small from peer %v", peer.ID.ToString())
+					device.log.Errorf("Invalid Normal packet: Ethernet packet too small from peer %v", peer.ID.ToString())
 					goto skip
 				}
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
-					fmt.Println("Normal: Recv Normal packet From:" + peer.GetEndpointDstStr() + " SrcID:" + src_nodeID.ToString() + " DstID:" + dst_nodeID.ToString() + " Len:" + strconv.Itoa(packet_len))
+					fmt.Printf("Normal: Recv Len:%v S:%v D:%v From:%v IP:%v:\n", strconv.Itoa(packet_len), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}

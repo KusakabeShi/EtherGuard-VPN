@@ -2,7 +2,6 @@ package mtypes
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -33,17 +32,16 @@ type RegisterMsg struct {
 	HttpPostCount       uint64
 }
 
-func Hash2Str(h []byte) string {
-	for _, v := range h {
-		if v != 0 {
-			return base64.StdEncoding.EncodeToString(h)[:10] + "..."
-		}
+func Hash2Str(h string) string {
+	n := 10
+	if len(h) > n-3 {
+		return h[:n] + "..."
 	}
-	return "\"\""
+	return "\"" + h + "\""
 }
 
 func (c *RegisterMsg) ToString() string {
-	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+c.PeerStateHash, " NhHash:"+c.NhStateHash, " SuperParamHash:"+c.SuperParamStateHash)
+	return fmt.Sprint("RegisterMsg Node_id:"+c.Node_id.ToString(), " Version:"+c.Version, " PeerHash:"+Hash2Str(c.PeerStateHash), " NhHash:"+Hash2Str(c.NhStateHash), " SuperParamHash:"+Hash2Str(c.SuperParamStateHash))
 }
 
 func ParseRegisterMsg(bin []byte) (StructPlace RegisterMsg, err error) {

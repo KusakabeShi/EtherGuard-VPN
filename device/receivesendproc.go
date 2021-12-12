@@ -36,7 +36,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 	}
 	if usage == path.NormalPacket && len(packet)-path.EgHeaderLen <= 12 {
 		if device.LogLevel.LogNormal {
-			fmt.Printf("Normal: Send Len:%v Invalid packet: Ethernet packet too small\n", len(packet))
+			fmt.Printf("Normal: Send Len:%v Invalid packet: Ethernet packet too small\n", len(packet)-path.EgHeaderLen)
 		}
 		return
 	}
@@ -46,7 +46,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, packet []byte, of
 		if usage == path.NormalPacket && EgHeader.GetSrc() == device.ID {
 			dst_nodeID := EgHeader.GetDst()
 			packet_len := len(packet) - path.EgHeaderLen
-			fmt.Printf("Normal: Send Len%v S:%v D:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+			fmt.Printf("Normal: Send Len:%v S:%v D:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
 			packet := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 			fmt.Println(packet.Dump())
 		}
@@ -251,7 +251,7 @@ func (device *Device) GeneratePingPacket(src_nodeID mtypes.Vertex, request_reply
 	if err != nil {
 		return nil, path.PingPacket, err
 	}
-	header.SetDst(mtypes.NodeID_AllPeer)
+	header.SetDst(mtypes.NodeID_Spread)
 	header.SetTTL(0)
 	header.SetSrc(device.ID)
 	header.SetPacketLength(uint16(len(body)))
@@ -359,7 +359,7 @@ func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 		device.Send2Super(path.PongPacket, buf, MessageTransportOffsetContent)
 	}
 	if device.EdgeConfig.DynamicRoute.P2P.UseP2P {
-		header.SetDst(mtypes.NodeID_AllPeer)
+		header.SetDst(mtypes.NodeID_Spread)
 		device.SpreadPacket(make(map[mtypes.Vertex]bool), path.PongPacket, buf, MessageTransportOffsetContent)
 	}
 	go device.SendPing(peer, content.RequestReply, 0, 3)
@@ -707,7 +707,7 @@ func (device *Device) process_RequestPeerMsg(content mtypes.QueryPeerMsg) error 
 			}
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[0:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
-			header.SetDst(mtypes.NodeID_AllPeer)
+			header.SetDst(mtypes.NodeID_Spread)
 			header.SetTTL(device.EdgeConfig.DefaultTTL)
 			header.SetSrc(device.ID)
 			header.SetPacketLength(uint16(len(body)))
@@ -924,7 +924,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 				}
 				pongs = append(pongs, pong)
 				if device.LogLevel.LogControl {
-					fmt.Println("Control: Pack to: Post body " + pong.ToString())
+					fmt.Printf("Control: Pack %v S:%v D:%v To:Post body\n", pong.ToString(), pong.Src_nodeID.ToString(), pong.Dst_nodeID.ToString())
 				}
 			}
 			device.peers.RLock()
@@ -982,15 +982,19 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 		req.Header.Set("Content-Encoding", "gzip")
 		device.HttpPostCount += 1
 		if device.LogLevel.LogControl {
-			fmt.Println("Control: Post to " + req.URL.RequestURI())
+			fmt.Printf("Control: Post to %v\n", downloadurl)
 		}
 		resp, err := client.Do(req)
 		if err != nil {
 			device.log.Errorf("RoutinePostPeerInfo: " + err.Error())
 		} else {
 			if device.LogLevel.LogControl {
-				res, _ := ioutil.ReadAll(resp.Body)
-				fmt.Println("Control: Post result " + string(res))
+				res, err := ioutil.ReadAll(resp.Body)
+				if err == nil {
+					fmt.Printf("Control: Post result %v\n", string(res))
+				} else {
+					fmt.Printf("Control: Post error %v %v\n", err, string(res))
+				}
 			}
 			resp.Body.Close()
 		}
