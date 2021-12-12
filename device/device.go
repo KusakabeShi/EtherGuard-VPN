@@ -383,7 +383,11 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		go device.RoutineClearL2FIB()
 		go device.RoutineRecalculateNhTable()
 		go device.RoutinePostPeerInfo(device.Chan_HttpPostStart)
-		
+		go func() {
+			<-device.Chan_Supernode_OK
+			device.Chan_SendRegisterStart <- struct{}{}
+		}()
+
 	}
 
 	// create queues

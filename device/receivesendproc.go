@@ -771,6 +771,9 @@ func (device *Device) RoutineSetEndpoint() {
 				}
 				if FastTry {
 					NextRun = true
+					if device.LogLevel.LogControl {
+						fmt.Printf("Control: First try for peer %v at endpoint %v, sending hole-punching ping\n", thepeer.ID.ToString(), connurl)
+					}
 					go device.SendPing(thepeer, int(device.EdgeConfig.DynamicRoute.ConnNextTry+1), 1, 1)
 				}
 

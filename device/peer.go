@@ -134,7 +134,7 @@ func (et *endpoint_trylist) GetNextTry() (bool, string) {
 		return false, ""
 	}
 	smallest.lastTry = time.Now()
-	if smallest.firstTry.After(time.Time{}) {
+	if !smallest.firstTry.After(time.Time{}) {
 		smallest.firstTry = time.Now()
 	}
 	if smallest.firstTry.Add(et.timeout).Before(time.Now()) {
