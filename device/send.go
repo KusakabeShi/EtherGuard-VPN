@@ -287,7 +287,7 @@ func (device *Device) RoutineReadFromTUN() {
 				}
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
-					fmt.Printf("Normal: Send Len:%v S:%v D:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+					fmt.Printf("Normal: Send Len:%v S:%v D:%v TTL:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}

@@ -37,7 +37,7 @@ Edge Nodes:                             # Node related settings
 
 Run this, it will generate the required configuration file
 ```
-./etherguard-go -mode gencfg -cfgmode p2p -config example_config/p2p_mode/gensp2p.yaml
+./etherguard-go -mode gencfg -cfgmode p2p -config example_config/p2p_mode/genp2p.yaml
 ```
 
 Deploy these configuration files to the corresponding nodes, and then execute  

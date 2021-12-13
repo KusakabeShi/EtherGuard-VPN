@@ -32,7 +32,7 @@
             "program": "${workspaceFolder}",
             "buildFlags": "-tags 'novpp'",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
-            "args":["-config","example_config/super_mode/gensuper.yaml","-mode","gencfg","-cfgmode","super"/*,"-example"*/],
+            "args":["-config","example_config/p2p_mode/genp2p.yaml","-mode","gencfg","-cfgmode","p2p"/*,"-example"*/],
         }
     ]
 }

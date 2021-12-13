@@ -46,7 +46,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 		if usage == path.NormalPacket && EgHeader.GetSrc() == device.ID {
 			dst_nodeID := EgHeader.GetDst()
 			packet_len := len(packet) - path.EgHeaderLen
-			fmt.Printf("Normal: Send Len:%v S:%v D:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+			fmt.Printf("Normal: Send Len:%v S:%v D:%v TTL:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), ttl, peer.ID.ToString(), peer.GetEndpointDstStr())
 			packet := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 			fmt.Println(packet.Dump())
 		}
@@ -57,7 +57,7 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 			if peer.GetEndpointDstStr() != "" {
 				src_nodeID := EgHeader.GetSrc()
 				dst_nodeID := EgHeader.GetDst()
-				fmt.Printf("Control: Send %v S:%v D:%v To:%v IP:%v\n", device.sprint_received(usage, packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+				fmt.Printf("Control: Send %v S:%v D:%v TTL:%v To:%v IP:%v\n", device.sprint_received(usage, packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), ttl, peer.ID.ToString(), peer.GetEndpointDstStr())
 			}
 		}
 	}
@@ -94,8 +94,8 @@ func (device *Device) SpreadPacket(skip_list map[mtypes.Vertex]bool, usage path.
 	device.peers.RLock()
 	for peer_id, peer_out := range device.peers.IDMap {
 		if _, ok := skip_list[peer_id]; ok {
-			if device.LogLevel.LogTransit {
-				fmt.Printf("Transit: Skipped Spread Packet packet through %d to %d\n", device.ID, peer_out.ID)
+			if device.LogLevel.LogTransit && peer_out.endpoint != nil {
+				fmt.Printf("Transit: Skipped Spread Packet packet Me:%v To:%d  TTL:%v\n", device.ID, peer_out.ID, ttl)
 			}
 			continue
 		}
@@ -115,7 +115,7 @@ func (device *Device) TransitBoardcastPacket(src_nodeID mtypes.Vertex, in_id mty
 	for peer_id := range node_boardcast_list {
 		peer_out := device.peers.IDMap[peer_id]
 		if device.LogLevel.LogTransit {
-			fmt.Printf("Transit: Transfer packet from %d through %d to %d\n", in_id, device.ID, peer_out.ID)
+			fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v TTL:%v\n", in_id, device.ID, peer_out.ID, src_nodeID.ToString(), peer_out.ID.ToString(), ttl)
 		}
 		go device.SendPacket(peer_out, usage, ttl, packet, offset)
 	}
@@ -377,6 +377,7 @@ func (device *Device) process_pong(peer *Peer, content mtypes.PongMsg) error {
 			buf := make([]byte, path.EgHeaderLen+len(body))
 			header, _ := path.NewEgHeader(buf[:path.EgHeaderLen], device.EdgeConfig.Interface.MTU)
 			header.SetSrc(device.ID)
+			header.SetDst(mtypes.NodeID_Spread)
 			copy(buf[path.EgHeaderLen:], body)
 			device.SendPacket(peer, path.QueryPeer, device.EdgeConfig.DefaultTTL, buf, MessageTransportOffsetContent)
 		}
@@ -811,11 +812,12 @@ func (device *Device) RoutineDetectOfflineAndTryNextEndpoint() {
 	}
 }
 
-func (device *Device) RoutineSendPing(startchan <-chan struct{}) {
+func (device *Device) RoutineSendPing(startchan chan struct{}) {
 	if !(device.EdgeConfig.DynamicRoute.P2P.UseP2P || device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
 	var waitchan <-chan time.Time
+	startchan <- struct{}{}
 	for {
 		if device.EdgeConfig.DynamicRoute.SendPingInterval > 0 {
 			waitchan = time.After(mtypes.S2TD(device.EdgeConfig.DynamicRoute.SendPingInterval))

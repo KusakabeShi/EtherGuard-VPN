@@ -162,21 +162,30 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
-	nhTableStr, _ := yaml.Marshal(next)
-	fmt.Println(string(nhTableStr))
+	if NMCfg.DistanceMatrix != "" && !enableP2P {
+		nhTableStr, _ := yaml.Marshal(next)
+		fmt.Println(string(nhTableStr))
+	}
 	all_vert := g.Vertices()
-	for u := range all_vert {
-		for v := range all_vert {
-			if u != v {
-				path, err := g.Path(u, v)
-				if err != nil {
-					return fmt.Errorf("couldn't find path from %v to %v: %v", u, v, err)
+	if NMCfg.DistanceMatrix != "" {
+		for u := range all_vert {
+			for v := range all_vert {
+				if u != v {
+					path, err := g.Path(u, v)
+					if err != nil {
+						return fmt.Errorf("couldn't find path from %v to %v: %v", u, v, err)
+					}
+					fmt.Printf("%d -> %d\t%3f\t%v\n", u, v, dist[u][v], path)
 				}
-				fmt.Printf("%d -> %d\t%3f\t%v\n", u, v, dist[u][v], path)
 			}
 		}
 	}
-	econfig := GetExampleEdgeConf(NMCfg.EdgeConfigTemplate, false)
+	econfig, err := GetExampleEdgeConf(NMCfg.EdgeConfigTemplate, false)
+	if err != nil {
+		if enableP2P {
+			econfig.DynamicRoute.AdditionalCost = 1000
+		}
+	}
 	econfig.DynamicRoute.P2P.UseP2P = enableP2P
 	econfig.DynamicRoute.SuperNode.UseSuperNode = false
 	econfig.NextHopTable = next

@@ -86,7 +86,7 @@ type Device struct {
 	Chan_server_register   chan mtypes.RegisterMsg
 	Chan_server_pong       chan mtypes.PongMsg
 	Chan_save_config       chan struct{}
-	Chan_Supernode_OK      chan struct{}
+	Chan_Edge_Initialized chan struct{}
 	Chan_SendPingStart     chan struct{}
 	Chan_SendRegisterStart chan struct{}
 	Chan_HttpPostStart     chan struct{}
@@ -367,25 +367,27 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.DupData = *fixed_time_cache.NewCache(mtypes.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, mtypes.S2TD(60))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Chan_save_config = make(chan struct{}, 1<<5)
-		device.Chan_Supernode_OK = make(chan struct{}, 1<<5)
+		device.Chan_Edge_Initialized = make(chan struct{}, 1<<5)
 		device.Chan_SendPingStart = make(chan struct{}, 1<<5)
 		device.Chan_SendRegisterStart = make(chan struct{}, 1<<5)
 		device.Chan_HttpPostStart = make(chan struct{}, 1<<5)
 		device.LogLevel = econfig.LogLevel
 		device.SuperConfig.DampingResistance = device.EdgeConfig.DynamicRoute.DampingResistance
 
-		go device.RoutineSetEndpoint()
-		go device.RoutineDetectOfflineAndTryNextEndpoint()
-		go device.RoutineRegister(device.Chan_SendRegisterStart)
-		go device.RoutineSendPing(device.Chan_SendPingStart)
-		go device.RoutineSpreadAllMyNeighbor()
-		go device.RoutineResetConn()
-		go device.RoutineClearL2FIB()
-		go device.RoutineRecalculateNhTable()
-		go device.RoutinePostPeerInfo(device.Chan_HttpPostStart)
 		go func() {
-			<-device.Chan_Supernode_OK
-			device.Chan_SendRegisterStart <- struct{}{}
+			<-device.Chan_Edge_Initialized
+			if device.LogLevel.LogInternal {
+				fmt.Printf("Internal: Edge initialized, start background loops\n")
+			}
+			go device.RoutineSetEndpoint()
+			go device.RoutineDetectOfflineAndTryNextEndpoint()
+			go device.RoutineRegister(device.Chan_SendRegisterStart)
+			go device.RoutineSendPing(device.Chan_SendPingStart)
+			go device.RoutineSpreadAllMyNeighbor()
+			go device.RoutineResetConn()
+			go device.RoutineClearL2FIB()
+			go device.RoutineRecalculateNhTable()
+			go device.RoutinePostPeerInfo(device.Chan_HttpPostStart)
 		}()
 
 	}

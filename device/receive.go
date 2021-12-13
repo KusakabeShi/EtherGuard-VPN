@@ -538,7 +538,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 					should_transfer = true
 				} else {
 					if device.LogLevel.LogTransit {
-						fmt.Printf("Transit: Duplicate packet dropped. From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
+						fmt.Printf("Transit: Duplicate packet dropped. S:%v D:%v From:%v \n", src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID)
 					}
 					goto skip
 				}
@@ -577,7 +577,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 						peer_out = device.peers.IDMap[next_id]
 						device.peers.RUnlock()
 						if device.LogLevel.LogTransit {
-							fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString())
+							fmt.Printf("Transit: Transfer From:%v Me:%v To:%v S:%v D:%v TTL:%v\n", peer.ID, device.ID, peer_out.ID, src_nodeID.ToString(), dst_nodeID.ToString(), l2ttl)
 						}
 						go device.SendPacket(peer_out, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 					} else {
@@ -593,7 +593,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if packet_type != path.NormalPacket {
 				if device.LogLevel.LogControl {
 					if peer.GetEndpointDstStr() != "" {
-						fmt.Printf("Control: Recv %v S:%v D:%v From:%v IP:%v\n", device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+						fmt.Printf("Control: Recv %v S:%v D:%v TTL:%v From:%v IP:%v\n", device.sprint_received(packet_type, elem.packet[path.EgHeaderLen:]), src_nodeID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
 					}
 				}
 				err = device.process_received(packet_type, peer, elem.packet[path.EgHeaderLen:])
@@ -611,7 +611,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				}
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
-					fmt.Printf("Normal: Recv Len:%v S:%v D:%v From:%v IP:%v:\n", strconv.Itoa(packet_len), src_nodeID.ToString(), dst_nodeID.ToString(), peer.ID.ToString(), peer.GetEndpointDstStr())
+					fmt.Printf("Normal: Recv Len:%v S:%v D:%v TTL:%v From:%v IP:%v:\n", strconv.Itoa(packet_len), src_nodeID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
 					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
 					fmt.Println(packet.Dump())
 				}

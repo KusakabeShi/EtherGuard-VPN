@@ -27,7 +27,7 @@ import (
 )
 
 func printExampleEdgeConf() {
-	tconfig := gencfg.GetExampleEdgeConf("", true)
+	tconfig, _ := gencfg.GetExampleEdgeConf("", true)
 	toprint, _ := yaml.Marshal(tconfig)
 	fmt.Print(string(toprint))
 }
@@ -201,7 +201,6 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return errors.New("failed to connect to supernode")
 			}
 		}
-		the_device.Chan_Supernode_OK <- struct{}{}
 	}
 
 	logger.Verbosef("Device started")
@@ -258,6 +257,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	signal.Notify(term, syscall.SIGTERM)
 	signal.Notify(term, os.Interrupt)
 
+	the_device.Chan_Edge_Initialized <- struct{}{}
 	mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	if econfig.LogLevel.LogInternal {

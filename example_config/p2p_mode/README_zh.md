@@ -35,7 +35,7 @@ Edge Nodes:                             # 所有的節點相關設定
 ```
 接著執行這個，就會生成所需設定檔了。
 ```
-./etherguard-go -mode gencfg -cfgmode p2p -config example_config/p2p_mode/gensp2p.yaml
+./etherguard-go -mode gencfg -cfgmode p2p -config example_config/p2p_mode/genp2p.yaml
 ```
 
 把這些設定檔不捨去對應節點，然後再執行  

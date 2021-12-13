@@ -62,7 +62,7 @@ func checkNhTable(NhTable mtypes.NextHopTable, peers []mtypes.SuperPeerInfo) err
 }
 
 func printExampleSuperConf() {
-	sconfig := gencfg.GetExampleSuperConf("", true)
+	sconfig, _ := gencfg.GetExampleSuperConf("", true)
 	scprint, _ := yaml.Marshal(sconfig)
 	fmt.Print(string(scprint))
 }
@@ -80,7 +80,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		return err
 	}
 	httpobj.http_sconfig = &sconfig
-	http_econfig_tmp := gencfg.GetExampleEdgeConf(sconfig.EdgeTemplate, true)
+	http_econfig_tmp, _ := gencfg.GetExampleEdgeConf(sconfig.EdgeTemplate, true)
 	httpobj.http_econfig_tmp = &http_econfig_tmp
 	NodeName := sconfig.NodeName
 	if len(NodeName) > 32 {
@@ -136,7 +136,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		Event_server_pong:     make(chan mtypes.PongMsg, 1<<5),
 		Event_server_register: make(chan mtypes.RegisterMsg, 1<<5),
 	}
-	httpobj.http_graph, err = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, mtypes.NTPInfo{}, sconfig.LogLevel)
+	httpobj.http_graph, err = path.NewGraph(3, true, sconfig.GraphRecalculateSetting, mtypes.NTPInfo{}, mtypes.LoggerInfo{})
 	if err != nil {
 		return err
 	}

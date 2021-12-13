@@ -159,7 +159,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		}
 	}
 
-	sconfig := GetExampleSuperConf(SMCfg.SuperConfigTemplate, false)
+	sconfig, _ := GetExampleSuperConf(SMCfg.SuperConfigTemplate, false)
 
 	if len(SMCfg.NetworkName) > 10 {
 		return fmt.Errorf("Name too long")
@@ -253,7 +253,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 	sconfig.PrivKeyV4 = PrivKeyS4.ToString()
 	sconfig.PrivKeyV6 = PrivKeyS6.ToString()
 	allec := make(map[mtypes.Vertex]mtypes.EdgeConfig)
-	peerceconf := GetExampleEdgeConf(sconfig.EdgeTemplate, false)
+	peerceconf, _ := GetExampleEdgeConf(sconfig.EdgeTemplate, false)
 	for _, ii := range NodeIDs {
 		i := mtypes.Vertex(ii)
 		PSKeyE := device.RandomPSK()

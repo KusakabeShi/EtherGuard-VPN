@@ -6,17 +6,21 @@
 package gencfg
 
 import (
+	"fmt"
+	"io/fs"
+
 	"github.com/KusakabeSi/EtherGuard-VPN/device"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 )
 
-func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
+func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, error) {
 	econfig := mtypes.EdgeConfig{}
+	var err error
 	if templatePath != "" {
-		err := mtypes.ReadYaml(templatePath, &econfig)
+		err = mtypes.ReadYaml(templatePath, &econfig)
 		if err == nil {
-			return econfig
+			return econfig, nil
 		}
 	}
 	v1 := mtypes.Vertex(1)
@@ -137,7 +141,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
 		},
 	}
 	if getDemo {
-		g, _ := path.NewGraph(3, false, econfig.DynamicRoute.P2P.GraphRecalculateSetting, econfig.DynamicRoute.NTPConfig, mtypes.LoggerInfo{})
+		g, _ := path.NewGraph(3, false, mtypes.GraphRecalculateSetting{}, mtypes.NTPInfo{}, mtypes.LoggerInfo{})
 		g.UpdateLatency(1, 2, 0.5, 99999, 0, false, false)
 		g.UpdateLatency(2, 1, 0.5, 99999, 0, false, false)
 		g.UpdateLatency(2, 3, 0.5, 99999, 0, false, false)
@@ -160,15 +164,16 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) mtypes.EdgeConfig {
 		econfig.DynamicRoute.SuperNode.EndpointV4 = ""
 		econfig.DynamicRoute.SuperNode.EndpointV6 = ""
 	}
-	return econfig
+	return econfig, &fs.PathError{Path: "", Err: fmt.Errorf("no path provided")}
 }
 
-func GetExampleSuperConf(templatePath string, getDemo bool) mtypes.SuperConfig {
+func GetExampleSuperConf(templatePath string, getDemo bool) (mtypes.SuperConfig, error) {
 	sconfig := mtypes.SuperConfig{}
+	var err error
 	if templatePath != "" {
-		err := mtypes.ReadYaml(templatePath, &sconfig)
+		err = mtypes.ReadYaml(templatePath, &sconfig)
 		if err == nil {
-			return sconfig
+			return sconfig, nil
 		}
 	}
 
@@ -207,7 +212,15 @@ func GetExampleSuperConf(templatePath string, getDemo bool) mtypes.SuperConfig {
 			UpdateSuper: random_passwd + "_updatesuper",
 		},
 		GraphRecalculateSetting: mtypes.GraphRecalculateSetting{
-			StaticMode:                false,
+			StaticMode: false,
+			ManualLatency: mtypes.DistTable{
+				mtypes.Vertex(1): {
+					mtypes.Vertex(2): 1.14,
+				},
+				mtypes.Vertex(2): {
+					mtypes.Vertex(1): 5.14,
+				},
+			},
 			JitterTolerance:           30,
 			JitterToleranceMultiplier: 1.01,
 			TimeoutCheckInterval:      5,
@@ -245,5 +258,5 @@ func GetExampleSuperConf(templatePath string, getDemo bool) mtypes.SuperConfig {
 		sconfig.NextHopTable = make(mtypes.NextHopTable)
 		sconfig.GraphRecalculateSetting.ManualLatency = make(mtypes.DistTable)
 	}
-	return sconfig
+	return sconfig, &fs.PathError{Path: "", Err: fmt.Errorf("no path provided")}
 }
