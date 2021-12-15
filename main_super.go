@@ -266,6 +266,14 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 		if peerconf.PSKey != "" {
 			peer4.SetPSK(psk)
 		}
+		if peerconf.EndPoint != "" {
+			err = peer4.SetEndpointFromConnURL(peerconf.EndPoint, 4, false)
+			if err != nil {
+				if httpobj.http_sconfig.LogLevel.LogInternal {
+					fmt.Printf("Internal: Set endpoint failed:%v\n", err)
+				}
+			}
+		}
 	}
 	if httpobj.http_sconfig.PrivKeyV6 != "" {
 		var psk device.NoisePresharedKey
@@ -282,6 +290,14 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 		peer6.StaticConn = false
 		if peerconf.PSKey != "" {
 			peer6.SetPSK(psk)
+		}
+		if peerconf.EndPoint != "" {
+			err = peer6.SetEndpointFromConnURL(peerconf.EndPoint, 6, false)
+			if err != nil {
+				if httpobj.http_sconfig.LogLevel.LogInternal {
+					fmt.Printf("Internal: Set endpoint failed:%v\n", err)
+				}
+			}
 		}
 	}
 	httpobj.http_PeerID2Info[peerconf.NodeID] = peerconf
@@ -469,7 +485,7 @@ func PushNhTable(force bool) {
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
-		if !isAlive {
+		if !isAlive && !force {
 			continue
 		}
 		if force || peerstate.NhTableState.Load().(string) != httpobj.http_NhTable_Hash {
@@ -502,7 +518,7 @@ func PushPeerinfo(force bool) {
 	copy(buf[path.EgHeaderLen:], body)
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
-		if !isAlive {
+		if !isAlive && !force {
 			continue
 		}
 		if force || peerstate.PeerInfoState.Load().(string) != httpobj.http_PeerInfo_hash {
@@ -520,7 +536,7 @@ func PushServerParams(force bool) {
 	//No lock
 	for pkstr, peerstate := range httpobj.http_PeerState {
 		isAlive := peerstate.LastSeen.Load().(time.Time).Add(mtypes.S2TD(httpobj.http_sconfig.PeerAliveTimeout)).After(time.Now())
-		if !isAlive {
+		if !isAlive && !force {
 			continue
 		}
 		if force || peerstate.SuperParamState.Load().(string) != peerstate.SuperParamStateClient.Load().(string) {

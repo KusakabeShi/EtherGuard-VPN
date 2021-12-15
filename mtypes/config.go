@@ -95,6 +95,7 @@ type SuperPeerInfo struct {
 	PSKey          string  `yaml:"PSKey"`
 	AdditionalCost float64 `yaml:"AdditionalCost"`
 	SkipLocalIP    bool    `yaml:"SkipLocalIP"`
+	EndPoint       string  `yaml:"EndPoint"`
 }
 
 type LoggerInfo struct {
