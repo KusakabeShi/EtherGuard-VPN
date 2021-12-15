@@ -49,7 +49,9 @@ Static Mode | No dynamic routing, no handshake server.<br>Similar to original wi
 Static Mode | Inspired by [n2n](https://github.com/ntop/n2n). There 2 types of node: SuperNode and EdgeNode<br>EdgeNode must connect to SuperNode first，get connection info of other EdgeNode from the SuperNode<br>The SuperNode runs [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm)，and distribute the result to all other EdgeNodes.<br>[Detail](example_config/super_mode/README.md)
 P2P Mode | Inspired by [tinc](https://github.com/gsliepen/tinc), There are no SuperNode. All EdgeNode will exchange information each other.<br>EdgeNodes are keep trying to connect each other, and notify all other peers success or not.<br>All edges runs [Floyd-Warshall Algorithm](https://en.wikipedia.org/wiki/Floyd–Warshall_algorithm) locally and find the best route by it self.<br>**Not recommend to use this mode in production environment, not test yet.**<br>[Detail](example_config/p2p_mode/README.md)
 
-## [Quick start](example_config/super_mode/README.md)
+## Quick start
+
+[Super mode quick start](example_config/super_mode/README.md)
 
 ## Build
 

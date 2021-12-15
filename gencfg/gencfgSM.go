@@ -164,7 +164,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 	if len(SMCfg.NetworkName) > 10 {
 		return fmt.Errorf("Name too long")
 	}
-	allowed := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+	allowed := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-"
 	for _, c := range []byte(SMCfg.NetworkName) {
 		if strings.Contains(allowed, string(c)) == false {
 			return fmt.Errorf("Name can only contain %v", allowed)

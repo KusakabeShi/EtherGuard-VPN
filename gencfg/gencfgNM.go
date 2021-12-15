@@ -68,7 +68,7 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 	if len(NMCfg.NetworkName) > 10 {
 		return fmt.Errorf("name too long")
 	}
-	allowed := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+	allowed := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-"
 	for _, c := range []byte(NMCfg.NetworkName) {
 		if !strings.Contains(allowed, string(c)) {
 			return fmt.Errorf("name can only contain %v", allowed)

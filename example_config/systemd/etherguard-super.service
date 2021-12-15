@@ -2,16 +2,15 @@
 [Unit]
 Description=Etherguard supernode
 After=network.target
-# wg-quick.service
 
 [Service]
-User=nobody
-Group=nogroup
-WorkingDirectory=/etc/eggo
+User=root
+Group=root
 Type=notify
-#ExecStartPre=+chgrp nogroup /var/run/wireguard
+ExecStartPre=+mkdir -p /var/run/wireguard
+#ExecStartPre=+chgrp etherguard /var/run/wireguard
 #ExecStartPre=+chmod 775 /var/run/wireguard
-ExecStart=etherguard-go -config /etc/eggo/super.yaml -mode super -no-uapi
+ExecStart=etherguard-go -config /etc/eggo/super.yaml -mode super
 Nice=5
 
 [Install]
