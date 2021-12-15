@@ -43,6 +43,8 @@ DynamicRoute:
     PubKeyV6: KhpV1fJ+jtNT6S5wKUZJbb0oFlDNMS5qxO0f5Ow/QQU=
     EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false
+    AdditionalLocalIP:
+    - 136.243.28.150:56238
     SuperNodeInfoTimeout: 50
   P2P:
     UseP2P: false

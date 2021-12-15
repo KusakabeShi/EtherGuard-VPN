@@ -57,7 +57,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 		if url == "" {
 			continue
 		}
-		_, err := conn.LookupIP(url, 0)
+		_, _, err := conn.LookupIP(url, 0)
 		if err != nil {
 			if et.peer.device.LogLevel.LogInternal {
 				fmt.Printf("Internal: Peer %v : Update trylist(super) %v error: %v\n", et.peer.ID.ToString(), url, err)
@@ -84,7 +84,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 }
 
 func (et *endpoint_trylist) UpdateP2P(url string) {
-	_, err := conn.LookupIP(url, 0)
+	_, _, err := conn.LookupIP(url, 0)
 	if err != nil {
 		return
 	}
@@ -471,7 +471,7 @@ func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) er
 		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
 	}
 	var err error
-	connurl, err = conn.LookupIP(connurl, af)
+	_, connurl, err = conn.LookupIP(connurl, af)
 	if err != nil {
 		return err
 	}

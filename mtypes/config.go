@@ -144,15 +144,16 @@ type NTPInfo struct {
 }
 
 type SuperInfo struct {
-	UseSuperNode         bool    `yaml:"UseSuperNode"`
-	PSKey                string  `yaml:"PSKey"`
-	EndpointV4           string  `yaml:"EndpointV4"`
-	PubKeyV4             string  `yaml:"PubKeyV4"`
-	EndpointV6           string  `yaml:"EndpointV6"`
-	PubKeyV6             string  `yaml:"PubKeyV6"`
-	EndpointEdgeAPIUrl   string  `yaml:"EndpointEdgeAPIUrl"`
-	SkipLocalIP          bool    `yaml:"SkipLocalIP"`
-	SuperNodeInfoTimeout float64 `yaml:"SuperNodeInfoTimeout"`
+	UseSuperNode         bool     `yaml:"UseSuperNode"`
+	PSKey                string   `yaml:"PSKey"`
+	EndpointV4           string   `yaml:"EndpointV4"`
+	PubKeyV4             string   `yaml:"PubKeyV4"`
+	EndpointV6           string   `yaml:"EndpointV6"`
+	PubKeyV6             string   `yaml:"PubKeyV6"`
+	EndpointEdgeAPIUrl   string   `yaml:"EndpointEdgeAPIUrl"`
+	SkipLocalIP          bool     `yaml:"SkipLocalIP"`
+	AdditionalLocalIP    []string `yaml:"AdditionalLocalIP"`
+	SuperNodeInfoTimeout float64  `yaml:"SuperNodeInfoTimeout"`
 }
 
 type P2PInfo struct {

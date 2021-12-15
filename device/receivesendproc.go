@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
@@ -941,7 +942,23 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 					IP:   device.peers.LocalV6,
 					Port: int(device.net.port),
 				}
-				LocalV4s[LocalV6.String()] = 100
+				LocalV6s[LocalV6.String()] = 100
+			}
+		}
+		for _, AIP := range device.EdgeConfig.DynamicRoute.SuperNode.AdditionalLocalIP {
+			success := false
+			_, ipstr, err := conn.LookupIP(AIP, 4)
+			if err == nil {
+				success = true
+				LocalV4s[ipstr] = 50
+			}
+			_, ipstr, err = conn.LookupIP(AIP, 6)
+			if err == nil {
+				success = true
+				LocalV6s[ipstr] = 50
+			}
+			if !success {
+				device.log.Errorf("AdditionalLocalIP: Failed to LookupIP %v", AIP)
 			}
 		}
 

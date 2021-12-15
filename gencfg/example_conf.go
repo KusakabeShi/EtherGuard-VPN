@@ -71,6 +71,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 				EndpointEdgeAPIUrl:   "http://127.0.0.1:3000/eg_api",
 				SuperNodeInfoTimeout: 50,
 				SkipLocalIP:          false,
+				AdditionalLocalIP:    []string{"11.11.11.11:11111"},
 			},
 			P2P: mtypes.P2PInfo{
 				UseP2P:           false,
@@ -163,6 +164,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 		econfig.DynamicRoute.P2P.GraphRecalculateSetting.ManualLatency = make(mtypes.DistTable)
 		econfig.DynamicRoute.SuperNode.EndpointV4 = ""
 		econfig.DynamicRoute.SuperNode.EndpointV6 = ""
+		econfig.DynamicRoute.SuperNode.AdditionalLocalIP = make([]string, 0)
 	}
 	return econfig, &fs.PathError{Path: "", Err: fmt.Errorf("no path provided")}
 }

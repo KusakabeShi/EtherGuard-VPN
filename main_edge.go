@@ -190,8 +190,6 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			peer.StaticConn = false
-			peer.ConnURL = econfig.DynamicRoute.SuperNode.EndpointV6
 			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, false)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
