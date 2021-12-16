@@ -169,7 +169,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, false)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, true)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV4, err)
 				S4 = false
@@ -190,7 +190,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, false)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, true)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
 				S6 = false
@@ -255,7 +255,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	signal.Notify(term, syscall.SIGTERM)
 	signal.Notify(term, os.Interrupt)
 
-	the_device.Chan_Edge_Initialized <- struct{}{}
+	the_device.Chan_Device_Initialized <- struct{}{}
 	mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	if econfig.LogLevel.LogInternal {

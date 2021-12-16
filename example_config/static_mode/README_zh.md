@@ -128,20 +128,20 @@ X 1   2   3   4   5   6
 ### EdgeNode Config Parameter
 
 <a name="EdgeConfig"></a>EdgeConfig    | Description
---------------    |:-----
+---------------------|:-----
 [Interface](#Interface)| 接口相關設定。VPN有兩端，一端是VPN網路，另一端則是本地接口
-NodeID            | 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
-NodeName          | 節點名稱
-PostScript        | 初始化完畢之後要跑的腳本
-DefaultTTL        | TTL，etherguard層使用，和乙太層不共通
-L2FIBTimeout      | MacAddr-> NodeID 查找表的 timeout(秒) ，類似ARP table
-PrivKey           | 私鑰，和wireguard規格一樣
-ListenPort        | 監聽的udp埠
+NodeID               | 節點ID。節點之間辨識身分用的，同一網路內節點ID不能重複
+NodeName             | 節點名稱
+PostScript           | 初始化完畢之後要跑的腳本
+DefaultTTL           | TTL，etherguard層使用，和乙太層不共通
+L2FIBTimeout         | MacAddr-> NodeID 查找表的 timeout(秒) ，類似ARP table
+PrivKey              | 私鑰，和wireguard規格一樣
+ListenPort           | 監聽的udp埠
 [LogLevel](#LogLevel)| 紀錄log
 [DynamicRoute](../super_mode/README_zh.md#DynamicRoute)      | 動態路由相關設定<br>StaticMode用不到
-NextHopTable      | 轉發表， 下一跳 = `NhTable[起點][終點]`<br>SuperMode以及P2PMode用不到
-ResetConnInterval | 如果對方是動態ip就要用這個。每隔一段時間就會重置連線，重新解析域名
-[Peers](#Peers)   | 鄰居節點。<br>SuperMode用不到，從SuperNode接收
+NextHopTable          | 轉發表， 下一跳 = `NhTable[起點][終點]`<br>SuperMode以及P2PMode用不到
+ResetEndPointInterval | 每隔一段時間就會重置連線，重新解析域名<br>只對標記為Static的Peer生效<br>如果有Endpoint是動態ip就要用這個
+[Peers](#Peers)       | 鄰居節點。<br>SuperMode用不到，從SuperNode接收
 
 <a name="Interface"></a>Interface      | Description
 ---------------|:-----

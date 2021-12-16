@@ -157,6 +157,9 @@ func LookupIP(host_port string, af int) (net.Addr, string, error) {
 	} else if af == 6 {
 		network = "udp6"
 	}
+	if host_port == "" {
+		return nil, "", fmt.Errorf("error lookup ip from empty string")
+	}
 	conn, err := net.Dial(network, host_port)
 	if err != nil {
 		return nil, "", err

@@ -95,7 +95,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 			NTPConfig: mtypes.NTPInfo{
 				UseNTP:           true,
 				MaxServerUse:     8,
-				SyncTimeInterval: 3600,
+				SyncTimeInterval: 604800,
 				NTPTimeout:       3,
 				Servers: []string{
 					"time.google.com",
@@ -129,7 +129,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 				mtypes.Vertex(1): v1,
 			},
 		},
-		ResetConnInterval: 86400,
+		ResetEndPointInterval: 600,
 		Peers: []mtypes.PeerInfo{
 			{
 				NodeID:              2,
@@ -201,11 +201,12 @@ func GetExampleSuperConf(templatePath string, getDemo bool) (mtypes.SuperConfig,
 			LogInternal: true,
 			LogNTP:      true,
 		},
-		RePushConfigInterval: 30,
-		PeerAliveTimeout:     70,
-		DampingResistance:    0.9,
-		HttpPostInterval:     50,
-		SendPingInterval:     15,
+		RePushConfigInterval:  30,
+		PeerAliveTimeout:      70,
+		DampingResistance:     0.9,
+		HttpPostInterval:      50,
+		SendPingInterval:      15,
+		ResetEndPointInterval: 600,
 		Passwords: mtypes.Passwords{
 			ShowState:   random_passwd + "_showstate",
 			AddPeer:     random_passwd + "_addpeer",

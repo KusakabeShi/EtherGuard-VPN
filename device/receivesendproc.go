@@ -748,7 +748,7 @@ func (device *Device) process_BoardcastPeerMsg(peer *Peer, content mtypes.Boardc
 	return nil
 }
 
-func (device *Device) RoutineSetEndpoint() {
+func (device *Device) RoutineTryReceivedEndpoint() {
 	if !(device.EdgeConfig.DynamicRoute.P2P.UseP2P || device.EdgeConfig.DynamicRoute.SuperNode.UseSuperNode) {
 		return
 	}
@@ -1042,17 +1042,26 @@ func (device *Device) RoutineSpreadAllMyNeighbor() {
 	}
 }
 
-func (device *Device) RoutineResetConn() {
-	if device.EdgeConfig.ResetConnInterval <= 0.01 {
+func (device *Device) RoutineResetEndpoint() {
+	var ResetEndPointInterval float64
+	if device.IsSuperNode {
+		ResetEndPointInterval = device.SuperConfig.ResetEndPointInterval
+	} else {
+		ResetEndPointInterval = device.EdgeConfig.ResetEndPointInterval
+	}
+	if ResetEndPointInterval <= 0.01 {
 		return
 	}
-	timeout := mtypes.S2TD(device.EdgeConfig.ResetConnInterval)
+	timeout := mtypes.S2TD(ResetEndPointInterval)
 	for {
 		for _, peer := range device.peers.keyMap {
 			if !peer.StaticConn { //Do not reset connecton for dynamic peer
 				continue
 			}
 			if peer.ConnURL == "" {
+				continue
+			}
+			if peer.IsPeerAlive() {
 				continue
 			}
 			err := peer.SetEndpointFromConnURL(peer.ConnURL, peer.ConnAF, peer.StaticConn)

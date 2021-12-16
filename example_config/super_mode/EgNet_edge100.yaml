@@ -3,20 +3,20 @@ Interface:
   Name: EgNet100
   VPPIFaceID: 1
   VPPBridgeID: 4242
-  MacAddrPrefix: 62:A6:A3:6D
+  MacAddrPrefix: F6:C6:D6:39
   IPv4CIDR: 192.168.76.0/24
   IPv6CIDR: fd95:71cb:a3df:e586::/64
   IPv6LLPrefix: fe80::a3df:0/112
   MTU: 1404
-  RecvAddr: 127.0.0.1:4100
-  SendAddr: 127.0.0.1:5100
+  RecvAddr: 127.0.0.1:4001
+  SendAddr: 127.0.0.1:5001
   L2HeaderMode: kbdbg
 NodeID: 100
 NodeName: EgNet100
 PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
-PrivKey: iquaLyD+YLzW3zvI0JGSed9GfDqHYMh/vUaU0PYVAbQ=
+PrivKey: szziqqL7hZcd5uw4hpPdhhYtDajuuJYJIKowwCBr3Mo=
 ListenPort: 0
 LogLevel:
   LogLevel: error
@@ -36,13 +36,14 @@ DynamicRoute:
   SaveNewPeers: true
   SuperNode:
     UseSuperNode: true
-    PSKey: w5t64vFEoyNk/iKJP3oeSi9eiGEiPteZmf2o0oI2q2U=
+    PSKey: 201zPcenuIVoQtCQHPjjw7RRjzVHSGTcgBIDeqZV1Ss=
     EndpointV4: 127.0.0.1:3456
-    PubKeyV4: 10CPQrpXKqXxnjtpdxDwnYqLglnuRnCFsiSAjxMrMTc=
-    EndpointV6: :3456
-    PubKeyV6: KhpV1fJ+jtNT6S5wKUZJbb0oFlDNMS5qxO0f5Ow/QQU=
+    PubKeyV4: k90vb67heqcN2GHwY5X9kbn6owjJbbVuVB+P1DD4AEU=
+    EndpointV6: ""
+    PubKeyV6: z26JJATeF3jqcjsoY+82WkrSj6xvEBGFEth5v/u3Eiw=
     EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false
+    AdditionalLocalIP: []
     SuperNodeInfoTimeout: 50
   P2P:
     UseP2P: false
@@ -81,5 +82,5 @@ DynamicRoute:
     - 2.pool.ntp.org
     - 3.pool.ntp.org
 NextHopTable: {}
-ResetConnInterval: 86400
+ResetEndPointInterval: 600
 Peers: []

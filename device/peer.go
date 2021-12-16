@@ -463,10 +463,6 @@ func (peer *Peer) SetPSK(psk NoisePresharedKey) {
 }
 
 func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) error {
-	peer.StaticConn = static
-	peer.ConnURL = connurl
-	peer.ConnAF = af
-
 	if peer.device.LogLevel.LogInternal {
 		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
 	}
@@ -475,13 +471,18 @@ func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) er
 	if err != nil {
 		return err
 	}
-
+	if peer.GetEndpointDstStr() == connurl {
+		if peer.device.LogLevel.LogInternal {
+			fmt.Printf("Internal: Same as original endpoint:%v, skip for NodeID:%v\n", connurl, peer.ID.ToString())
+		}
+	}
 	endpoint, err := peer.device.net.bind.ParseEndpoint(connurl)
 	if err != nil {
 		return err
 	}
 	peer.StaticConn = static
 	peer.ConnURL = connurl
+	peer.ConnAF = af
 	peer.SetEndpointFromPacket(endpoint)
 	return nil
 }
@@ -516,6 +517,8 @@ func (peer *Peer) SetEndpointFromPacket(endpoint conn.Endpoint) {
 }
 
 func (peer *Peer) GetEndpointSrcStr() string {
+	peer.RLock()
+	defer peer.RUnlock()
 	if peer.endpoint == nil {
 		return ""
 	}
@@ -523,6 +526,8 @@ func (peer *Peer) GetEndpointSrcStr() string {
 }
 
 func (peer *Peer) GetEndpointDstStr() string {
+	peer.RLock()
+	defer peer.RUnlock()
 	if peer.endpoint == nil {
 		return ""
 	}

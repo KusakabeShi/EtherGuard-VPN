@@ -3,7 +3,7 @@ Interface:
   Name: tap1
   VPPIFaceID: 1
   VPPBridgeID: 4242
-  MacAddrPrefix: EA:C9:BC:0F
+  MacAddrPrefix: 6E:B8:1B:68
   IPv4CIDR: 192.168.76.0/24
   IPv6CIDR: fd95:71cb:a3df:e586::/64
   IPv6LLPrefix: fe80::a3df:0/112
@@ -16,7 +16,7 @@ NodeName: EgNet1
 PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
-PrivKey: wEo/Y73+zu/OwhdV6pfwJHaUlhPhQJFk5scQYAWHdcI=
+PrivKey: u1U5zImQ0lByFcJXTysUq9ZSTg3ZLIKMDYn/RAXEtKI=
 ListenPort: 3001
 LogLevel:
   LogLevel: error
@@ -43,6 +43,7 @@ DynamicRoute:
     PubKeyV6: ""
     EndpointEdgeAPIUrl: ""
     SkipLocalIP: false
+    AdditionalLocalIP: []
     SuperNodeInfoTimeout: 50
   P2P:
     UseP2P: false
@@ -97,11 +98,11 @@ NextHopTable:
     3: 4
     4: 4
     5: 4
-ResetConnInterval: 86400
+ResetEndPointInterval: 600
 Peers:
 - NodeID: 2
-  PubKey: /OUi+mno1dvZi3L0T72P4Lxd42TkXdEJwR0VEhsaKxQ=
-  PSKey: viLcvMWwVR2P+ojtc2psl5CFhmziiet5aquG3KFQDrs=
+  PubKey: 8RSl6sMj1jjkHt/OO+hOKpaxvo1ISaqc6eMXx7jheRY=
+  PSKey: ymMmOXRxdEVv/LQe4V2H5aUjYribOf7EXg4WOrLdoRU=
   EndPoint: 127.0.0.1:3002
   PersistentKeepalive: 0
   Static: true

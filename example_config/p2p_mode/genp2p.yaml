@@ -8,15 +8,15 @@ Edge Node:
   IPv6 LL range: fe80::a3df:0/112
 Edge Nodes:
   1:
-    Endpoint(optional): 127.0.0.1:3001
+    Endpoint(optional): ""
   2:
-    Endpoint(optional): 127.0.0.1:3002
+    Endpoint(optional): ""
   3:
-    Endpoint(optional): 127.0.0.1:3003
+    Endpoint(optional): 127.0.0.1:3003  # Provide at least 1 endpoint for others
   4:
     Endpoint(optional): 127.0.0.1:3004
   5:
-    Endpoint(optional): 127.0.0.1:3005
+    Endpoint(optional): ""
   6:
-    Endpoint(optional): 127.0.0.1:3006
+    Endpoint(optional): ""
 Distance matrix for all nodes: ""

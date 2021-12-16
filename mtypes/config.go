@@ -18,19 +18,19 @@ const (
 )
 
 type EdgeConfig struct {
-	Interface         InterfaceConf    `yaml:"Interface"`
-	NodeID            Vertex           `yaml:"NodeID"`
-	NodeName          string           `yaml:"NodeName"`
-	PostScript        string           `yaml:"PostScript"`
-	DefaultTTL        uint8            `yaml:"DefaultTTL"`
-	L2FIBTimeout      float64          `yaml:"L2FIBTimeout"`
-	PrivKey           string           `yaml:"PrivKey"`
-	ListenPort        int              `yaml:"ListenPort"`
-	LogLevel          LoggerInfo       `yaml:"LogLevel"`
-	DynamicRoute      DynamicRouteInfo `yaml:"DynamicRoute"`
-	NextHopTable      NextHopTable     `yaml:"NextHopTable"`
-	ResetConnInterval float64          `yaml:"ResetConnInterval"`
-	Peers             []PeerInfo       `yaml:"Peers"`
+	Interface             InterfaceConf    `yaml:"Interface"`
+	NodeID                Vertex           `yaml:"NodeID"`
+	NodeName              string           `yaml:"NodeName"`
+	PostScript            string           `yaml:"PostScript"`
+	DefaultTTL            uint8            `yaml:"DefaultTTL"`
+	L2FIBTimeout          float64          `yaml:"L2FIBTimeout"`
+	PrivKey               string           `yaml:"PrivKey"`
+	ListenPort            int              `yaml:"ListenPort"`
+	LogLevel              LoggerInfo       `yaml:"LogLevel"`
+	DynamicRoute          DynamicRouteInfo `yaml:"DynamicRoute"`
+	NextHopTable          NextHopTable     `yaml:"NextHopTable"`
+	ResetEndPointInterval float64          `yaml:"ResetEndPointInterval"`
+	Peers                 []PeerInfo       `yaml:"Peers"`
 }
 
 type SuperConfig struct {
@@ -53,6 +53,7 @@ type SuperConfig struct {
 	NextHopTable            NextHopTable            `yaml:"NextHopTable"`
 	EdgeTemplate            string                  `yaml:"EdgeTemplate"`
 	UsePSKForInterEdge      bool                    `yaml:"UsePSKForInterEdge"`
+	ResetEndPointInterval   float64                 `yaml:"ResetEndPointInterval"`
 	Peers                   []SuperPeerInfo         `yaml:"Peers"`
 }
 
@@ -96,6 +97,7 @@ type SuperPeerInfo struct {
 	AdditionalCost float64 `yaml:"AdditionalCost"`
 	SkipLocalIP    bool    `yaml:"SkipLocalIP"`
 	EndPoint       string  `yaml:"EndPoint"`
+	ExternalIP     string  `yaml:"ExternalIP"`
 }
 
 type LoggerInfo struct {

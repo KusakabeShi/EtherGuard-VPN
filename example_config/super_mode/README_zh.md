@@ -335,6 +335,8 @@ PubKey              | 公鑰
 PSKey               | 預共享金鑰
 [AdditionalCost](#AdditionalCost)      | 繞路成本(單位: 毫秒)<br>設定-1代表使用EdgeNode自身設定
 SkipLocalIP         | 打洞時，不使用EdgeNode回報的本地IP，僅使用SuperNode蒐集到的外部IP
+EndPoint            | SuperNode啟動時，主動向Edge連線的Endpoint
+ExternalIP          | 針對沒開Nat Reflection，又要把SuperNode和EdgeNode跑在同一内網的情境使用<br>沒有Nat Reflection，SuperNode無法讀取內網EdgeNode的外部IP，只能手動指定了
 
 ### EdgeNode Config Parameter
 
