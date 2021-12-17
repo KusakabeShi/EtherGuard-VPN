@@ -1,7 +1,7 @@
 NodeName: EgNetSP
 PostScript: ""
-PrivKeyV4: qbvcWSMxBpXaaluU8hS4jTqPnDCD29Ndticp4GgrmfI=
-PrivKeyV6: CfzKBRoBkY5qd8OnizhRCYqx1bJSU7Ql9US09bUq1UY=
+PrivKeyV4: W4hrtkH+htbU3/zAbKLdFeflMSUoKLf741DONjnLk18=
+PrivKeyV6: y47AY2xGs4uiUTHfMLhxooMPu/mFOezSFQ1iZ9giW7E=
 ListenPort: 3456
 ListenPort_EdgeAPI: "3456"
 ListenPort_ManageAPI: "3456"
@@ -38,24 +38,24 @@ ResetEndPointInterval: 600
 Peers:
 - NodeID: 1
   Name: EgNet001
-  PubKey: dkjawveX+UGqcCEgThjLcgowWTY1fA89eY+mQicD3AI=
-  PSKey: aqGxI+K8SAV5U+v1ig4TN9JjI0FGlJgPEbB1juVIbr0=
+  PubKey: 6mdRv+McDgxWIq6bVB1ekxnMMWqhktzHc3JIq5bCSHI=
+  PSKey: yl/4SNFee7+kNekajVCrK0toqXJ4mlT4IN0klyAgyqU=
   AdditionalCost: 10
   SkipLocalIP: false
   EndPoint: ""
-  ExternalIP: "google.com"
+  ExternalIP: ""
 - NodeID: 2
   Name: EgNet002
-  PubKey: iKWT8Sk+uQHB6KOSEBF7oILhkl78x1KKlE8scg4k3jc=
-  PSKey: HuhEMcywAlFzvdNCGdBvNFxXMxTHE5nf1qS7njLS9o0=
+  PubKey: Xb6eYSf4fTkFRLGVqf1sAPBXMKlWsRAbajs1mYABT0w=
+  PSKey: FJfjc+wRfk0FSuUkHlXl6D8xPzOKYdy3bxeYr5cpevQ=
   AdditionalCost: 10
   SkipLocalIP: false
   EndPoint: ""
   ExternalIP: ""
 - NodeID: 100
   Name: EgNet100
-  PubKey: 7HTSE5ofjFbicCmFay8Xn5THlI9yrBLhT0gXL4t+Rws=
-  PSKey: 201zPcenuIVoQtCQHPjjw7RRjzVHSGTcgBIDeqZV1Ss=
+  PubKey: cZb8NNE1FBLy6kIUGXjdXCprUHuqzfpyXTwUxHJobnM=
+  PSKey: 5BPLK4IX3oUd4ILQct2Xc690kkKeUd4jlyeFBkO6pHA=
   AdditionalCost: 10
   SkipLocalIP: false
   EndPoint: ""

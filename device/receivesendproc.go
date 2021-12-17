@@ -492,7 +492,7 @@ func (device *Device) process_UpdatePeerMsg(peer *Peer, State_hash string) error
 				thepeer.SetPSK(pk)
 			}
 
-			thepeer.endpoint_trylist.UpdateSuper(*peerinfo.Connurl, !device.EdgeConfig.DynamicRoute.SuperNode.SkipLocalIP)
+			thepeer.endpoint_trylist.UpdateSuper(*peerinfo.Connurl, !device.EdgeConfig.DynamicRoute.SuperNode.SkipLocalIP, device.EdgeConfig.AfPrefer)
 			if !thepeer.IsPeerAlive() {
 				//Peer died, try to switch to this new endpoint
 				send_signal = true
@@ -765,7 +765,7 @@ func (device *Device) RoutineTryReceivedEndpoint() {
 				if connurl == "" {
 					continue
 				}
-				err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
+				err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, device.EdgeConfig.AfPrefer, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
 				if err != nil {
 					device.log.Errorf("Bind " + connurl + " failed!")
 					thepeer.endpoint_trylist.Delete(connurl)
@@ -947,12 +947,12 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 		}
 		for _, AIP := range device.EdgeConfig.DynamicRoute.SuperNode.AdditionalLocalIP {
 			success := false
-			_, ipstr, err := conn.LookupIP(AIP, 4)
+			_, ipstr, err := conn.LookupIP(AIP, 4, 0)
 			if err == nil {
 				success = true
 				LocalV4s[ipstr] = 50
 			}
-			_, ipstr, err = conn.LookupIP(AIP, 6)
+			_, ipstr, err = conn.LookupIP(AIP, 6, 0)
 			if err == nil {
 				success = true
 				LocalV6s[ipstr] = 50
@@ -1064,7 +1064,7 @@ func (device *Device) RoutineResetEndpoint() {
 			if peer.IsPeerAlive() {
 				continue
 			}
-			err := peer.SetEndpointFromConnURL(peer.ConnURL, peer.ConnAF, peer.StaticConn)
+			err := peer.SetEndpointFromConnURL(peer.ConnURL, peer.ConnAF, device.EdgeConfig.AfPrefer, peer.StaticConn)
 			if err != nil {
 				device.log.Errorf("Failed to bind "+peer.ConnURL, err)
 				continue

@@ -150,22 +150,47 @@ func parseEndpoint(s string) (*net.UDPAddr, error) {
 	return addr, err
 }
 
-func LookupIP(host_port string, af int) (net.Addr, string, error) {
-	network := "udp"
-	if af == 4 {
-		network = "udp4"
-	} else if af == 6 {
-		network = "udp6"
-	}
+func LookupIP(host_port string, Af int, AfPrefer int) (string, string, error) {
 	if host_port == "" {
-		return nil, "", fmt.Errorf("error lookup ip from empty string")
+		return "", "", fmt.Errorf("error lookup ip from empty string")
 	}
-	conn, err := net.Dial(network, host_port)
+	var conn net.Conn
+	var err error
+	var af_try_order []string
+
+	var NetStr string
+	switch Af {
+	case 4:
+		af_try_order = []string{"udp4"}
+	case 6:
+		af_try_order = []string{"udp6"}
+	case 0:
+		switch AfPrefer {
+		case 0:
+			af_try_order = []string{"udp"}
+		case 4:
+			af_try_order = []string{"udp4", "udp6", "udp"}
+		case 6:
+			af_try_order = []string{"udp6", "udp4", "udp"}
+		default:
+			return "", "", fmt.Errorf("unknown address family:%v", AfPrefer)
+		}
+	default:
+		return "", "", fmt.Errorf("unknown address family:%v", Af)
+	}
+	for _, af := range af_try_order {
+		conn, err = net.Dial(af, host_port)
+		if err == nil {
+			NetStr = af
+			break
+		}
+	}
+
 	if err != nil {
-		return nil, "", err
+		return "", "", err
 	}
 	defer conn.Close()
-	return conn.RemoteAddr(), conn.RemoteAddr().String(), nil
+	return NetStr, conn.RemoteAddr().String(), nil
 }
 
 func ValidIP(ip net.IP) bool {

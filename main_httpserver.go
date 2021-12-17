@@ -162,7 +162,7 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 			if strings.Contains(connV4, ":") {
 				hostport := strings.Split(connV4, ":")
 				ExternalIP = ExternalIP + ":" + hostport[len(hostport)-1]
-				_, ExternalEndPoint_v4, err := conn.LookupIP(ExternalIP, 4)
+				_, ExternalEndPoint_v4, err := conn.LookupIP(ExternalIP, 4, 0)
 				if err == nil {
 					connV4 = ExternalEndPoint_v4
 				}
@@ -170,7 +170,7 @@ func get_api_peers(old_State_hash string) (api_peerinfo mtypes.API_Peers, StateH
 			if strings.Contains(connV6, ":") {
 				hostport := strings.Split(connV6, ":")
 				ExternalIP = ExternalIP + ":" + hostport[len(hostport)-1]
-				_, ExternalEndPoint_v6, err := conn.LookupIP(ExternalIP, 6)
+				_, ExternalEndPoint_v6, err := conn.LookupIP(ExternalIP, 6, 0)
 				if err == nil {
 					connV6 = ExternalEndPoint_v6
 				}

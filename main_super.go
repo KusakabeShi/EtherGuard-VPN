@@ -267,7 +267,7 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 			peer4.SetPSK(psk)
 		}
 		if peerconf.EndPoint != "" {
-			err = peer4.SetEndpointFromConnURL(peerconf.EndPoint, 4, true)
+			err = peer4.SetEndpointFromConnURL(peerconf.EndPoint, 4, 0, true)
 			if err != nil {
 				if httpobj.http_sconfig.LogLevel.LogInternal {
 					fmt.Printf("Internal: Set endpoint failed:%v\n", err)
@@ -292,7 +292,7 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 			peer6.SetPSK(psk)
 		}
 		if peerconf.EndPoint != "" {
-			err = peer6.SetEndpointFromConnURL(peerconf.EndPoint, 6, true)
+			err = peer6.SetEndpointFromConnURL(peerconf.EndPoint, 6, 0, true)
 			if err != nil {
 				if httpobj.http_sconfig.LogLevel.LogInternal {
 					fmt.Printf("Internal: Set endpoint failed:%v\n", err)

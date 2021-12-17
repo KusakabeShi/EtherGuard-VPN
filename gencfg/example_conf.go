@@ -44,6 +44,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 		L2FIBTimeout: 3600,
 		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort:   0,
+		AfPrefer:     4,
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "error",
 			LogTransit:  false,

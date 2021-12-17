@@ -26,6 +26,7 @@ type EdgeConfig struct {
 	L2FIBTimeout          float64          `yaml:"L2FIBTimeout"`
 	PrivKey               string           `yaml:"PrivKey"`
 	ListenPort            int              `yaml:"ListenPort"`
+	AfPrefer              int              `yaml:"AfPrefer"`
 	LogLevel              LoggerInfo       `yaml:"LogLevel"`
 	DynamicRoute          DynamicRouteInfo `yaml:"DynamicRoute"`
 	NextHopTable          NextHopTable     `yaml:"NextHopTable"`

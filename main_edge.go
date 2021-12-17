@@ -142,7 +142,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		the_device.NewPeer(pk, peerconf.NodeID, false, peerconf.PersistentKeepalive)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(pk)
-			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, 0, peerconf.Static)
+			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, 0, econfig.AfPrefer, peerconf.Static)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint %v: %w", peerconf.EndPoint, err)
 				return err
@@ -169,7 +169,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, true)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, 0, true)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV4, err)
 				S4 = false
@@ -190,7 +190,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, true)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, 0, true)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
 				S6 = false

@@ -1,6 +1,6 @@
 Config output dir: /tmp/eg_gen_super
-ConfigTemplate for super node:  "EgNet_super.yaml"
-ConfigTemplate for edge node:  "EgNet_edge001.yaml"
+ConfigTemplate for super node: "" # "EgNet_super.yaml"
+ConfigTemplate for edge node: "" # "EgNet_edge001.yaml"
 Network name: EgNet
 Super Node:
   Listen port: 3456

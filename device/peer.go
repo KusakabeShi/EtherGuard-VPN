@@ -21,6 +21,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const AfPerferVal = 10000
+
 type endpoint_tryitem struct {
 	URL      string
 	lastTry  time.Time
@@ -44,7 +46,7 @@ func NewEndpoint_trylist(peer *Peer, timeout time.Duration) *endpoint_trylist {
 	}
 }
 
-func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool) {
+func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool, AfPerfer int) {
 	et.Lock()
 	defer et.Unlock()
 	newmap_super := make(map[string]*endpoint_tryitem)
@@ -57,7 +59,17 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 		if url == "" {
 			continue
 		}
-		_, _, err := conn.LookupIP(url, 0)
+		addr, _, err := conn.LookupIP(url, 0, AfPerfer)
+		switch AfPerfer {
+		case 4:
+			if addr == "udp4" {
+				it = it - AfPerferVal
+			}
+		case 6:
+			if addr == "udp6" {
+				it = it - AfPerferVal
+			}
+		}
 		if err != nil {
 			if et.peer.device.LogLevel.LogInternal {
 				fmt.Printf("Internal: Peer %v : Update trylist(super) %v error: %v\n", et.peer.ID.ToString(), url, err)
@@ -75,7 +87,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 			}
 			newmap_super[url] = &endpoint_tryitem{
 				URL:      url,
-				lastTry:  time.Time{}.Add(mtypes.S2TD(it)),
+				lastTry:  time.Time{}.Add(mtypes.S2TD(AfPerferVal)).Add(mtypes.S2TD(it)),
 				firstTry: time.Time{},
 			}
 		}
@@ -84,7 +96,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 }
 
 func (et *endpoint_trylist) UpdateP2P(url string) {
-	_, _, err := conn.LookupIP(url, 0)
+	_, _, err := conn.LookupIP(url, 0, 0)
 	if err != nil {
 		return
 	}
@@ -462,12 +474,12 @@ func (peer *Peer) SetPSK(psk NoisePresharedKey) {
 	peer.handshake.mutex.Unlock()
 }
 
-func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, static bool) error {
+func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, af_perfer int, static bool) error {
 	if peer.device.LogLevel.LogInternal {
 		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
 	}
 	var err error
-	_, connurl, err = conn.LookupIP(connurl, af)
+	_, connurl, err = conn.LookupIP(connurl, af, af_perfer)
 	if err != nil {
 		return err
 	}
