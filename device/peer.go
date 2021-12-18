@@ -479,16 +479,17 @@ func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, af_perfer int, 
 		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
 	}
 	var err error
-	_, connurl, err = conn.LookupIP(connurl, af, af_perfer)
+	_, connIP, err := conn.LookupIP(connurl, af, af_perfer)
 	if err != nil {
 		return err
 	}
-	if peer.GetEndpointDstStr() == connurl {
-		if peer.device.LogLevel.LogInternal {
-			fmt.Printf("Internal: Same as original endpoint:%v, skip for NodeID:%v\n", connurl, peer.ID.ToString())
-		}
+	if peer.GetEndpointDstStr() == connIP {
+		//if peer.device.LogLevel.LogInternal {
+		//	fmt.Printf("Internal: Same as original endpoint:%v, skip for NodeID:%v\n", connurl, peer.ID.ToString())
+		//}
+		return nil
 	}
-	endpoint, err := peer.device.net.bind.ParseEndpoint(connurl)
+	endpoint, err := peer.device.net.bind.ParseEndpoint(connIP)
 	if err != nil {
 		return err
 	}
