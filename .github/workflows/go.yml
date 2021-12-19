@@ -69,16 +69,30 @@ jobs:
           shell: /bin/sh
           install: |
             apt-get -y update
-            apt install software-properties-common -y
+
+            apt install software-properties-common curl -y
+
+            echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
+            curl -L https://packagecloud.io/fdio/release/gpgkey | apt-key add -
             add-apt-repository ppa:longsleep/golang-backports
+
             apt-get -y update
+            apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev || true
             apt-get install -y wireguard-tools golang-go build-essential git
           run: |
             make all static
+            make vpp || true
             mkdir /artifacts/${artifact_dir}
             cp etherguard-go* /artifacts/${artifact_dir}
 
       - uses: actions/upload-artifact@v2
+        if: ${{ matrix.arch == 'armv7' }}
         with:
-          name: etherguard-multi_arch
-          path: artifacts/
+          name: etherguard-arm32
+          path: artifacts/armv7
+          
+      - uses: actions/upload-artifact@v2
+        if: ${{ matrix.arch == 'aarch64' }}
+        with:
+          name: etherguard-arm64
+          path: artifacts/aarch64
