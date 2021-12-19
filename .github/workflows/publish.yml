@@ -1,0 +1,174 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  x86_64:
+      runs-on: ubuntu-20.04
+      name: Build for ${{ matrix.distro }} x86_64 and mipsle
+      steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+      - name: Install requirements
+        run: |
+          echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/99fd.io.list > /dev/null
+          curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
+          sudo apt-get -y update
+          sudo apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev
+          sudo apt-get install -y wireguard-tools upx-ucl
+
+      - name: Build x86_64
+        run: |
+          make all static vpp
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: etherguard-x86_64
+          path: etherguard-go*
+
+      - name: Upload x86_64 dynamic build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go
+          asset_name: etherguard-go-x86_64
+          tag: ${{ github.ref }}
+
+      - name: Upload x86_64 dynamic vpp build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go-vpp
+          asset_name: etherguard-go-x86_64
+          tag: ${{ github.ref }}
+
+      - name: Upload x86_64 static build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go-static
+          asset_name: etherguard-go-static-x86_64
+          tag: ${{ github.ref }}
+
+      - name: Build mipsle
+        run: |
+          make clean
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat make all static
+          upx -9 etherguard-go*
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: etherguard-mipsle
+          path: etherguard-go*
+
+      - name: Upload mipsle dynamic build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go
+          asset_name: etherguard-go-mipsle
+          tag: ${{ github.ref }}
+
+
+      - name: Upload mipsle dynamic vpp build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go-vpp
+          asset_name: etherguard-go-mipsle
+          tag: ${{ github.ref }}
+
+
+      - name: Upload mipsle static build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: etherguard-go-static
+          asset_name: etherguard-go-static-mipsle
+          tag: ${{ github.ref }}
+
+  multi-arch:
+    runs-on: ubuntu-20.04
+    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+    strategy:
+      matrix:
+        include:
+          - arch: aarch64
+          - arch: armv7
+    steps:
+      - uses: actions/checkout@v2
+      - uses: uraimo/run-on-arch-action@v2.0.5
+        name: Build artifact
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ubuntu20.04
+          githubToken: ${{ github.token }}
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+          env: |
+            artifact_dir: ${{ matrix.arch }}
+          shell: /bin/sh
+          install: |
+            apt-get -y update
+
+            apt install software-properties-common curl -y
+
+            echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
+            curl -L https://packagecloud.io/fdio/release/gpgkey | apt-key add -
+            add-apt-repository ppa:longsleep/golang-backports
+
+            apt-get -y update
+            apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev || true
+            apt-get install -y wireguard-tools golang-go build-essential git
+          run: |
+            make all static
+            make vpp || true
+            mkdir /artifacts/${artifact_dir}
+            cp etherguard-go* /artifacts/${artifact_dir}
+
+      - uses: actions/upload-artifact@v2
+
+        if: ${{ matrix.arch == 'armv7' }}
+        with:
+          name: etherguard-arm32
+          path: artifacts/armv7
+      - uses: actions/upload-artifact@v2
+        if: ${{ matrix.arch == 'aarch64' }}
+        with:
+          name: etherguard-arm64
+          path: artifacts/aarch64
+
+      - name: Upload ${{ matrix.arch }} dynamic build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/${{ martix.arch }}/etherguard-go
+          asset_name: etherguard-go-${{ martix.arch }}
+          tag: ${{ github.ref }}
+
+      - name: Upload ${{ matrix.arch }} dynamic vpp build
+        if: ${{ matrix.arch == 'aarch64' }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/${{ martix.arch }}/etherguard-go
+          asset_name: etherguard-go-${{ martix.arch }}
+          tag: ${{ github.ref }}
+
+      - name: Upload ${{ matrix.arch }} static build
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/${{ martix.arch }}/etherguard-go-static
+          asset_name: etherguard-go-static-${{ martix.arch }}
+          tag: ${{ github.ref }}
