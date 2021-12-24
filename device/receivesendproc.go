@@ -912,8 +912,8 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 			if peer.IsPeerAlive() {
 				pong := mtypes.PongMsg{
 					RequestID:   0,
-					Src_nodeID:  device.ID,
-					Dst_nodeID:  id,
+					Src_nodeID:  id,
+					Dst_nodeID:  device.ID,
 					Timediff:    peer.SingleWayLatency.Load().(float64),
 					TimeToAlive: time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 				}

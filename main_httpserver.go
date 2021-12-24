@@ -491,7 +491,10 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 
 	applied_pones := make([]mtypes.PongMsg, 0, len(client_report.Pongs))
 	for _, pong_msg := range client_report.Pongs {
-		if pong_msg.Src_nodeID != NodeID {
+		if pong_msg.Dst_nodeID != NodeID {
+			if httpobj.http_sconfig.LogLevel.LogControl {
+				fmt.Printf("Control: Dropped because not correct dst: Recv %v S:%v D:%v From: %v IP:%v(HTTP)\n", pong_msg.ToString(), pong_msg.Src_nodeID.ToString(), pong_msg.Dst_nodeID.ToString(), NodeID.ToString(), r.RemoteAddr)
+			}
 			continue
 		}
 
@@ -503,7 +506,7 @@ func edge_post_nodeinfo(w http.ResponseWriter, r *http.Request) {
 			}
 			applied_pones = append(applied_pones, pong_msg)
 			if httpobj.http_sconfig.LogLevel.LogControl {
-				fmt.Printf("Control: Recv %v S:%v D:%v From: %v(HTTP) IP:%v\n", pong_msg.ToString(), pong_msg.Src_nodeID.ToString(), pong_msg.Dst_nodeID.ToString(), NodeID.ToString(), r.RemoteAddr)
+				fmt.Printf("Control: Recv %v S:%v D:%v From: %v IP:%v(HTTP)\n", pong_msg.ToString(), pong_msg.Src_nodeID.ToString(), pong_msg.Dst_nodeID.ToString(), NodeID.ToString(), r.RemoteAddr)
 			}
 		}
 	}
