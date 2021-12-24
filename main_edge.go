@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/google/shlex"
@@ -169,7 +170,16 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, 0, true)
+			StaticSuper := true
+			sc := econfig.DynamicRoute.SuperNode.EndpointV4
+			if strings.Contains(sc, ":") {
+				i := strings.LastIndex(sc, ":")
+				sch := sc[:i]
+				if sch == "127.0.0.1" {
+					StaticSuper = false
+				}
+			}
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, 0, StaticSuper)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV4, err)
 				S4 = false
@@ -190,7 +200,16 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 				return err
 			}
 			peer.SetPSK(psk)
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, 0, true)
+			StaticSuper := true
+			sc := econfig.DynamicRoute.SuperNode.EndpointV6
+			if strings.Contains(sc, ":") {
+				i := strings.LastIndex(sc, ":")
+				sch := sc[:i]
+				if sch == "[::1]" {
+					StaticSuper = false
+				}
+			}
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, 0, StaticSuper)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
 				S6 = false

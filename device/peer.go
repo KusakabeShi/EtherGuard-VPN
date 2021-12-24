@@ -476,7 +476,7 @@ func (peer *Peer) SetPSK(psk NoisePresharedKey) {
 
 func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, af_perfer int, static bool) error {
 	if peer.device.LogLevel.LogInternal {
-		fmt.Println("Internal: Set endpoint to " + connurl + " for NodeID:" + peer.ID.ToString())
+		fmt.Printf("Internal: Set endpoint to %v for NodeID: %v static:%v\n", connurl, peer.ID.ToString(), static)
 	}
 	var err error
 	_, connIP, err := conn.LookupIP(connurl, af, af_perfer)
