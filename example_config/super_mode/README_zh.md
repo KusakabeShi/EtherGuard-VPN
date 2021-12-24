@@ -69,7 +69,7 @@ $ ./etherguard-go -mode gencfg -cfgmode super -config example_config/super_mode/
 ### Register
 具體運作方式類似這張圖  
 ![Register運作流程](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS01.png)  
-1. EdgeNode發送`Register`給sSuperNode 
+1. EdgeNode發送`Register`給SuperNode 
 2. SuperNode收到以後就知道這個EdgeNode的Endpoint IP和Port number。  
 3. 更新進資料庫以後發布`UpdatePeerMsg`。  
 4. 其他edge node收到以後就用HTTP EdgeAPI去下載完整的peer list。並且把自己沒有的peer通通加到本地
@@ -89,8 +89,8 @@ Edge node 會嘗試向其他所有peer發送`Ping`，裡面會攜帶節點自己
 ![EGS08](https://raw.githubusercontent.com/KusakabeSi/EtherGuard-VPN/master/example_config/super_mode/EGS08.png)  
 Path    | Latency |Cost|Win
 --------|:--------|:---|:--
-A->B->C | 3ms     | 3  |
-A->C    | 4ms     | 4  | O
+A->B->C | 3ms     | 3  | O
+A->C    | 4ms     | 4  |
 
 但是這個情境，3ms 4ms 只相差1ms  
 為了這1ms而多繞一趟實在浪費，而且轉發本身也要時間
