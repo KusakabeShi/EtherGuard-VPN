@@ -19,7 +19,7 @@ jobs:
           echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/99fd.io.list > /dev/null
           curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
           sudo apt-get -y update
-          sudo apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev
+          sudo apt-get install -y libmemif libmemif-dev
           sudo apt-get install -y wireguard-tools upx-ucl
 
       - name: Build x86_64
@@ -77,7 +77,7 @@ jobs:
             add-apt-repository ppa:longsleep/golang-backports
 
             apt-get -y update
-            apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev || true
+            apt-get install -y libmemif libmemif-dev || true
             apt-get install -y wireguard-tools golang-go build-essential git
           run: |
             make all static

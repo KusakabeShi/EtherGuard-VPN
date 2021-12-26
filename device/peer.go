@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net"
 	"sort"
 	"sync"
@@ -187,19 +186,8 @@ func (f *filterwindow) Push(e float64) float64 {
 		f.value = e
 		return f.value
 	}
-	pivot := ((elemlen + 1) / 2) - 1
-	left := window[:pivot+1]
-	right := window[pivot:]
-	lm := f.filter(left, 1)
-	rm := f.filter(right, 2)
-	pv := window[pivot]
-	ldiff := math.Abs(lm - pv)
-	rdiff := math.Abs(rm - pv)
-	if ldiff < rdiff {
-		f.value = lm
-	} else {
-		f.value = rm
-	}
+	f.value = f.filter(window, 2)
+
 	return f.value
 }
 

@@ -21,7 +21,7 @@ jobs:
           echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/99fd.io.list > /dev/null
           curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
           sudo apt-get -y update
-          sudo apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev
+          sudo apt-get install -y libmemif libmemif-dev
           sudo apt-get install -y wireguard-tools upx-ucl
 
       - name: Build x86_64
@@ -38,6 +38,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: etherguard-go
+          overwrite: true
           asset_name: etherguard-go-x86_64
           tag: ${{ github.ref }}
 
@@ -46,7 +47,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: etherguard-go-vpp
-          asset_name: etherguard-go-x86_64
+          overwrite: true
+          asset_name: etherguard-go-vpp-x86_64
           tag: ${{ github.ref }}
 
       - name: Upload x86_64 static build
@@ -54,6 +56,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: etherguard-go-static
+          overwrite: true
           asset_name: etherguard-go-static-x86_64
           tag: ${{ github.ref }}
 
@@ -74,17 +77,8 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: etherguard-go
           asset_name: etherguard-go-mipsle
+          overwrite: true
           tag: ${{ github.ref }}
-
-
-      - name: Upload mipsle dynamic vpp build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go-vpp
-          asset_name: etherguard-go-mipsle
-          tag: ${{ github.ref }}
-
 
       - name: Upload mipsle static build
         uses: svenstaro/upload-release-action@v2
@@ -92,6 +86,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: etherguard-go-static
           asset_name: etherguard-go-static-mipsle
+          overwrite: true
           tag: ${{ github.ref }}
 
   multi-arch:
@@ -128,7 +123,7 @@ jobs:
             add-apt-repository ppa:longsleep/golang-backports
 
             apt-get -y update
-            apt-get install -y vpp vpp-plugin-core python3-vpp-api vpp-dbg vpp-dev libmemif libmemif-dev || true
+            apt-get install -y libmemif libmemif-dev || true
             apt-get install -y wireguard-tools golang-go build-essential git
           run: |
             make all static
@@ -152,8 +147,9 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ martix.arch }}/etherguard-go
-          asset_name: etherguard-go-${{ martix.arch }}
+          file: artifacts/${{ matrix.arch }}/etherguard-go
+          asset_name: etherguard-go-${{ matrix.arch }}
+          overwrite: true
           tag: ${{ github.ref }}
 
       - name: Upload ${{ matrix.arch }} dynamic vpp build
@@ -161,14 +157,16 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ martix.arch }}/etherguard-go
-          asset_name: etherguard-go-${{ martix.arch }}
+          file: artifacts/${{ matrix.arch }}/etherguard-go
+          asset_name: etherguard-go-vpp-${{ matrix.arch }}
+          overwrite: true
           tag: ${{ github.ref }}
 
       - name: Upload ${{ matrix.arch }} static build
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ martix.arch }}/etherguard-go-static
-          asset_name: etherguard-go-static-${{ martix.arch }}
+          file: artifacts/${{ matrix.arch }}/etherguard-go-static
+          asset_name: etherguard-go-static-${{ matrix.arch }}
+          overwrite: true
           tag: ${{ github.ref }}
