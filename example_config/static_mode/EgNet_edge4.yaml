@@ -32,7 +32,7 @@ DynamicRoute:
   ConnNextTry: 5
   DupCheckTimeout: 40
   AdditionalCost: 10
-  DampingResistance: 0.9
+  DampingFilterRadius: 4
   SaveNewPeers: true
   SuperNode:
     UseSuperNode: false

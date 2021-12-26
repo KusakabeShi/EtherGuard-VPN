@@ -324,13 +324,7 @@ func (device *Device) server_process_Pong(peer *Peer, content mtypes.PongMsg) er
 
 func (device *Device) process_ping(peer *Peer, content mtypes.PingMsg) error {
 	Timediff := device.graph.GetCurrentTime().Sub(content.Time).Seconds()
-	OldTimediff := peer.SingleWayLatency.Load().(float64)
-	NewTimediff := Timediff
-	if (OldTimediff < mtypes.Infinity) == (NewTimediff < mtypes.Infinity) {
-		DR := device.SuperConfig.DampingResistance
-		NewTimediff = OldTimediff*DR + Timediff*(1-DR)
-	}
-	peer.SingleWayLatency.Store(NewTimediff)
+	NewTimediff := peer.SingleWayLatency.Push(Timediff)
 
 	PongMSG := mtypes.PongMsg{
 		Src_nodeID:     content.Src_nodeID,
@@ -627,9 +621,7 @@ func (device *Device) process_UpdateSuperParamsMsg(peer *Peer, State_hash string
 		device.EdgeConfig.DynamicRoute.PeerAliveTimeout = SuperParams.PeerAliveTimeout
 		device.EdgeConfig.DynamicRoute.SendPingInterval = SuperParams.SendPingInterval
 		device.SuperConfig.HttpPostInterval = SuperParams.HttpPostInterval
-		if SuperParams.DampingResistance > 0 && SuperParams.DampingResistance <= 1 {
-			device.SuperConfig.DampingResistance = SuperParams.DampingResistance
-		}
+		device.SuperConfig.DampingFilterRadius = SuperParams.DampingFilterRadius
 		device.Chan_SendPingStart <- struct{}{}
 		device.Chan_HttpPostStart <- struct{}{}
 		if SuperParams.AdditionalCost >= 0 {
@@ -914,7 +906,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 					RequestID:   0,
 					Src_nodeID:  id,
 					Dst_nodeID:  device.ID,
-					Timediff:    peer.SingleWayLatency.Load().(float64),
+					Timediff:    peer.SingleWayLatency.GetVal(),
 					TimeToAlive: time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 				}
 				pongs = append(pongs, pong)

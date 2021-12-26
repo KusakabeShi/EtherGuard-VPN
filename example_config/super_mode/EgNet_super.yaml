@@ -10,7 +10,7 @@ RePushConfigInterval: 30
 HttpPostInterval: 50
 PeerAliveTimeout: 70
 SendPingInterval: 15
-DampingResistance: 0.9
+DampingFilterRadius: 4
 LogLevel:
   LogLevel: error
   LogTransit: false

@@ -47,7 +47,7 @@ type SuperConfig struct {
 	HttpPostInterval        float64                 `yaml:"HttpPostInterval"`
 	PeerAliveTimeout        float64                 `yaml:"PeerAliveTimeout"`
 	SendPingInterval        float64                 `yaml:"SendPingInterval"`
-	DampingResistance       float64                 `yaml:"DampingResistance"`
+	DampingFilterRadius     uint64                  `yaml:"DampingFilterRadius"`
 	LogLevel                LoggerInfo              `yaml:"LogLevel"`
 	Passwords               Passwords               `yaml:"Passwords"`
 	GraphRecalculateSetting GraphRecalculateSetting `yaml:"GraphRecalculateSetting"`
@@ -132,7 +132,7 @@ type DynamicRouteInfo struct {
 	ConnNextTry          float64   `yaml:"ConnNextTry"`
 	DupCheckTimeout      float64   `yaml:"DupCheckTimeout"`
 	AdditionalCost       float64   `yaml:"AdditionalCost"`
-	DampingResistance    float64   `yaml:"DampingResistance"`
+	DampingFilterRadius  uint64    `yaml:"DampingFilterRadius"`
 	SaveNewPeers         bool      `yaml:"SaveNewPeers"`
 	SuperNode            SuperInfo `yaml:"SuperNode"`
 	P2P                  P2PInfo   `yaml:"P2P"`
@@ -223,11 +223,11 @@ type API_Peerinfo struct {
 }
 
 type API_SuperParams struct {
-	SendPingInterval  float64
-	HttpPostInterval  float64
-	PeerAliveTimeout  float64
-	DampingResistance float64
-	AdditionalCost    float64
+	SendPingInterval    float64
+	HttpPostInterval    float64
+	PeerAliveTimeout    float64
+	DampingFilterRadius uint64
+	AdditionalCost      float64
 }
 
 type StateHash struct {

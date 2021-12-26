@@ -372,7 +372,7 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.Chan_SendRegisterStart = make(chan struct{}, 1<<5)
 		device.Chan_HttpPostStart = make(chan struct{}, 1<<5)
 		device.LogLevel = econfig.LogLevel
-		device.SuperConfig.DampingResistance = device.EdgeConfig.DynamicRoute.DampingResistance
+		device.SuperConfig.DampingFilterRadius = device.EdgeConfig.DynamicRoute.DampingFilterRadius
 
 	}
 

@@ -255,11 +255,11 @@ func edge_get_superparams(w http.ResponseWriter, r *http.Request) {
 	}
 	// Do something
 	SuperParams := mtypes.API_SuperParams{
-		SendPingInterval:  httpobj.http_sconfig.SendPingInterval,
-		HttpPostInterval:  httpobj.http_sconfig.HttpPostInterval,
-		PeerAliveTimeout:  httpobj.http_sconfig.PeerAliveTimeout,
-		AdditionalCost:    httpobj.http_PeerID2Info[NodeID].AdditionalCost,
-		DampingResistance: httpobj.http_sconfig.DampingResistance,
+		SendPingInterval:    httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval:    httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout:    httpobj.http_sconfig.PeerAliveTimeout,
+		AdditionalCost:      httpobj.http_PeerID2Info[NodeID].AdditionalCost,
+		DampingFilterRadius: httpobj.http_sconfig.DampingFilterRadius,
 	}
 	SuperParamStr, _ := json.Marshal(SuperParams)
 	httpobj.http_PeerState[PubKey].SuperParamStateClient.Store(State)
@@ -763,11 +763,11 @@ func manage_peerupdate(w http.ResponseWriter, r *http.Request) {
 
 	httpobj.http_PeerID2Info[toUpdate] = new_superpeerinfo
 	SuperParams := mtypes.API_SuperParams{
-		SendPingInterval:  httpobj.http_sconfig.SendPingInterval,
-		HttpPostInterval:  httpobj.http_sconfig.HttpPostInterval,
-		PeerAliveTimeout:  httpobj.http_sconfig.PeerAliveTimeout,
-		DampingResistance: httpobj.http_sconfig.DampingResistance,
-		AdditionalCost:    new_superpeerinfo.AdditionalCost,
+		SendPingInterval:    httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval:    httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout:    httpobj.http_sconfig.PeerAliveTimeout,
+		DampingFilterRadius: httpobj.http_sconfig.DampingFilterRadius,
+		AdditionalCost:      new_superpeerinfo.AdditionalCost,
 	}
 
 	SuperParamStr, _ := json.Marshal(SuperParams)
@@ -815,7 +815,7 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 	sconfig_temp.PeerAliveTimeout = httpobj.http_sconfig.PeerAliveTimeout
 	sconfig_temp.SendPingInterval = httpobj.http_sconfig.SendPingInterval
 	sconfig_temp.HttpPostInterval = httpobj.http_sconfig.HttpPostInterval
-	sconfig_temp.DampingResistance = httpobj.http_sconfig.DampingResistance
+	sconfig_temp.DampingFilterRadius = httpobj.http_sconfig.DampingFilterRadius
 
 	PeerAliveTimeout, err := extractParamsFloat(r.Form, "PeerAliveTimeout", 64, nil)
 	if err == nil {
@@ -828,15 +828,10 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 		sconfig_temp.PeerAliveTimeout = PeerAliveTimeout
 	}
 
-	DampingResistance, err := extractParamsFloat(r.Form, "DampingResistance", 64, nil)
+	DampingFilterRadius, err := extractParamsUint(r.Form, "DampingFilterRadius", 64, nil)
 	if err == nil {
-		if DampingResistance < 0 || DampingResistance >= 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("Paramater DampingResistance %v: Must in range [0,1)\n", DampingResistance)))
-			return
-		}
-		Updated_params["DampingResistance"] = fmt.Sprintf("%v", DampingResistance)
-		sconfig_temp.DampingResistance = DampingResistance
+		Updated_params["DampingFilterRadius"] = fmt.Sprintf("%v", DampingFilterRadius)
+		sconfig_temp.DampingFilterRadius = DampingFilterRadius
 	}
 
 	SendPingInterval, err := extractParamsFloat(r.Form, "SendPingInterval", 64, nil)
@@ -869,14 +864,14 @@ func manage_superupdate(w http.ResponseWriter, r *http.Request) {
 	httpobj.http_sconfig.PeerAliveTimeout = sconfig_temp.PeerAliveTimeout
 	httpobj.http_sconfig.SendPingInterval = sconfig_temp.SendPingInterval
 	httpobj.http_sconfig.HttpPostInterval = sconfig_temp.HttpPostInterval
-	httpobj.http_sconfig.DampingResistance = sconfig_temp.DampingResistance
+	httpobj.http_sconfig.DampingFilterRadius = sconfig_temp.DampingFilterRadius
 
 	SuperParams := mtypes.API_SuperParams{
-		SendPingInterval:  httpobj.http_sconfig.SendPingInterval,
-		HttpPostInterval:  httpobj.http_sconfig.HttpPostInterval,
-		PeerAliveTimeout:  httpobj.http_sconfig.PeerAliveTimeout,
-		DampingResistance: httpobj.http_sconfig.DampingResistance,
-		AdditionalCost:    10,
+		SendPingInterval:    httpobj.http_sconfig.SendPingInterval,
+		HttpPostInterval:    httpobj.http_sconfig.HttpPostInterval,
+		PeerAliveTimeout:    httpobj.http_sconfig.PeerAliveTimeout,
+		DampingFilterRadius: httpobj.http_sconfig.DampingFilterRadius,
+		AdditionalCost:      10,
 	}
 	httpobj.Lock()
 	defer httpobj.Unlock()

@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -155,6 +157,96 @@ func (et *endpoint_trylist) GetNextTry() (bool, string) {
 	return FastTry, smallest.URL
 }
 
+type filterwindow struct {
+	sync.RWMutex
+	device  *Device
+	size    int
+	element []float64
+	value   float64
+}
+
+func (f *filterwindow) Push(e float64) float64 {
+	f.Resize(f.device.SuperConfig.DampingFilterRadius*2 + 1)
+	f.Lock()
+	defer f.Unlock()
+	if f.size < 3 || e >= mtypes.Infinity {
+		f.value = e
+		return f.value
+	}
+	f.element = append(f.element, e)
+	if len(f.element) > f.size {
+		f.element = f.element[1:]
+	}
+	elemlen := len(f.element)
+	window := f.element
+	if elemlen%2 == 0 {
+		window = window[1:]
+		elemlen -= 1
+	}
+	if elemlen < 3 {
+		f.value = e
+		return f.value
+	}
+	pivot := ((elemlen + 1) / 2) - 1
+	left := window[:pivot+1]
+	right := window[pivot:]
+	lm := f.filter(left, 1)
+	rm := f.filter(right, 2)
+	pv := window[pivot]
+	ldiff := math.Abs(lm - pv)
+	rdiff := math.Abs(rm - pv)
+	if ldiff < rdiff {
+		f.value = lm
+	} else {
+		f.value = rm
+	}
+	return f.value
+}
+
+func (f *filterwindow) filter(w []float64, lr int) float64 { // find the medium
+	elemlen := len(w)
+	if elemlen == 0 {
+		return mtypes.Infinity
+	}
+	if elemlen%2 == 0 {
+		switch lr {
+		case 1:
+			w = w[:len(w)-1]
+		case 2:
+			w = w[1:]
+		}
+		elemlen -= 1
+	}
+	if elemlen < 3 {
+		return w[0]
+	}
+	pivot := ((elemlen + 1) / 2) - 1
+	w2 := make([]float64, elemlen)
+	copy(w2, w)
+	sort.Float64s(w2)
+	return w2[pivot]
+}
+
+func (f *filterwindow) Resize(s uint64) {
+	size := int(s)
+	f.Lock()
+	defer f.Unlock()
+	if f.size == size {
+		return
+	}
+	f.size = size
+	elemlen := len(f.element)
+	if elemlen > f.size {
+		f.element = f.element[elemlen-size:]
+	}
+}
+
+func (f *filterwindow) GetVal() float64 {
+	f.RLock()
+	defer f.RUnlock()
+	return f.value
+}
+
 type Peer struct {
 	isRunning        AtomicBool
 	sync.RWMutex     // Mostly protects endpoint, but is generally taken whenever we modify peer
@@ -166,8 +258,9 @@ type Peer struct {
 
 	LastPacketReceivedAdd1Sec atomic.Value // *time.Time
 
-	SingleWayLatency atomic.Value
-	stopping         sync.WaitGroup // routines pending stop
+	SingleWayLatency filterwindow
+
+	stopping sync.WaitGroup // routines pending stop
 
 	ID               mtypes.Vertex
 	AskedForNeighbor bool
@@ -257,7 +350,8 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool,
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
 	peer.endpoint_trylist = NewEndpoint_trylist(peer, mtypes.S2TD(device.EdgeConfig.DynamicRoute.PeerAliveTimeout))
-	peer.SingleWayLatency.Store(mtypes.Infinity)
+	peer.SingleWayLatency.device = device
+	peer.SingleWayLatency.Push(mtypes.Infinity)
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
 	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)

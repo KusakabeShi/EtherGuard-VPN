@@ -268,7 +268,7 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/update?Password=pa
 ```bash
 curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/super/update?Password=passwd_updatesuper" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingResistance=0.9"
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingFilterRadius=3"
 ```
 
 
@@ -311,7 +311,7 @@ StaticMode                 | Disable `Floyd-Warshall`, use `NextHopTable`in the 
 ManualLatency              | Set latency manually, ignore Edge reported latency.
 JitterTolerance            | Jitter tolerance, after receiving Pong, one 37ms and one 39ms will not trigger recalculation<br>Compared to last calculation
 JitterToleranceMultiplier  | high ping allows more errors<br>https://www.desmos.com/calculator/raoti16r5n
-DampingResistance          | Damping resistance<br>`latency = latency_old * resistance + latency_in * (1-resistance)`
+DampingFilterRadius        | Windows radius for the low pass filter for latency damping prevention
 TimeoutCheckInterval       | The interval to check if there any `Pong` packet timed out, and recalculate the NhTable
 RecalculateCoolDown        | Floyd-Warshal is an O(n^3)time complexity algorithm<br>This option set a cooldown, and prevent it cost too many CPU<br>Connect/Disconnect event ignores this cooldown.
 

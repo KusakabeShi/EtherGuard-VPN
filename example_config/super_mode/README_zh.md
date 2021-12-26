@@ -283,7 +283,7 @@ curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/peer/update?Password=pa
 ```bash
 curl -X POST "http://127.0.0.1:3456/eg_net/eg_api/manage/super/update?Password=passwd_updatesuper" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingResistance=0.9"
+  -d "SendPingInterval=15&HttpPostInterval=60&PeerAliveTimeout=70&DampingFilterRadius=3"
 ```
 
 ### SuperNode Config Parameter
@@ -324,7 +324,7 @@ StaticMode                 | 關閉`Floyd-Warshall`演算法，只使用設定�
 ManualLatency              | 手動設定延遲，不採用EdgeNode回報的延遲(單位: 毫秒)
 JitterTolerance            | 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算<br>比較對象是上次更新使用的值。如果37 37 41 43 .. 100 ，每次變動一點點，總變動量超過域值還是會更新
 JitterToleranceMultiplier  | 抖動容許誤差的放大係數，高ping的話允許更多誤差<br>https://www.desmos.com/calculator/raoti16r5n
-DampingResistance          | 防抖阻尼系數<br>`latency = latency_old * resistance + latency_in * (1-resistance)`
+DampingFilterRadius        | 防抖用低通濾波器的window半徑
 TimeoutCheckInterval       | 週期性檢查節點的連線狀況，是否斷線需要重新規劃線路
 RecalculateCoolDown        | Floyd-Warshal是O(n^3)時間複雜度，不能太常算。<br>設個冷卻時間<br>有節點加入/斷線觸發的重新計算，無視這個CoolDown
 
