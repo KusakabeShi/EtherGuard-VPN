@@ -2,9 +2,11 @@ name: Publish
 
 on:
   push:
-    tags:
-      - '*'
   workflow_dispatch: 
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   x86_64:
@@ -12,7 +14,23 @@ jobs:
       name: Build for ${{ matrix.distro }} x86_64 and mipsle
       steps:
       - uses: actions/checkout@v2
-
+        with:
+          fetch-depth: 0
+      - name: Retrieve version
+        shell: bash
+        run: |
+          VERSION=$(git describe --abbrev=0)
+          echo "::set-output name=VERSION::$VERSION"
+        id: version
+      - name: Print main version
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          git describe
+          git describe --abbrev=0
+          git describe --tags --abbrev=0
+          echo $VERSION
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -29,16 +47,6 @@ jobs:
         run: |
           make all static vpp
 
-      - name: Commit & Push version.go
-        uses: actions-js/push@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
-          force: true
-          author_email: si@kskb.eu.org
-          author_name: KusakabeSi
-          message: update version.go
-
       - uses: actions/upload-artifact@v2
         with:
           name: etherguard-x86_64
@@ -51,7 +59,8 @@ jobs:
           file: etherguard-go
           overwrite: true
           asset_name: etherguard-go-x86_64
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload x86_64 dynamic vpp build
         uses: svenstaro/upload-release-action@v2
@@ -60,7 +69,8 @@ jobs:
           file: etherguard-go-vpp
           overwrite: true
           asset_name: etherguard-go-vpp-x86_64
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload x86_64 static build
         uses: svenstaro/upload-release-action@v2
@@ -69,7 +79,8 @@ jobs:
           file: etherguard-go-static
           overwrite: true
           asset_name: etherguard-go-static-x86_64
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Build mipsle
         run: |
@@ -89,7 +100,8 @@ jobs:
           file: etherguard-go
           asset_name: etherguard-go-mipsle
           overwrite: true
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload mipsle static build
         uses: svenstaro/upload-release-action@v2
@@ -98,7 +110,8 @@ jobs:
           file: etherguard-go-static
           asset_name: etherguard-go-static-mipsle
           overwrite: true
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
   multi-arch:
     runs-on: ubuntu-20.04
@@ -110,6 +123,23 @@ jobs:
           - arch: armv7
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Retrieve version
+        shell: bash
+        run: |
+          VERSION=$(git describe --abbrev=0)
+          echo "::set-output name=VERSION::$VERSION"
+        id: version
+      - name: Print main version
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          git describe
+          git describe --abbrev=0
+          git describe --tags --abbrev=0
+          echo $VERSION
       - uses: uraimo/run-on-arch-action@v2.0.5
         name: Build artifact
         id: build
@@ -161,7 +191,8 @@ jobs:
           file: artifacts/${{ matrix.arch }}/etherguard-go
           asset_name: etherguard-go-${{ matrix.arch }}
           overwrite: true
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload ${{ matrix.arch }} dynamic vpp build
         if: ${{ matrix.arch == 'aarch64' }}
@@ -171,7 +202,8 @@ jobs:
           file: artifacts/${{ matrix.arch }}/etherguard-go
           asset_name: etherguard-go-vpp-${{ matrix.arch }}
           overwrite: true
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload ${{ matrix.arch }} static build
         uses: svenstaro/upload-release-action@v2
@@ -180,4 +212,5 @@ jobs:
           file: artifacts/${{ matrix.arch }}/etherguard-go-static
           asset_name: etherguard-go-static-${{ matrix.arch }}
           overwrite: true
-          tag: ${{ github.ref }}
+          release_name:  ${{ steps.version.outputs.VERSION }}
+          tag: ${{ steps.version.outputs.VERSION }}

@@ -9,7 +9,8 @@ jobs:
       name: Build for ${{ matrix.distro }} x86_64 and mipsle
       steps:
       - uses: actions/checkout@v2
-
+        with:
+          fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -53,6 +54,8 @@ jobs:
           - arch: armv7
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - uses: uraimo/run-on-arch-action@v2.0.5
         name: Build artifact
         id: build

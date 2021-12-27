@@ -1,0 +1,38 @@
+name: Update version
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  update-version:
+    name: Update version
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Test git command
+      shell: bash
+      run: |
+        # setup the username and email. I tend to use 'GitHub Actions Bot' with no email by default
+        cd $GITHUB_WORKSPACE
+        git --version
+        git config user.name "GitHub Actions Bot"
+        git config user.email "<>"
+        git status
+        git describe --always
+    - name: Update version.go
+      run: |
+        cd $GITHUB_WORKSPACE
+        tag=$(git describe 2>/dev/null)
+        ver=$(printf 'package main\n\nconst Version = "%s"\n' "$tag")
+        echo "$ver" > version.go
+      shell: bash
+    - name: Commit & Push changes
+      uses: actions-js/push@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: master
+        author_email: si@kskb.eu.org
+        author_name: KusakabeSi
+        message: update version.go
