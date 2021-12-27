@@ -12,8 +12,7 @@ generate-version-and-build:
 	tag="$$(git describe 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
 	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
-	echo "$$ver" > version.go && \
-	git update-index --assume-unchanged version.go || true
+	echo "$$ver" > version.go || true
 	@$(MAKE) etherguard-go
 
 etherguard-go: $(wildcard *.go) $(wildcard */*.go)
@@ -33,8 +32,7 @@ vpp:
 	tag="$$(git describe 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
 	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
-	echo "$$ver" > version.go && \
-	git update-index --assume-unchanged version.go || true
+	echo "$$ver" > version.go || true
 	@$(MAKE) etherguard-go-vpp
 
 etherguard-go-vpp: export CGO_CFLAGS ?= -I/usr/include/memif
@@ -50,8 +48,7 @@ static:
 	tag="$$(git describe 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nconst Version = "%s"\n' "$$tag")" && \
 	[ "$$(cat version.go 2>/dev/null)" != "$$ver" ] && \
-	echo "$$ver" > version.go && \
-	git update-index --assume-unchanged version.go || true
+	echo "$$ver" > version.go || true
 	@$(MAKE) etherguard-go-static
 
 install: etherguard-go

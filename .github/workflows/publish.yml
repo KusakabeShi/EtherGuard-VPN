@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch: 
 
 jobs:
   x86_64:
@@ -27,6 +28,16 @@ jobs:
       - name: Build x86_64
         run: |
           make all static vpp
+
+      - name: Commit & Push version.go
+        uses: actions-js/push@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+          force: true
+          author_email: si@kskb.eu.org
+          author_name: KusakabeSi
+          message: update version.go
 
       - uses: actions/upload-artifact@v2
         with:
