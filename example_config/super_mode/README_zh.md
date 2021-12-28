@@ -321,7 +321,7 @@ UpdateSuper | HTTP ManageAPI `super/update` 的密碼
 <a name="GraphRecalculateSetting"></a>GraphRecalculateSetting      | Description
 --------------------|:-----
 StaticMode                 | 關閉`Floyd-Warshall`演算法，只使用設定檔提供的NextHopTable`。SuperNode單純用來輔助打洞
-ManualLatency              | 手動設定延遲，不採用EdgeNode回報的延遲(單位: 毫秒)
+ManualLatency              | 手動設定延遲，不採用EdgeNode回報的延遲(單位: 毫秒)<br> 特殊值65535匹配任何目標
 JitterTolerance            | 抖動容許誤差，收到Pong以後，一個37ms，一個39ms，不會觸發重新計算<br>比較對象是上次更新使用的值。如果37 37 41 43 .. 100 ，每次變動一點點，總變動量超過域值還是會更新
 JitterToleranceMultiplier  | 抖動容許誤差的放大係數，高ping的話允許更多誤差<br>https://www.desmos.com/calculator/raoti16r5n
 DampingFilterRadius        | 防抖用低通濾波器的window半徑

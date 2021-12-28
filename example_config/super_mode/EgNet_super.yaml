@@ -26,7 +26,15 @@ Passwords:
   UpdateSuper: passwd_updatesuper
 GraphRecalculateSetting:
   StaticMode: false
-  ManualLatency: {}
+  ManualLatency: 
+    1:
+      2: 1.14
+    2:
+      1: 5.14
+    100:
+      65535: 1.919
+    65535:
+      100: 8.1
   JitterTolerance: 30
   JitterToleranceMultiplier: 1.01
   TimeoutCheckInterval: 5

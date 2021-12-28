@@ -184,9 +184,20 @@ func (g *IG) UpdateLatencyMulti(pong_info []mtypes.PongMsg, recalculate bool, ch
 		u := pong_msg.Src_nodeID
 		v := pong_msg.Dst_nodeID
 		newval := pong_msg.Timediff
-		if _, ok := g.gsetting.ManualLatency[u]; ok {
-			if _, ok := g.gsetting.ManualLatency[u][v]; ok {
-				newval = g.gsetting.ManualLatency[u][v] / 1000 // s to ms
+		if dst_latency, ok := g.gsetting.ManualLatency[mtypes.NodeID_Broadcast]; ok {
+			if _, ok := dst_latency[mtypes.NodeID_Broadcast]; ok {
+				newval = dst_latency[mtypes.NodeID_Broadcast] / 1000 // s to ms
+			}
+			if _, ok := dst_latency[v]; ok {
+				newval = dst_latency[v] / 1000 // s to ms
+			}
+		}
+		if dst_latency, ok := g.gsetting.ManualLatency[u]; ok {
+			if _, ok := dst_latency[mtypes.NodeID_Broadcast]; ok {
+				newval = dst_latency[mtypes.NodeID_Broadcast] / 1000 // s to ms
+			}
+			if _, ok := dst_latency[v]; ok {
+				newval = dst_latency[v] / 1000 // s to ms
 			}
 		}
 		w := newval

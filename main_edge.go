@@ -98,7 +98,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	case "tap":
 		thetap, err = tap.CreateTAP(econfig.Interface, econfig.NodeID)
 	default:
-		return errors.New("Unknow interface type:" + econfig.Interface.IType)
+		return errors.New("Unknown interface type:" + econfig.Interface.IType)
 	}
 	if err != nil {
 		logger.Errorf("Failed to create TAP device: %v", err)

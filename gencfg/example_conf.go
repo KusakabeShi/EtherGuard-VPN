@@ -85,10 +85,16 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 					RecalculateCoolDown:       5,
 					ManualLatency: mtypes.DistTable{
 						mtypes.Vertex(1): {
-							mtypes.Vertex(2): 2,
+							mtypes.Vertex(2): 1.14,
 						},
 						mtypes.Vertex(2): {
-							mtypes.Vertex(1): 2,
+							mtypes.Vertex(1): 5.14,
+						},
+						mtypes.Vertex(100): {
+							mtypes.NodeID_Broadcast: 1.919,
+						},
+						mtypes.NodeID_Broadcast: {
+							mtypes.Vertex(100): 8.1,
 						},
 					},
 				},
@@ -223,6 +229,12 @@ func GetExampleSuperConf(templatePath string, getDemo bool) (mtypes.SuperConfig,
 				},
 				mtypes.Vertex(2): {
 					mtypes.Vertex(1): 5.14,
+				},
+				mtypes.Vertex(100): {
+					mtypes.NodeID_Broadcast: 1.919,
+				},
+				mtypes.NodeID_Broadcast: {
+					mtypes.Vertex(100): 8.1,
 				},
 			},
 			JitterTolerance:           30,
