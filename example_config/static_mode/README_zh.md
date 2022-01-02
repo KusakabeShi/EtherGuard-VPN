@@ -159,17 +159,17 @@ SendAddr       | 連線地址，VPN網路收到的東西丟去這個地址。僅
 [L2HeaderMode](#L2HeaderMode)   | 僅限 `stdio` 生效。debug用途，有三種模式
 
 <a name="IType"></a>IType      | Description
------------|:-----
-dummy      | 收到的封包直接丟棄，但幫忙轉發。作為中繼節點，本身不加入網路使用
-stdio      | 收到的封包丟stdout，stdin進來的資料丟入vpn網路，debug用途<br>需要參數: `MacAddrPrefix` && `L2HeaderMode`
-udpsock    | 收到的封包丟去一個udp socket<br>需要參數: `RecvAddr` && `SendAddr`
-tcpsock    | 收到的封包丟去一個tcp socket<br>需要參數: `RecvAddr` \|\| `SendAddr`
-unixsock   | 收到的封包丟去一個unix socket(SOCK_STREAM 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
-udpsock    | 收到的封包丟去一個unix socket(SOCK_DGRAM 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
-udpsock    | 收到的封包丟去一個unix socket(SOCK_SEQPACKET 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
-fd         | 收到的封包丟去一個特定的file descriptor<br>需要參數: 無. 但是使用環境變數 `EG_FD_RX` && `EG_FD_TX` 來指定
-vpp        | 使用libmemif使vpp加入VPN網路<br>需要參數: `Name` && `VPPIFaceID` && `VPPBridgeID` && `MacAddrPrefix` && `MTU`
-tap        | Linux的tap設備。讓linux加入VPN網路<br>需要參數: `Name` && `MacAddrPrefix` && `MTU`<br>可選參數:`IPv4CIDR` , `IPv6CIDR` , `IPv6LLPrefix`
+---------------|:-----
+dummy          | 收到的封包直接丟棄，但幫忙轉發。作為中繼節點，本身不加入網路使用
+stdio          | 收到的封包丟stdout，stdin進來的資料丟入vpn網路，debug用途<br>需要參數: `MacAddrPrefix` && `L2HeaderMode`
+udpsock        | 收到的封包丟去一個udp socket<br>需要參數: `RecvAddr` && `SendAddr`
+tcpsock        | 收到的封包丟去一個tcp socket<br>需要參數: `RecvAddr` \|\| `SendAddr`
+unixsock       | 收到的封包丟去一個unix socket(SOCK_STREAM 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
+unixgramsock   | 收到的封包丟去一個unix socket(SOCK_DGRAM 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
+unixpacketsock | 收到的封包丟去一個unix socket(SOCK_SEQPACKET 模式)<br>需要參數: `RecvAddr` \|\| `SendAddr`
+fd             | 收到的封包丟去一個特定的file descriptor<br>需要參數: 無. 但是使用環境變數 `EG_FD_RX` && `EG_FD_TX` 來指定
+vpp            | 使用libmemif使vpp加入VPN網路<br>需要參數: `Name` && `VPPIFaceID` && `VPPBridgeID` && `MacAddrPrefix` && `MTU`
+tap            | Linux的tap設備。讓linux加入VPN網路<br>需要參數: `Name` && `MacAddrPrefix` && `MTU`<br>可選參數:`IPv4CIDR` , `IPv6CIDR` , `IPv6LLPrefix`
 
 <a name="L2HeaderMode"></a>L2HeaderMode   | Description
 ---------------|:-----

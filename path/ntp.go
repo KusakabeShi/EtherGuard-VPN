@@ -13,6 +13,7 @@ import (
 var forever = time.Hour * 99999
 
 func (g *IG) InitNTP() {
+	g.ntp_init_t = time.Now()
 	if g.ntp_info.UseNTP {
 		if len(g.ntp_info.Servers) == 0 {
 			g.ntp_info.UseNTP = false
@@ -72,11 +73,14 @@ func (g *IG) SyncTimeMultiple(count int) {
 	g.ntp_servers.Sort(func(a *orderedmap.Pair, b *orderedmap.Pair) bool {
 		return a.Value().(ntp.Response).RTT < b.Value().(ntp.Response).RTT
 	})
-	results := make([]time.Duration, count)
-	for _, url := range g.ntp_servers.Keys() {
+	results := make([]time.Duration, 0, count)
+	for index, url := range g.ntp_servers.Keys() {
 		val, has := g.ntp_servers.Get(url)
 		if !has {
 			continue
+		}
+		if index >= count {
+			break
 		}
 		result := val.(ntp.Response)
 		if result.RTT < forever {
@@ -117,7 +121,7 @@ func (g *IG) SyncTime(url string, timeout time.Duration) {
 			fmt.Println("NTP:  NTP server :" + url + "\tFailed :" + err.Error())
 		}
 		g.ntp_servers.Set(url, ntp.Response{
-			RTT: forever,
+			RTT: forever + time.Since(g.ntp_init_t),
 		})
 	}
 	g.ntp_wg.Done()

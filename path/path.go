@@ -49,6 +49,7 @@ type IG struct {
 
 	ntp_wg      sync.WaitGroup
 	ntp_info    mtypes.NTPInfo
+	ntp_init_t  time.Time
 	ntp_offset  time.Duration
 	ntp_servers orderedmap.OrderedMap // serverurl:lentancy
 }

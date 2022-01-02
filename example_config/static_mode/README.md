@@ -149,16 +149,16 @@ SendAddr       | Packet send address for `*sock` mode(client mode)
 
 <a name="IType"></a>IType      | Description
 -----------|:-----
-dummy      | Dymmy interface, drop any packet received. You need this if you want to setup it as a relay node.
-stdio      | Wrtie to stdout，read from stdin. <br>Required parameter: `MacAddrPrefix` && `L2HeaderMode`
-udpsock    | Read/Write the raw packet to an udp socket.<br>Required parameter: `RecvAddr` && `SendAddr`
-tcpsock    | Read/Write the raw packet to a tcp socket. <br>Required parameter: `RecvAddr` \|\| `SendAddr`
-unixsock   | Read/Write the raw packet to an unix socket(SOCK_STREAM mode).<br>Required parameter: `RecvAddr` \|\| `SendAddr`
-udpsock    | Read/Write the raw packet to an unix socket(SOCK_DGRAM mode)<br>Required parameter: `RecvAddr` \|\| `SendAddr`
-udpsock    | Read/Write the raw packet to an unix socket(SOCK_SEQPACKET mode).<br>Required parameter: `RecvAddr` \|\| `SendAddr`
-fd         | Read/Write the raw packet to specific file descriptor.<br>Required parameter: None. But require environment variable `EG_FD_RX` && `EG_FD_TX`
-vpp        | Integrate to VPP by libmemif. <br>Required parameter: `Name` && `VPPIFaceID` && `VPPBridgeID` && `MacAddrPrefix` && `MTU`
-tap        | Read/Write to tap device from linux.<br>Required parameter: `Name` && `MacAddrPrefix` && `MTU`<br>Optional Parameter:`IPv4CIDR` , `IPv6CIDR` , `IPv6LLPrefix`
+dummy          | Dymmy interface, drop any packet received. You need this if you want to setup it as a relay node.
+stdio          | Wrtie to stdout，read from stdin. <br>Required parameter: `MacAddrPrefix` && `L2HeaderMode`
+udpsock        | Read/Write the raw packet to an udp socket.<br>Required parameter: `RecvAddr` && `SendAddr`
+tcpsock        | Read/Write the raw packet to a tcp socket. <br>Required parameter: `RecvAddr` \|\| `SendAddr`
+unixsock       | Read/Write the raw packet to an unix socket(SOCK_STREAM mode).<br>Required parameter: `RecvAddr` \|\| `SendAddr`
+unixgramsock   | Read/Write the raw packet to an unix socket(SOCK_DGRAM mode)<br>Required parameter: `RecvAddr` \|\| `SendAddr`
+unixpacketsock | Read/Write the raw packet to an unix socket(SOCK_SEQPACKET mode).<br>Required parameter: `RecvAddr` \|\| `SendAddr`
+fd             | Read/Write the raw packet to specific file descriptor.<br>Required parameter: None. But require environment variable `EG_FD_RX` && `EG_FD_TX`
+vpp            | Integrate to VPP by libmemif. <br>Required parameter: `Name` && `VPPIFaceID` && `VPPBridgeID` && `MacAddrPrefix` && `MTU`
+tap            | Read/Write to tap device from linux.<br>Required parameter: `Name` && `MacAddrPrefix` && `MTU`<br>Optional Parameter:`IPv4CIDR` , `IPv6CIDR` , `IPv6LLPrefix`
 
 <a name="L2HeaderMode"></a>L2HeaderMode   | Description
 ---------------|:-----
