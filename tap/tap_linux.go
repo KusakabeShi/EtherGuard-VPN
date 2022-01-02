@@ -291,19 +291,19 @@ func (tap *NativeTap) addIPAddr(version string, ip net.IP, mask net.IPMask) (err
 		e := exec.Command("ip", "addr", "add", ip.String()+"/"+masklen, "dev", name)
 		ret, err := e.CombinedOutput()
 		if err != nil {
-			fmt.Println("Please make sure `ip` tool installed")
+			fmt.Printf("Failed to set ip %v to interface %v, please make sure `ip` tool installed\n", ip.String()+"/"+masklen, name)
 			return fmt.Errorf(string(ret))
 		}
 	} else if version == "6ll" {
 		_, llnet, _ := net.ParseCIDR("fe80::/64")
 
-		if llnet.Contains(ip) == false {
+		if !llnet.Contains(ip) {
 			return fmt.Errorf("%v is not a link-local address", ip)
 		}
 		e := exec.Command("ip", "addr", "add", ip.String()+"/64", "dev", name)
 		ret, err := e.CombinedOutput()
 		if err != nil {
-			fmt.Println("Please make sure `ip` tool installed")
+			fmt.Printf("Failed to set ip %v to interface %v, please make sure `ip` tool installed\n", ip.String()+"/64", name)
 			return fmt.Errorf(string(ret))
 		}
 	}
@@ -330,8 +330,9 @@ func (tap *NativeTap) setUp() (err error) {
 
 func getIFIndex(name string) (ret int32, err error) {
 	var ifr [ifReqSize]byte
+	copy(ifr[:unix.IFNAMSIZ], name) // 0-16
 	err = ioctlRequest(unix.SIOCGIFINDEX, uintptr(unsafe.Pointer(&ifr[0])))
-	return *(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])), nil
+	return *(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])), err
 }
 
 func (tap *NativeTap) setMTU(n uint16) (err error) {
@@ -359,7 +360,7 @@ func (tap *NativeTap) MTU() (int, error) {
 	copy(ifr[:], name)
 	err = ioctlRequest(unix.SIOCGIFMTU, uintptr(unsafe.Pointer(&ifr[0])))
 
-	return int(*(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ]))), nil
+	return int(*(*int32)(unsafe.Pointer(&ifr[unix.IFNAMSIZ]))), err
 }
 
 func (tap *NativeTap) Name() (string, error) {
@@ -558,7 +559,7 @@ func CreateTAPFromFile(file *os.File, iconfig mtypes.InterfaceConf, NodeID mtype
 		e := exec.Command("ip", "addr", "flush", "dev", tapname)
 		_, err := e.CombinedOutput()
 		if err != nil {
-			fmt.Println("Please make sure `ip` tool installed")
+			fmt.Printf("Failed to flush ip from interface %v , please make sure `ip` tool installed\n", tapname)
 			return nil, err
 		}
 		cidrstr := iconfig.IPv6LLPrefix

@@ -192,7 +192,35 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 	if enableP2P {
 		econfig.NextHopTable = make(mtypes.NextHopTable)
 	}
+	ModeIDmax := 0
+	for id, _ := range NMCfg.NetworkName {
+		if ModeIDmax < id {
+			ModeIDmax = id
+		}
+	}
+	IPv4Block := NMCfg.EdgeNode.IPv4Range
+	if IPv4Block != "" {
+		_, _, err = tap.GetIP(4, IPv4Block, uint32(ModeIDmax))
+		if err != nil {
+			return err
+		}
+	}
 
+	IPv6Block := NMCfg.EdgeNode.IPv6Range
+	if IPv6Block != "" {
+		_, _, err = tap.GetIP(6, IPv6Block, uint32(ModeIDmax))
+		if err != nil {
+			return err
+		}
+	}
+
+	IPv6LLBlock := NMCfg.EdgeNode.IPv6LLRange
+	if IPv6LLBlock != "" {
+		_, _, err = tap.GetIP(6, IPv6LLBlock, uint32(ModeIDmax))
+		if err != nil {
+			return err
+		}
+	}
 	econfig.DynamicRoute.NTPConfig.Servers = make([]string, 0)
 	econfig.DynamicRoute.SuperNode.PSKey = ""
 	econfig.DynamicRoute.SuperNode.EndpointV4 = ""

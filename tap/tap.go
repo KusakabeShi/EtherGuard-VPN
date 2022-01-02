@@ -55,6 +55,9 @@ func GetIP(version int, netcidr string, uid uint32) (net.IP, net.IPMask, error) 
 		}
 	}
 	ones, bits := the_net.Mask.Size()
+	if ones == bits {
+		return the_net.IP, the_net.Mask, nil
+	}
 	maxuid := big.NewInt(1)
 	maxuid.Lsh(maxuid, uint((bits - ones)))
 	ip_use := big.NewInt(int64(uid))
