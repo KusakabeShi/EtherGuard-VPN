@@ -120,7 +120,12 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	}
 	graph.SetNHTable(econfig.NextHopTable)
 
-	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(true, true, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
+	EnabledAf := conn.EnabledAf{
+		IPv4: !econfig.DisableAf.IPv4,
+		IPv6: !econfig.DisableAf.IPv6,
+	}
+
+	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(EnabledAf, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
 	defer the_device.Close()
 	pk, err := device.Str2PriKey(econfig.PrivKey)
 	if err != nil {
@@ -140,7 +145,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		the_device.NewPeer(pk, peerconf.NodeID, false, peerconf.PersistentKeepalive)
 		if peerconf.EndPoint != "" {
 			peer := the_device.LookupPeer(pk)
-			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, 0, econfig.AfPrefer, peerconf.Static)
+			err = peer.SetEndpointFromConnURL(peerconf.EndPoint, EnabledAf, econfig.AfPrefer, peerconf.Static)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint %v: %w", peerconf.EndPoint, err)
 				return err
@@ -151,7 +156,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 	if econfig.DynamicRoute.SuperNode.UseSuperNode {
 		S4 := true
 		S6 := true
-		if econfig.DynamicRoute.SuperNode.EndpointV4 != "" {
+		if econfig.DynamicRoute.SuperNode.EndpointV4 != "" && EnabledAf.IPv4 {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV4)
 			if err != nil {
 				fmt.Println("Error decode base64 ", err)
@@ -176,13 +181,13 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 					StaticSuper = false
 				}
 			}
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, 4, 0, StaticSuper)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV4, conn.EnabledAf4, 0, StaticSuper)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v4 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV4, err)
 				S4 = false
 			}
 		}
-		if econfig.DynamicRoute.SuperNode.EndpointV6 != "" {
+		if econfig.DynamicRoute.SuperNode.EndpointV6 != "" && EnabledAf.IPv6 {
 			pk, err := device.Str2PubKey(econfig.DynamicRoute.SuperNode.PubKeyV6)
 			if err != nil {
 				fmt.Println("Error decode base64 ", err)
@@ -206,7 +211,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 					StaticSuper = false
 				}
 			}
-			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, 6, 0, StaticSuper)
+			err = peer.SetEndpointFromConnURL(econfig.DynamicRoute.SuperNode.EndpointV6, conn.EnabledAf6, 0, StaticSuper)
 			if err != nil {
 				logger.Errorf("Failed to set endpoint for supernode v6 %v: %v", econfig.DynamicRoute.SuperNode.EndpointV6, err)
 				S6 = false

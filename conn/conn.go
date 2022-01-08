@@ -43,6 +43,26 @@ type Bind interface {
 
 	// ParseEndpoint creates a new endpoint from a string.
 	ParseEndpoint(s string) (Endpoint, error)
+
+	EnabledAf() EnabledAf
+}
+
+type EnabledAf struct {
+	IPv4 bool `yaml:"IPv4"`
+	IPv6 bool `yaml:"IPv6"`
+}
+
+var EnabledAf4 = EnabledAf{
+	IPv4: true,
+	IPv6: false,
+}
+var EnabledAf6 = EnabledAf{
+	IPv4: false,
+	IPv6: true,
+}
+var EnabledAf46 = EnabledAf{
+	IPv4: true,
+	IPv6: true,
 }
 
 // BindSocketToInterface is implemented by Bind objects that support being
@@ -150,7 +170,7 @@ func parseEndpoint(s string) (*net.UDPAddr, error) {
 	return addr, err
 }
 
-func LookupIP(host_port string, Af int, AfPrefer int) (string, string, error) {
+func LookupIP(host_port string, Af EnabledAf, AfPrefer int) (string, string, error) {
 	if host_port == "" {
 		return "", "", fmt.Errorf("error lookup ip from empty string")
 	}
@@ -159,12 +179,7 @@ func LookupIP(host_port string, Af int, AfPrefer int) (string, string, error) {
 	var af_try_order []string
 
 	var NetStr string
-	switch Af {
-	case 4:
-		af_try_order = []string{"udp4"}
-	case 6:
-		af_try_order = []string{"udp6"}
-	case 0:
+	if Af.IPv4 && Af.IPv6 {
 		switch AfPrefer {
 		case 0:
 			af_try_order = []string{"udp"}
@@ -175,8 +190,12 @@ func LookupIP(host_port string, Af int, AfPrefer int) (string, string, error) {
 		default:
 			return "", "", fmt.Errorf("unknown address family:%v", AfPrefer)
 		}
-	default:
-		return "", "", fmt.Errorf("unknown address family:%v", Af)
+	} else if Af.IPv4 {
+		af_try_order = []string{"udp4"}
+	} else if Af.IPv6 {
+		af_try_order = []string{"udp6"}
+	} else {
+		return "", "", fmt.Errorf("no EnabledAf:%v", Af)
 	}
 	for _, af := range af_try_order {
 		conn, err = net.Dial(af, host_port)

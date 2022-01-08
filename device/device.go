@@ -82,6 +82,7 @@ type Device struct {
 	EdgeConfig      *mtypes.EdgeConfig
 	SuperConfigPath string
 	SuperConfig     *mtypes.SuperConfig
+	enabledAf       conn.EnabledAf
 
 	Chan_server_register    chan mtypes.RegisterMsg
 	Chan_server_pong        chan mtypes.PongMsg
@@ -344,6 +345,7 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 	device.graph = graph
 	device.Version = version
 	device.JWTSecret = mtypes.ByteSlice2Byte32(mtypes.RandomBytes(32, []byte(fmt.Sprintf("%v", time.Now()))))
+	device.enabledAf = bind.EnabledAf()
 
 	device.state_hashes.NhTable.Store("")
 	device.state_hashes.Peer.Store("")

@@ -69,15 +69,22 @@ func NewLinuxSocketBindAf(use4 bool, use6 bool) Bind {
 	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6}
 }
 
-func NewDefaultBind(use4 bool, use6 bool, bindmode string) Bind {
+func NewDefaultBind(Af EnabledAf, bindmode string) Bind {
 	if bindmode == "std" {
-		return NewStdNetBindAf(use4, use6)
+		return NewStdNetBindAf(Af.IPv4, Af.IPv6)
 	}
-	return NewLinuxSocketBindAf(use4, use6)
+	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6)
 }
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)
 var _ Bind = (*LinuxSocketBind)(nil)
+
+func (s *LinuxSocketBind) EnabledAf() EnabledAf {
+	return EnabledAf{
+		s.use4,
+		s.use6,
+	}
+}
 
 func (*LinuxSocketBind) ParseEndpoint(s string) (Endpoint, error) {
 	var end LinuxSocketEndpoint

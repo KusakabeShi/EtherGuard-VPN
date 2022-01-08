@@ -176,7 +176,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 	API_Prefix := SMCfg.Supernode.EdgeAPI_Prefix
 	EndpointV4 := SMCfg.Supernode.EndpointV4
 	if EndpointV4 != "" {
-		_, _, err = conn.LookupIP(EndpointV4+":"+ListenPort, 4, 0)
+		_, _, err = conn.LookupIP(EndpointV4+":"+ListenPort, conn.EnabledAf4, 0)
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 		if strings.Contains(EndpointV6, ":") && (EndpointV6[0] != '[' || EndpointV6[len(EndpointV6)-1] != ']') {
 			return fmt.Errorf("Invalid IPv6 format, please use [%v] instead", EndpointV6)
 		}
-		_, _, err = conn.LookupIP(EndpointV6+":"+ListenPort, 6, 0)
+		_, _, err = conn.LookupIP(EndpointV6+":"+ListenPort, conn.EnabledAf6, 0)
 		if err != nil {
 			return
 		}

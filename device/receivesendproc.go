@@ -757,7 +757,7 @@ func (device *Device) RoutineTryReceivedEndpoint() {
 				if connurl == "" {
 					continue
 				}
-				err := thepeer.SetEndpointFromConnURL(connurl, thepeer.ConnAF, device.EdgeConfig.AfPrefer, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
+				err := thepeer.SetEndpointFromConnURL(connurl, device.enabledAf, device.EdgeConfig.AfPrefer, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
 				if err != nil {
 					device.log.Errorf("Bind " + connurl + " failed!")
 					thepeer.endpoint_trylist.Delete(connurl)
@@ -939,12 +939,12 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 		}
 		for _, AIP := range device.EdgeConfig.DynamicRoute.SuperNode.AdditionalLocalIP {
 			success := false
-			_, ipstr, err := conn.LookupIP(AIP, 4, 0)
+			_, ipstr, err := conn.LookupIP(AIP, conn.EnabledAf4, 0)
 			if err == nil {
 				success = true
 				LocalV4s[ipstr] = 50
 			}
-			_, ipstr, err = conn.LookupIP(AIP, 6, 0)
+			_, ipstr, err = conn.LookupIP(AIP, conn.EnabledAf6, 0)
 			if err == nil {
 				success = true
 				LocalV6s[ipstr] = 50

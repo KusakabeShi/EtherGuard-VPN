@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/device"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
@@ -44,7 +45,11 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 		L2FIBTimeout: 3600,
 		PrivKey:      "6GyDagZKhbm5WNqMiRHhkf43RlbMJ34IieTlIuvfJ1M=",
 		ListenPort:   0,
-		AfPrefer:     4,
+		DisableAf: conn.EnabledAf{
+			IPv4: false,
+			IPv6: false,
+		},
+		AfPrefer: 4,
 		LogLevel: mtypes.LoggerInfo{
 			LogLevel:    "error",
 			LogTransit:  false,

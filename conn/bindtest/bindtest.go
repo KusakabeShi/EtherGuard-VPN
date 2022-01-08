@@ -53,6 +53,13 @@ func NewChannelBinds() [2]conn.Bind {
 	return [2]conn.Bind{&binds[0], &binds[1]}
 }
 
+func (s *ChannelBind) EnabledAf() conn.EnabledAf {
+	return conn.EnabledAf{
+		IPv4: true,
+		IPv6: true,
+	}
+}
+
 func (c ChannelEndpoint) ClearSrc() {}
 
 func (c ChannelEndpoint) SrcToString() string { return "" }

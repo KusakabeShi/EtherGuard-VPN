@@ -144,10 +144,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 	}
 	thetap4, _ := tap.CreateDummyTAP()
-	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(true, false, bindmode), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf4, bindmode), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device4.Close()
 	thetap6, _ := tap.CreateDummyTAP()
-	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(false, true, bindmode), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf6, bindmode), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device6.Close()
 	if sconfig.PrivKeyV4 != "" {
 		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)
@@ -263,7 +263,7 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 			peer4.SetPSK(psk)
 		}
 		if peerconf.EndPoint != "" {
-			err = peer4.SetEndpointFromConnURL(peerconf.EndPoint, 4, 0, true)
+			err = peer4.SetEndpointFromConnURL(peerconf.EndPoint, conn.EnabledAf4, 0, true)
 			if err != nil {
 				if httpobj.http_sconfig.LogLevel.LogInternal {
 					fmt.Printf("Internal: Set endpoint failed:%v\n", err)
@@ -288,7 +288,7 @@ func super_peeradd(peerconf mtypes.SuperPeerInfo) error {
 			peer6.SetPSK(psk)
 		}
 		if peerconf.EndPoint != "" {
-			err = peer6.SetEndpointFromConnURL(peerconf.EndPoint, 6, 0, true)
+			err = peer6.SetEndpointFromConnURL(peerconf.EndPoint, conn.EnabledAf6, 0, true)
 			if err != nil {
 				if httpobj.http_sconfig.LogLevel.LogInternal {
 					fmt.Printf("Internal: Set endpoint failed:%v\n", err)

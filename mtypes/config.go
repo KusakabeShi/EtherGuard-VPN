@@ -4,6 +4,8 @@ import (
 	"math"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 )
 
 // Nonnegative integer ID of vertex
@@ -26,6 +28,7 @@ type EdgeConfig struct {
 	L2FIBTimeout          float64          `yaml:"L2FIBTimeout"`
 	PrivKey               string           `yaml:"PrivKey"`
 	ListenPort            int              `yaml:"ListenPort"`
+	DisableAf             conn.EnabledAf   `yaml:"DisabledAf"`
 	AfPrefer              int              `yaml:"AfPrefer"`
 	LogLevel              LoggerInfo       `yaml:"LogLevel"`
 	DynamicRoute          DynamicRouteInfo `yaml:"DynamicRoute"`

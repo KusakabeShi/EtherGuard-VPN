@@ -18,6 +18,9 @@ DefaultTTL: 200
 L2FIBTimeout: 3600
 PrivKey: qaSOwMzr7nC7Vcphd7w6q9k6bz1eCVhe9uEt+803lvk=
 ListenPort: 3003
+DisabledAf:
+  IPv4: false
+  IPv6: false
 LogLevel:
   LogLevel: error
   LogTransit: true

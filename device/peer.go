@@ -33,15 +33,17 @@ type endpoint_tryitem struct {
 type endpoint_trylist struct {
 	sync.RWMutex
 	timeout      time.Duration
+	enabledAf    conn.EnabledAf
 	peer         *Peer
 	trymap_super map[string]*endpoint_tryitem
 	trymap_p2p   map[string]*endpoint_tryitem
 }
 
-func NewEndpoint_trylist(peer *Peer, timeout time.Duration) *endpoint_trylist {
+func NewEndpoint_trylist(peer *Peer, timeout time.Duration, enabledAf conn.EnabledAf) *endpoint_trylist {
 	return &endpoint_trylist{
 		timeout:      timeout,
 		peer:         peer,
+		enabledAf:    enabledAf,
 		trymap_super: make(map[string]*endpoint_tryitem),
 		trymap_p2p:   make(map[string]*endpoint_tryitem),
 	}
@@ -60,7 +62,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 		if url == "" {
 			continue
 		}
-		addr, _, err := conn.LookupIP(url, 0, AfPerfer)
+		addr, _, err := conn.LookupIP(url, et.enabledAf, AfPerfer)
 		switch AfPerfer {
 		case 4:
 			if addr == "udp4" {
@@ -97,7 +99,7 @@ func (et *endpoint_trylist) UpdateSuper(urls mtypes.API_connurl, UseLocalIP bool
 }
 
 func (et *endpoint_trylist) UpdateP2P(url string) {
-	_, _, err := conn.LookupIP(url, 0, 0)
+	_, _, err := conn.LookupIP(url, et.enabledAf, 0)
 	if err != nil {
 		return
 	}
@@ -254,7 +256,7 @@ type Peer struct {
 	AskedForNeighbor bool
 	StaticConn       bool //if true, this peer will not write to config file when roaming, and the endpoint will be reset periodically
 	ConnURL          string
-	ConnAF           int //0: both, 4: ipv4 only, 6: ipv6 only
+	ConnAF           conn.EnabledAf
 
 	// These fields are accessed with atomic operations, which must be
 	// 64-bit aligned even on 32-bit platforms. Go guarantees that an
@@ -330,6 +332,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool,
 		fmt.Println("Internal: Create peer with ID : " + id.ToString() + " and PubKey:" + pk.ToString())
 	}
 	peer := new(Peer)
+	peer.ConnAF = conn.EnabledAf46
 	atomic.SwapUint32(&peer.persistentKeepaliveInterval, PersistentKeepalive)
 	peer.LastPacketReceivedAdd1Sec.Store(&time.Time{})
 	peer.Lock()
@@ -337,7 +340,7 @@ func (device *Device) NewPeer(pk NoisePublicKey, id mtypes.Vertex, isSuper bool,
 
 	peer.cookieGenerator.Init(pk)
 	peer.device = device
-	peer.endpoint_trylist = NewEndpoint_trylist(peer, mtypes.S2TD(device.EdgeConfig.DynamicRoute.PeerAliveTimeout))
+	peer.endpoint_trylist = NewEndpoint_trylist(peer, mtypes.S2TD(device.EdgeConfig.DynamicRoute.PeerAliveTimeout), device.enabledAf)
 	peer.SingleWayLatency.device = device
 	peer.SingleWayLatency.Push(mtypes.Infinity)
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
@@ -556,7 +559,7 @@ func (peer *Peer) SetPSK(psk NoisePresharedKey) {
 	peer.handshake.mutex.Unlock()
 }
 
-func (peer *Peer) SetEndpointFromConnURL(connurl string, af int, af_perfer int, static bool) error {
+func (peer *Peer) SetEndpointFromConnURL(connurl string, af conn.EnabledAf, af_perfer int, static bool) error {
 	if peer.device.LogLevel.LogInternal {
 		fmt.Printf("Internal: Set endpoint to %v for NodeID: %v static:%v\n", connurl, peer.ID.ToString(), static)
 	}

@@ -18,6 +18,9 @@ DefaultTTL: 200
 L2FIBTimeout: 3600
 PrivKey: u1U5zImQ0lByFcJXTysUq9ZSTg3ZLIKMDYn/RAXEtKI=
 ListenPort: 3001
+DisabledAf:
+  IPv4: false
+  IPv6: false
 LogLevel:
   LogLevel: error
   LogTransit: true

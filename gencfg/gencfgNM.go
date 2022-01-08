@@ -114,7 +114,7 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 			return fmt.Errorf("duplicate definition: NodeID %v ", NodeID)
 		}
 		if endpoint != "" {
-			_, _, err = conn.LookupIP(endpoint, 0, 0)
+			_, _, err = conn.LookupIP(endpoint, conn.EnabledAf46, 0)
 			if err != nil {
 				return err
 			}

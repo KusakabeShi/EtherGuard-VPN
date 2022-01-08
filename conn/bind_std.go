@@ -43,6 +43,13 @@ func (*StdNetBind) ParseEndpoint(s string) (Endpoint, error) {
 
 func (*StdNetEndpoint) ClearSrc() {}
 
+func (s *StdNetBind) EnabledAf() EnabledAf {
+	return EnabledAf{
+		s.use4,
+		s.use6,
+	}
+}
+
 func (e *StdNetEndpoint) DstIP() net.IP {
 	return (*net.UDPAddr)(e).IP
 }
