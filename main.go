@@ -14,6 +14,8 @@ import (
 	"time"
 
 	nonSecureRand "math/rand"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/KusakabeSi/EtherGuard-VPN/gencfg"
 	"github.com/KusakabeSi/EtherGuard-VPN/ipc"
@@ -38,6 +40,7 @@ var (
 	cfgmode      = flag.String("cfgmode", "", "Running mode for generated config. [none|super|p2p]")
 	bind         = flag.String("bind", "linux", "UDP socket bind mode. [linux|std]\nYou may need std mode if you want to run Etherguard under WSL.")
 	nouapi       = flag.Bool("no-uapi", false, "Disable UAPI\nWith UAPI, you can check etherguard status by \"wg\" command")
+	pprofaddr    = flag.String("pprof", "", "pprof listing address")
 	version      = flag.Bool("version", false, "Show version")
 	help         = flag.Bool("help", false, "Show this help")
 )
@@ -58,6 +61,15 @@ func main() {
 		ipc.SetsocketDirectory(uapiDir)
 	}
 	nonSecureRand.Seed(time.Now().UnixNano())
+	if *pprofaddr != "" {
+		go func() {
+			//内网可访问的pprof地址
+			err := http.ListenAndServe(*pprofaddr, nil)
+			if err != nil {
+				panic(fmt.Errorf("pprof error: %v", err))
+			}
+		}()
+	}
 
 	var err error
 	switch *mode {
@@ -78,7 +90,6 @@ func main() {
 		default:
 			err = fmt.Errorf("gencfg: generate config for %v mode are not implement", *cfgmode)
 		}
-
 	default:
 		flag.Usage()
 	}
