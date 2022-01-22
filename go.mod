@@ -5,7 +5,7 @@ go 1.17
 require (
 	git.fd.io/govpp.git v0.3.6-0.20210927044411-385ccc0d8ba9
 	git.fd.io/govpp.git/extras v0.0.0-20211129071605-0a0c03d45954
-	github.com/KusakabeSi/go-cache v0.0.0-20211210164531-8ee1215c700a
+	github.com/KusakabeSi/go-cache v0.0.0-20220122133816-a72bab4fe249
 	github.com/beevik/ntp v0.3.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/gopacket v1.1.19
