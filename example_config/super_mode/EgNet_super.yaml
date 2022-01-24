@@ -42,7 +42,7 @@ GraphRecalculateSetting:
 NextHopTable: {}
 EdgeTemplate: EgNet_edge001.yaml
 UsePSKForInterEdge: true
-ResetEndPointInterval: 600
+ResetEndPointInterval: 1
 Peers:
 - NodeID: 1
   Name: EgNet001
@@ -50,7 +50,7 @@ Peers:
   PSKey: yl/4SNFee7+kNekajVCrK0toqXJ4mlT4IN0klyAgyqU=
   AdditionalCost: 10
   SkipLocalIP: false
-  EndPoint: ""
+  EndPoint: "127.0.0.1:3001"
   ExternalIP: ""
 - NodeID: 2
   Name: EgNet002
@@ -58,7 +58,7 @@ Peers:
   PSKey: FJfjc+wRfk0FSuUkHlXl6D8xPzOKYdy3bxeYr5cpevQ=
   AdditionalCost: 10
   SkipLocalIP: false
-  EndPoint: ""
+  EndPoint: "127.0.0.1:3002"
   ExternalIP: ""
 - NodeID: 100
   Name: EgNet100

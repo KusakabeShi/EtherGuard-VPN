@@ -140,7 +140,7 @@ func (device *Device) CheckNoDup(packet []byte) bool {
 	hasher := crc32.New(crc32.MakeTable(crc32.Castagnoli))
 	hasher.Write(packet)
 	crc32result := hasher.Sum32()
-	_, ok := device.DupData.Get(crc32result)
+	_, ok := device.DupData.Load(crc32result)
 	device.DupData.Set(crc32result, true)
 	return !ok
 }

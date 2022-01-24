@@ -354,11 +354,13 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 	device.rate.limiter.Init()
 	device.indexTable.Init()
 	device.PopulatePools()
+	device.Chan_Device_Initialized = make(chan struct{}, 1<<5)
 	if IsSuperNode {
 		device.SuperConfigPath = configpath
 		device.SuperConfig = sconfig
 		device.EdgeConfig = &mtypes.EdgeConfig{}
 		device.EdgeConfig.Interface.MTU = DefaultMTU
+		device.EdgeConfig.DynamicRoute.PeerAliveTimeout = device.SuperConfig.PeerAliveTimeout
 		device.Chan_server_pong = superevents.Event_server_pong
 		device.Chan_server_register = superevents.Event_server_register
 		device.LogLevel = sconfig.LogLevel
@@ -366,10 +368,9 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.EdgeConfigPath = configpath
 		device.EdgeConfig = econfig
 		device.SuperConfig = &mtypes.SuperConfig{}
-		device.DupData = *fixed_time_cache.NewCache(mtypes.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, mtypes.S2TD(60))
+		device.DupData = *fixed_time_cache.NewCache(mtypes.S2TD(econfig.DynamicRoute.DupCheckTimeout), false, mtypes.S2TD(1))
 		device.event_tryendpoint = make(chan struct{}, 1<<6)
 		device.Chan_save_config = make(chan struct{}, 1<<5)
-		device.Chan_Device_Initialized = make(chan struct{}, 1<<5)
 		device.Chan_SendPingStart = make(chan struct{}, 1<<5)
 		device.Chan_SendRegisterStart = make(chan struct{}, 1<<5)
 		device.Chan_HttpPostStart = make(chan struct{}, 1<<5)

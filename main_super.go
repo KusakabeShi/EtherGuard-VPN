@@ -223,6 +223,9 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 	}
 
+	httpobj.http_device4.Chan_Device_Initialized <- struct{}{}
+	httpobj.http_device6.Chan_Device_Initialized <- struct{}{}
+
 	SdNotify, err := mtypes.SdNotify(false, mtypes.SdNotifyReady)
 	if sconfig.LogLevel.LogInternal {
 		fmt.Printf("Internal: SdNotify:%v err:%v\n", SdNotify, err)

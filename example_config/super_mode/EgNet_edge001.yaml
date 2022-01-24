@@ -17,7 +17,7 @@ PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
 PrivKey: +KAYwkRgacUbxc52t04z8fTJBgvrkPLsisr0qJOhIUE=
-ListenPort: 0
+ListenPort: 3001
 DisabledAf:
   IPv4: false
   IPv6: false
