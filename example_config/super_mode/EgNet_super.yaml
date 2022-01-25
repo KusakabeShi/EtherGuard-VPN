@@ -42,7 +42,7 @@ GraphRecalculateSetting:
 NextHopTable: {}
 EdgeTemplate: EgNet_edge001.yaml
 UsePSKForInterEdge: true
-ResetEndPointInterval: 1
+makResetEndPointInterval: 1
 Peers:
 - NodeID: 1
   Name: EgNet001
