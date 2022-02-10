@@ -14,6 +14,8 @@ EdgeNode首先和SuperNode建立連線，藉由SuperNode交換其他EdgeNode的�
 
 ```yaml
 Config output dir: /tmp/eg_gen
+Enable generated config overwrite: false # 檔輸設定檔允許overwrite
+Add NodeID to the interface name: false  # 生成的config的interface name是否包含NodeID
 ConfigTemplate for super node: ""
 ConfigTemplate for edge node: ""
 Network name: eg_net

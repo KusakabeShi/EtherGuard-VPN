@@ -14,8 +14,10 @@
 首先，按照需求修改`genstatic.yaml`
 
 ```yaml
-Config output dir: /tmp/eg_gen_static   # 設定檔輸出位置
-ConfigTemplate for edge node: ""        # 設定檔Template
+Config output dir: /tmp/eg_gen_static    # 設定檔輸出位置
+Enable generated config overwrite: false # 檔輸設定檔允許overwrite
+Add NodeID to the interface name: false  # 生成的config的interface name是否包含NodeID
+ConfigTemplate for edge node: ""         # 設定檔Template
 Network name: "EgNet"
 Edge Node:
   MacAddress prefix: ""                 # 留空隨機產生

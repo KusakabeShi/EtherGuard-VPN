@@ -14,8 +14,10 @@ Please maintains the predefined topology, otherwise if the relay node offline, p
 First, edit the `genstatic.yaml`
 
 ```yaml
-Config output dir: /tmp/eg_gen_static   # Profile output location
-ConfigTemplate for edge node: ""        # Profile Template
+Config output dir: /tmp/eg_gen_static    # Profile output location
+Enable generated config overwrite: false # Allow overwrite while output the config
+Add NodeID to the interface name: false  # Add NodeID to the interface name in generated edge config
+ConfigTemplate for edge node: ""         # Profile Template
 Network name: "EgNet"
 Edge Node:
   MacAddress prefix: ""                 # Leave blank to generate randomly

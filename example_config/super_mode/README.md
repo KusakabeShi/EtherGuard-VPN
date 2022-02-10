@@ -13,6 +13,8 @@ Edit the file `gensuper.yaml` based on your requirement first.
 
 ```yaml
 Config output dir: /tmp/eg_gen
+Enable generated config overwrite: false # Allow overwrite while output the config
+Add NodeID to the interface name: false  # Add NodeID to the interface name in generated edge config
 ConfigTemplate for super node: ""
 ConfigTemplate for edge node: ""
 Network name: eg_net
