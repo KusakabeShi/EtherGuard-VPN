@@ -1,4 +1,6 @@
 Config output dir: /tmp/eg_gen_super
+Enable generated config overwrite: false
+Add NodeID to the interface name: true
 ConfigTemplate for super node: "" # "EgNet_super.yaml"
 ConfigTemplate for edge node: "" # "EgNet_edge001.yaml"
 Network name: EgNet

@@ -98,11 +98,18 @@ func (g *IG) SyncTimeMultiple(count int) {
 	for _, result := range results {
 		totaltime += result
 	}
-	avgtime := totaltime / time.Duration(len(results))
-	if g.loglevel.LogNTP {
-		fmt.Println("NTP: Arvage offset: " + avgtime.String())
+	if len(results) > 0 {
+		avgtime := totaltime / time.Duration(len(results))
+		if g.loglevel.LogNTP {
+			fmt.Println("NTP: Arvage offset: " + avgtime.String())
+		}
+		g.ntp_offset = avgtime
+	} else {
+		if g.loglevel.LogNTP {
+			fmt.Println("NTP: All server failed, skip sync")
+		}
 	}
-	g.ntp_offset = avgtime
+
 }
 
 func (g *IG) SyncTime(url string, timeout time.Duration) {

@@ -3,7 +3,7 @@ Interface:
   Name: EgNet100
   VPPIFaceID: 1
   VPPBridgeID: 4242
-  MacAddrPrefix: FA:A7:11:D6
+  MacAddrPrefix: 96:BB:DC:52
   IPv4CIDR: 192.168.76.0/24
   IPv6CIDR: fd95:71cb:a3df:e586::/64
   IPv6LLPrefix: fe80::a3df:0/112
@@ -16,7 +16,7 @@ NodeName: EgNet100
 PostScript: ""
 DefaultTTL: 200
 L2FIBTimeout: 3600
-PrivKey: yNf1SkvwV8c59GmesfTNxSut6gFjYKEg9uIsE05XQUI=
+PrivKey: U68wDkoic4xviKbOed9EBykI/wgpfpHGmc8N4ML5spE=
 ListenPort: 0
 DisabledAf:
   IPv4: false
@@ -40,11 +40,11 @@ DynamicRoute:
   SaveNewPeers: true
   SuperNode:
     UseSuperNode: true
-    PSKey: 5BPLK4IX3oUd4ILQct2Xc690kkKeUd4jlyeFBkO6pHA=
+    PSKey: Ffe8veAmFX/L8lmNxbb2sofBx/K1CCY3u1osKh0sL2g=
     EndpointV4: 127.0.0.1:3456
-    PubKeyV4: 1NS6MxL2LUIlMsppJ5JfHnlofQfCxDUzaItBGwz+jBo=
+    PubKeyV4: j6+qNLYwGLILh4VKXc2fGeQy828RnRasA6zKHk3T/kw=
     EndpointV6: ""
-    PubKeyV6: gSBwlJH4aUPRfSP4ZHKAnXIkPZuVaEhsLBispLYFiwo=
+    PubKeyV6: SdrhLctYIQ7lEurGNn0ZjM8ezkPaKPCI+nAbrnwvUDA=
     EndpointEdgeAPIUrl: http://127.0.0.1:3456/eg_net/eg_api
     SkipLocalIP: false
     AdditionalLocalIP: []
@@ -62,7 +62,7 @@ DynamicRoute:
   NTPConfig:
     UseNTP: true
     MaxServerUse: 8
-    SyncTimeInterval: 3600
+    SyncTimeInterval: 99999
     NTPTimeout: 3
     Servers:
     - time.google.com
@@ -85,6 +85,13 @@ DynamicRoute:
     - 1.pool.ntp.org
     - 2.pool.ntp.org
     - 3.pool.ntp.org
+    - cn.ntp.org.cn
+    - edu.ntp.org.cn
+    - hk.ntp.org.cn
+    - tw.ntp.org.cn
+    - ntp.aliyun.com
+    - time1.cloud.tencent.com
+    - ntp.tuna.tsinghua.edu.cn
 NextHopTable: {}
 ResetEndPointInterval: 600
 Peers: []

@@ -8,7 +8,6 @@ package gencfg
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -133,13 +132,9 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 	if err != nil {
 		return err
 	}
-	files, err := os.ReadDir(SMCfg.ConfigOutputDir)
-	if err != nil {
-		return err
-	}
-	if len(files) > 0 {
-		return fmt.Errorf(SMCfg.ConfigOutputDir + " not empty")
-	}
+	var fileWriter bulkFileWriter
+	fileWriter.files = make(map[string]fileWriterfile)
+	fileWriter.ow = SMCfg.ConfigOutputDirOW
 
 	if SMCfg.SuperConfigTemplate != "" {
 		var sconfig mtypes.SuperConfig
@@ -198,7 +193,7 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 
 	EndpointEdgeAPIUrl := SMCfg.Supernode.Endpoint_EdgeAPI
 
-	sconfig.NodeName = SMCfg.NetworkName + "SP"
+	sconfig.NodeName = SMCfg.NetworkName + "SN"
 	sconfig.API_Prefix = API_Prefix
 	sconfig.ListenPort, _ = strconv.Atoi(ListenPort)
 	sconfig.ListenPort_EdgeAPI = ListenPort
@@ -268,14 +263,18 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 			peerceconf.DynamicRoute.SuperNode.EndpointV6 = EndpointV6 + ":" + ListenPort
 		}
 		peerceconf.DynamicRoute.SuperNode.EndpointEdgeAPIUrl = EndpointEdgeAPIUrl
+		peerceconf.NodeName = SMCfg.NetworkName
+		peerceconf.Interface.Name = SMCfg.NetworkName
+		if SMCfg.NetworkIFNameID {
+			peerceconf.NodeName += idstr
+			peerceconf.Interface.Name += idstr
+		}
 		peerceconf.Interface.MacAddrPrefix = MacPrefix
 		peerceconf.Interface.IPv4CIDR = IPv4Block
 		peerceconf.Interface.IPv6CIDR = IPv6Block
 		peerceconf.Interface.IPv6LLPrefix = IPv6LLBlock
 
 		peerceconf.NodeID = i
-		peerceconf.NodeName = SMCfg.NetworkName + idstr
-		peerceconf.Interface.Name = SMCfg.NetworkName + idstr
 		peerceconf.DynamicRoute.SuperNode.PubKeyV4 = PubKeyS4.ToString()
 		peerceconf.DynamicRoute.SuperNode.PubKeyV6 = PubKeyS6.ToString()
 		peerceconf.DynamicRoute.SuperNode.PSKey = PSKeyE.ToString()
@@ -290,12 +289,11 @@ func GenSuperCfg(SMCinfigPath string, printExample bool) (err error) {
 			SkipLocalIP:    peerceconf.DynamicRoute.SuperNode.SkipLocalIP,
 		})
 		mtypesBytes, _ := yaml.Marshal(peerceconf)
-		ioutil.WriteFile(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_edge"+idstr+".yaml"), mtypesBytes, 0o600)
-		fmt.Println(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_edge"+idstr+".yaml"))
+		fileWriter.WriteFile(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_edge"+idstr+".yaml"), mtypesBytes, 0o600)
 	}
 	sconfig.Peers = SuperPeerInfo
 	mtypesBytes, _ := yaml.Marshal(sconfig)
-	ioutil.WriteFile(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_super.yaml"), mtypesBytes, 0o600)
-	fmt.Println(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_super.yaml"))
-	return nil
+	fileWriter.WriteFile(filepath.Join(SMCfg.ConfigOutputDir, SMCfg.NetworkName+"_super.yaml"), mtypesBytes, 0o600)
+	err = fileWriter.Commit()
+	return err
 }

@@ -107,7 +107,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 			NTPConfig: mtypes.NTPInfo{
 				UseNTP:           true,
 				MaxServerUse:     8,
-				SyncTimeInterval: 604800,
+				SyncTimeInterval: 99999,
 				NTPTimeout:       3,
 				Servers: []string{
 					"time.google.com",
@@ -136,7 +136,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 					"tw.ntp.org.cn",
 					"ntp.aliyun.com",
 					"time1.cloud.tencent.com",
-					"ntp.tuna.tsinghua.edu.cn ",
+					"ntp.tuna.tsinghua.edu.cn",
 				},
 			},
 		},
@@ -213,7 +213,7 @@ func GetExampleSuperConf(templatePath string, getDemo bool) (mtypes.SuperConfig,
 		ListenPort_ManageAPI: "3000",
 		API_Prefix:           "/eg_api",
 		LogLevel: mtypes.LoggerInfo{
-			LogLevel:    "normal",
+			LogLevel:    "error",
 			LogTransit:  false,
 			LogControl:  true,
 			LogNormal:   false,

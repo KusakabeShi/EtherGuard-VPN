@@ -1,4 +1,6 @@
 Config output dir: /tmp/eg_gen_p2p
+Enable generated config overwrite: false
+Add NodeID to the interface name: true
 ConfigTemplate for edge node: ""
 Network name: "EgNet"
 Edge Node:

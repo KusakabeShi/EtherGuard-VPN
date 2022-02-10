@@ -7,7 +7,6 @@ package gencfg
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -50,13 +49,11 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 	if err != nil {
 		return err
 	}
-	files, err := os.ReadDir(NMCfg.ConfigOutputDir)
-	if err != nil {
-		return err
-	}
-	if len(files) > 0 {
-		return fmt.Errorf(NMCfg.ConfigOutputDir + " not empty")
-	}
+
+	var fileWriter bulkFileWriter
+	fileWriter.files = make(map[string]fileWriterfile)
+	fileWriter.ow = NMCfg.ConfigOutputDirOW
+
 	if NMCfg.EdgeConfigTemplate != "" {
 		var econfig mtypes.EdgeConfig
 		err = mtypes.ReadYaml(NMCfg.EdgeConfigTemplate, &econfig)
@@ -231,6 +228,8 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 
 	var pskdb device.PSKDB
 	for NodeID, Edge := range edge_infos {
+		econfig.NodeName = NMCfg.NetworkName
+		econfig.Interface.Name = NMCfg.NetworkName
 		econfig.Interface.MacAddrPrefix = NMCfg.EdgeNode.MacPrefix
 		econfig.Interface.IPv4CIDR = NMCfg.EdgeNode.IPv4Range
 		econfig.Interface.IPv6CIDR = NMCfg.EdgeNode.IPv6Range
@@ -238,7 +237,10 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 		econfig.PrivKey = Edge.PrivKey
 		econfig.NodeID = NodeID
 		idstr := fmt.Sprintf("%0"+strconv.Itoa(len(MaxNodeID.ToString()))+"d", NodeID)
-		econfig.NodeName = NMCfg.NetworkName + idstr
+		if NMCfg.NetworkIFNameID {
+			econfig.NodeName += idstr
+			econfig.Interface.Name += idstr
+		}
 		PersistentKeepalive := uint32(30)
 		econfig.ListenPort = 0
 		if Edge.Endpoint != "" {
@@ -263,9 +265,9 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 			})
 		}
 		mtypesBytes, _ := yaml.Marshal(econfig)
-		ioutil.WriteFile(filepath.Join(NMCfg.ConfigOutputDir, NMCfg.NetworkName+"_edge"+idstr+".yaml"), mtypesBytes, 0o600)
-		fmt.Println(filepath.Join(NMCfg.ConfigOutputDir, NMCfg.NetworkName+"_edge"+idstr+".yaml"))
+		fileWriter.WriteFile(filepath.Join(NMCfg.ConfigOutputDir, NMCfg.NetworkName+"_edge"+idstr+".yaml"), mtypesBytes, 0o600)
 	}
-	return nil
+	err = fileWriter.Commit()
+	return err
 
 }
