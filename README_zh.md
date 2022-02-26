@@ -47,7 +47,7 @@ Usage of ./etherguard-go-vpp:
 Mode        | Description
 ------------|:-----
 Static Mode | 沒有自動選路，沒有握手伺服器<br>類似原本的wireguard，一切都要提前配置好<br>[詳細介紹](example_config/static_mode/README_zh.md)
-Static Mode | 此模式是受到[n2n](https://github.com/ntop/n2n)的啟發，分為SuperNode和EdgeNode兩種節點<br>EdgeNode首先和SuperNode建立連線，藉由SuperNode交換其他EdgeNode的資訊<br>由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給EdgeNode<br>[詳細介紹](example_config/super_mode/README_zh.md)
+Super Mode | 此模式是受到[n2n](https://github.com/ntop/n2n)的啟發，分為SuperNode和EdgeNode兩種節點<br>EdgeNode首先和SuperNode建立連線，藉由SuperNode交換其他EdgeNode的資訊<br>由SuperNode執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，並把計算結果分發給EdgeNode<br>[詳細介紹](example_config/super_mode/README_zh.md)
 P2P Mode | 此模式是受到[tinc](https://github.com/gsliepen/tinc)的啟發，只有EdgeNode，EdgeNode會彼交換資訊<br>EdgeNodes會嘗試互相連線，並且通報其他EdgeNoses連線成功與否<br>每個Edge各自執行[Floyd-Warshall演算法](https://zh.wikipedia.org/zh-tw/Floyd-Warshall算法)，若不能直達則使用最短路徑<br>**此模式尚未經過長時間測試，尚不建議生產環境使用**<br>[詳細介紹](example_config/p2p_mode/README_zh.md)
 
 ## Quick start
