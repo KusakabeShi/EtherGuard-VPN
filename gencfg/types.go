@@ -39,7 +39,7 @@ type SMCfg struct {
 
 type NMCfg struct {
 	ConfigOutputDir    string `yaml:"Config output dir"`
-	ConfigOutputDirOW  bool   `yaml:"Overwrite old configs"`
+	ConfigOutputDirOW  bool   `yaml:"Enable generated config overwrite"`
 	EdgeConfigTemplate string `yaml:"ConfigTemplate for edge node"`
 	NetworkName        string `yaml:"Network name"`
 	NetworkIFNameID    bool   `yaml:"Add NodeID to the interface name"`
