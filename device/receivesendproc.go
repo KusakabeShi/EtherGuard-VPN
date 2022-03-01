@@ -757,6 +757,9 @@ func (device *Device) RoutineTryReceivedEndpoint() {
 				if connurl == "" {
 					continue
 				}
+				if thepeer.StaticConn {
+					continue
+				}
 				err := thepeer.SetEndpointFromConnURL(connurl, device.enabledAf, device.EdgeConfig.AfPrefer, thepeer.StaticConn) //trying to bind first url in the list and wait ConnNextTry seconds
 				if err != nil {
 					device.log.Errorf("Bind " + connurl + " failed!")
