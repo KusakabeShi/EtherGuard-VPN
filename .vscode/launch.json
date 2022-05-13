@@ -33,6 +33,16 @@
             "buildFlags": "-tags 'novpp'",
             "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
             "args":["-config","example_config/p2p_mode/genp2p.yaml","-mode","gencfg","-cfgmode","p2p"/*,"-example"*/],
+        },
+        {
+            "name": "Launch Slove",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}",
+            "buildFlags": "-tags 'novpp'",
+            "env": {"CGO_CFLAGS":"-I/usr/include/memif"},
+            "args":["-config","example_config/static_mode/path.txt","-mode","solve"],
         }
     ]
 }

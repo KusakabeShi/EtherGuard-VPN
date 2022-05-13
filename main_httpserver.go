@@ -69,12 +69,13 @@ type HttpPeerLocalIP struct {
 }
 
 type HttpState struct {
-	PeerInfo map[mtypes.Vertex]HttpPeerInfo
-	Infinity float64
-	Edges    map[mtypes.Vertex]map[mtypes.Vertex]float64
-	Edges_Nh map[mtypes.Vertex]map[mtypes.Vertex]float64
-	NhTable  mtypes.NextHopTable
-	Dist     mtypes.DistTable
+	PeerInfo  map[mtypes.Vertex]HttpPeerInfo
+	Infinity  float64
+	Edges     map[mtypes.Vertex]map[mtypes.Vertex]float64
+	Edges_Nh  map[mtypes.Vertex]map[mtypes.Vertex]float64
+	NhTable   mtypes.NextHopTable
+	Dist      mtypes.DistTable
+	Dist_noAC mtypes.DistTable
 }
 
 type HttpPeerInfo struct {
@@ -563,12 +564,13 @@ func manage_get_peerstate(w http.ResponseWriter, r *http.Request) {
 	defer httpobj.RUnlock()
 	if time.Now().After(httpobj.http_StateExpire) {
 		hs := HttpState{
-			PeerInfo: make(map[mtypes.Vertex]HttpPeerInfo),
-			NhTable:  httpobj.http_graph.GetNHTable(false),
-			Infinity: mtypes.Infinity,
-			Edges:    httpobj.http_graph.GetEdges(false, false),
-			Edges_Nh: httpobj.http_graph.GetEdges(true, true),
-			Dist:     httpobj.http_graph.GetDtst(),
+			PeerInfo:  make(map[mtypes.Vertex]HttpPeerInfo),
+			NhTable:   httpobj.http_graph.GetNHTable(false),
+			Infinity:  mtypes.Infinity,
+			Edges:     httpobj.http_graph.GetEdges(false, false),
+			Edges_Nh:  httpobj.http_graph.GetEdges(true, true),
+			Dist:      httpobj.http_graph.GetDtst(true),
+			Dist_noAC: httpobj.http_graph.GetDtst(false),
 		}
 
 		for _, peerinfo := range httpobj.http_sconfig.Peers {

@@ -154,7 +154,7 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 		NMCfg.EdgeNode.MacPrefix = fmt.Sprintf("%02X:%02X:%02X:%02X", pbyte[0], pbyte[1], pbyte[2], pbyte[3])
 	}
 
-	dist, next, err := g.FloydWarshall(false)
+	dist, dist_noAC, next, err := g.FloydWarshall(false)
 	g.SetNHTable(next)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -164,6 +164,7 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 		fmt.Println(string(nhTableStr))
 	}
 	all_vert := g.Vertices()
+	fmt.Printf("Distance With Additional Cost\n")
 	if NMCfg.DistanceMatrix != "" {
 		for u := range all_vert {
 			for v := range all_vert {
@@ -173,6 +174,20 @@ func GenNMCfg(NMCinfigPath string, enableP2P bool, printExample bool) (err error
 						return fmt.Errorf("couldn't find path from %v to %v: %v", u, v, err)
 					}
 					fmt.Printf("%d -> %d\t%3f\t%v\n", u, v, dist[u][v], path)
+				}
+			}
+		}
+	}
+	fmt.Printf("Distance Without Additional Cost\n")
+	if NMCfg.DistanceMatrix != "" {
+		for u := range all_vert {
+			for v := range all_vert {
+				if u != v {
+					path, err := g.Path(u, v)
+					if err != nil {
+						return fmt.Errorf("couldn't find path from %v to %v: %v", u, v, err)
+					}
+					fmt.Printf("%d -> %d\t%3f\t%v\n", u, v, dist_noAC[u][v], path)
 				}
 			}
 		}

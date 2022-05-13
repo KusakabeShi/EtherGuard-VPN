@@ -174,7 +174,7 @@ func GetExampleEdgeConf(templatePath string, getDemo bool) (mtypes.EdgeConfig, e
 		g.UpdateLatency(3, 5, 0.5, 99999, 0, false, false)
 		g.UpdateLatency(6, 4, 0.5, 99999, 0, false, false)
 		g.UpdateLatency(4, 6, 0.5, 99999, 0, false, false)
-		_, next, _ := g.FloydWarshall(false)
+		_, _, next, _ := g.FloydWarshall(false)
 		econfig.NextHopTable = next
 
 	} else {

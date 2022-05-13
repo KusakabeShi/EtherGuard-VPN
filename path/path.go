@@ -26,8 +26,9 @@ type Latency struct {
 }
 
 type Fullroute struct {
-	Next mtypes.NextHopTable `yaml:"NextHopTable"`
-	Dist mtypes.DistTable    `yaml:"DistanceTable"`
+	Next      mtypes.NextHopTable `yaml:"NextHopTable"`
+	Dist      mtypes.DistTable    `yaml:"DistanceTable"`
+	Dist_noAC mtypes.DistTable    `yaml:"DistanceTableWithoutAdditionalaCost"`
 }
 
 // IG is a graph of integers that satisfies the Graph interface.
@@ -41,6 +42,7 @@ type IG struct {
 	TimeoutCheckInterval time.Duration
 	recalculateTime      time.Time
 	dlTable              mtypes.DistTable
+	dlTable_noAC         mtypes.DistTable
 	nhTable              mtypes.NextHopTable
 	changed              bool
 	NhTableExpire        time.Time
@@ -133,7 +135,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 		return
 	}
 
-	dist, next, _ := g.FloydWarshall(false)
+	dist, dist_noAC, next, _ := g.FloydWarshall(false)
 	changed = false
 	if checkchange {
 	CheckLoop:
@@ -147,7 +149,7 @@ func (g *IG) RecalculateNhTable(checkchange bool) (changed bool) {
 			}
 		}
 	}
-	g.dlTable, g.nhTable = dist, next
+	g.dlTable, g.dlTable_noAC, g.nhTable = dist, dist_noAC, next
 	g.recalculateTime = time.Now()
 
 	return
@@ -349,7 +351,7 @@ func (g *IG) RemoveAllNegativeValue() {
 	}
 }
 
-func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, next mtypes.NextHopTable, err error) {
+func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, dist_noAC mtypes.DistTable, next mtypes.NextHopTable, err error) {
 	if g.loglevel.LogInternal {
 		if !again {
 			fmt.Println("Internal: Start Floyd Warshall algorithm")
@@ -360,20 +362,25 @@ func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, next mtypes.NextH
 	}
 	vert := g.Vertices()
 	dist = make(mtypes.DistTable)
+	dist_noAC = make(mtypes.DistTable)
 	next = make(mtypes.NextHopTable)
 	for u := range vert {
 		dist[u] = make(map[mtypes.Vertex]float64)
+		dist_noAC[u] = make(map[mtypes.Vertex]float64)
 		next[u] = make(map[mtypes.Vertex]mtypes.Vertex)
 		for v := range vert {
 			dist[u][v] = mtypes.Infinity
+			dist_noAC[u][v] = mtypes.Infinity
 		}
 		dist[u][u] = 0
+		dist_noAC[u][u] = 0
 		for _, v := range g.Neighbors(u) {
 			w := g.Weight(u, v, true)
 			wo := g.Weight(u, v, false)
 			if w < mtypes.Infinity {
 				v := v
 				dist[u][v] = w
+				dist_noAC[u][v] = wo
 				next[u][v] = v
 			}
 			g.SetOldWeight(u, v, wo)
@@ -385,6 +392,7 @@ func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, next mtypes.NextH
 				if dist[i][k] < mtypes.Infinity && dist[k][j] < mtypes.Infinity {
 					if dist[i][j] > dist[i][k]+dist[k][j] {
 						dist[i][j] = dist[i][k] + dist[k][j]
+						dist_noAC[i][j] = dist_noAC[i][k] + dist_noAC[k][j]
 						next[i][j] = next[i][k]
 					}
 				}
@@ -399,10 +407,11 @@ func (g *IG) FloydWarshall(again bool) (dist mtypes.DistTable, next mtypes.NextH
 				}
 				g.RemoveAllNegativeValue()
 				err = errors.New("negative cycle detected")
-				dist, next, _ = g.FloydWarshall(true)
+				dist, dist_noAC, next, _ = g.FloydWarshall(true)
 				return
 			} else {
 				dist = make(mtypes.DistTable)
+				dist_noAC = make(mtypes.DistTable)
 				next = make(mtypes.NextHopTable)
 				err = errors.New("negative cycle detected again")
 				if g.loglevel.LogInternal {
@@ -452,8 +461,13 @@ func (g *IG) GetNHTable(recalculate bool) mtypes.NextHopTable {
 	return g.nhTable
 }
 
-func (g *IG) GetDtst() mtypes.DistTable {
-	return g.dlTable
+func (g *IG) GetDtst(withAC bool) mtypes.DistTable {
+	if withAC {
+		return g.dlTable
+	} else {
+		return g.dlTable_noAC
+	}
+
 }
 
 func (g *IG) GetEdges(isOld bool, withAC bool) (edges map[mtypes.Vertex]map[mtypes.Vertex]float64) {
@@ -560,14 +574,16 @@ func Solve(filePath string, pe bool) error {
 	input := string(inputb)
 	all_edge, _ := ParseDistanceMatrix(input)
 	g.UpdateLatencyMulti(all_edge, false, false)
-	dist, next, err := g.FloydWarshall(false)
+	dist, dist_noAC, next, err := g.FloydWarshall(false)
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
+	g.dlTable, g.dlTable_noAC, g.nhTable = dist, dist_noAC, next
 
 	rr, _ := yaml.Marshal(Fullroute{
-		Dist: dist,
-		Next: next,
+		Dist:      dist,
+		Dist_noAC: dist_noAC,
+		Next:      next,
 	})
 	fmt.Print(string(rr))
 
