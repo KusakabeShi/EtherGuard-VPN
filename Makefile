@@ -9,6 +9,7 @@ all: generate-version-and-build
 MAKEFLAGS += --no-print-directory
 
 generate-version-and-build:
+	git config --global  --add safe.directory "$(abspath .)"
 	@export GIT_CEILING_DIRECTORIES="$(realpath $(CURDIR)/..)" && \
 	tag="$$(git describe --tags --abbrev=0 2>/dev/null)" && \
 	ver="$$(printf 'package main\n\nvar Version = "%s"\n' "$$tag")" && \

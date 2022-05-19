@@ -19,6 +19,7 @@ jobs:
       - name: Retrieve version
         shell: bash
         run: |
+          git config --global --add safe.directory '*'
           VERSION=$(git describe --abbrev=0)
           echo "::set-output name=VERSION::$VERSION"
         id: version
@@ -128,6 +129,7 @@ jobs:
       - name: Retrieve version
         shell: bash
         run: |
+          git config --global --add safe.directory '*'
           VERSION=$(git describe --abbrev=0)
           echo "::set-output name=VERSION::$VERSION"
         id: version
