@@ -17,14 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/KusakabeSi/EtherGuard-VPN/conn"
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
 type QueueHandshakeElement struct {
@@ -563,12 +563,12 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			} else {
 				l2ttl = l2ttl - 1
 				if dst_nodeID == mtypes.NodeID_Broadcast { //Regular transfer algorithm
-					device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
+					go device.TransitBoardcastPacket(src_nodeID, peer.ID, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 				} else if dst_nodeID == mtypes.NodeID_Spread { // Control Message will try send to every know node regardless the connectivity
 					skip_list := make(map[mtypes.Vertex]bool)
 					skip_list[src_nodeID] = true //Don't send to conimg peer and source peer
 					skip_list[peer.ID] = true
-					device.SpreadPacket(skip_list, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
+					go device.SpreadPacket(skip_list, elem.Type, l2ttl, elem.packet, MessageTransportOffsetContent)
 
 				} else {
 					next_id := device.graph.Next(device.ID, dst_nodeID)
@@ -612,8 +612,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
 					fmt.Printf("Normal: Recv Len:%v S:%v D:%v TTL:%v From:%v IP:%v:\n", strconv.Itoa(packet_len), src_nodeID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
-					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
-					fmt.Println(packet.Dump())
+					if device.LogLevel.DumpNormal {
+						packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+						fmt.Println(packet.Dump())
+					}
 				}
 				src_macaddr := tap.GetSrcMacAddr(elem.packet[path.EgHeaderLen:])
 				if !tap.IsNotUnicast(src_macaddr) {

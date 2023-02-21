@@ -414,9 +414,9 @@ Relay node其實也是一個edge node，只不過被設定成為interface=dummy�
 在**不同terminal**分別執行以下命令
 
 ```bash
-./etherguard-go -config example_config/super_mode/Node_super.yaml -mode super
-./etherguard-go -config example_config/super_mode/Node_edge001.yaml -mode edge
-./etherguard-go -config example_config/super_mode/Node_edge002.yaml -mode edge
+./etherguard-go -config example_config/super_mode/EgNet_super.yaml -mode super
+./etherguard-go -config example_config/super_mode/EgNet_edge001.yaml -mode edge
+./etherguard-go -config example_config/super_mode/EgNet_edge002.yaml -mode edge
 ```
 因為是stdio模式，stdin會讀入VPN網路  
 請在其中一個edge視窗中鍵入

@@ -29,6 +29,14 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+type packet_send_params struct {
+	peer   *Peer
+	usage  path.Usage
+	ttl    uint8
+	packet []byte
+	offset int
+}
+
 func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet []byte, offset int) {
 	if peer == nil {
 		return
@@ -48,8 +56,10 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 			dst_nodeID := EgHeader.GetDst()
 			packet_len := len(packet) - path.EgHeaderLen
 			fmt.Printf("Normal: Send Len:%v S:%v D:%v TTL:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), ttl, peer.ID.ToString(), peer.GetEndpointDstStr())
-			packet := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
-			fmt.Println(packet.Dump())
+			if device.LogLevel.DumpNormal {
+				packet_dump := gopacket.NewPacket(packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+				fmt.Println(packet_dump.Dump())
+			}
 		}
 	}
 	if device.LogLevel.LogControl {
@@ -63,16 +73,32 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 		}
 	}
 
-	var elem *QueueOutboundElement
-	elem = device.NewOutboundElement()
-	copy(elem.buffer[offset:offset+len(packet)], packet)
-	elem.Type = usage
-	elem.TTL = ttl
-	elem.packet = elem.buffer[offset : offset+len(packet)]
-	if peer.isRunning.Get() {
-		peer.StagePacket(elem)
-		elem = nil
-		peer.SendStagedPackets()
+	device.chan_send_packet <- &packet_send_params{
+		peer:   peer,
+		usage:  usage,
+		ttl:    ttl,
+		packet: packet,
+		offset: offset,
+	}
+}
+
+func (device *Device) RoutineSendPacket() {
+	for {
+		var elem *QueueOutboundElement
+		elem = device.NewOutboundElement()
+		params := <-device.chan_send_packet
+		offset := params.offset
+		packet := params.packet
+		peer := params.peer
+		copy(elem.buffer[offset:offset+len(packet)], packet)
+		elem.Type = params.usage
+		elem.TTL = params.ttl
+		elem.packet = elem.buffer[offset : offset+len(packet)]
+		if peer.isRunning.Get() {
+			peer.StagePacket(elem)
+			elem = nil
+			peer.SendStagedPackets()
+		}
 	}
 }
 
@@ -82,6 +108,7 @@ func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage pa
 		send_list[node_id] = false
 	}
 	device.peers.RLock()
+	fmt.Printf("Transit: Boardcast to %v\n", send_list)
 	for node_id, should_send := range send_list {
 		if should_send {
 			peer_out := device.peers.IDMap[node_id]

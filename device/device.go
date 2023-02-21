@@ -77,6 +77,7 @@ type Device struct {
 	state_hashes mtypes.StateHash
 
 	event_tryendpoint chan struct{}
+	chan_send_packet  chan *packet_send_params
 
 	EdgeConfigPath  string
 	EdgeConfig      *mtypes.EdgeConfig
@@ -137,10 +138,9 @@ type IdAndTime struct {
 // There are three states: down, up, closed.
 // Transitions:
 //
-//   down -----+
-//     ↑↓      ↓
-//     up -> closed
-//
+//	down -----+
+//	  ↑↓      ↓
+//	  up -> closed
 type deviceState uint32
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type deviceState -trimprefix=deviceState
@@ -355,6 +355,7 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 	device.indexTable.Init()
 	device.PopulatePools()
 	device.Chan_Device_Initialized = make(chan struct{}, 1<<5)
+	device.chan_send_packet = make(chan *packet_send_params, 1<<15)
 	if IsSuperNode {
 		device.SuperConfigPath = configpath
 		device.SuperConfig = sconfig
@@ -378,7 +379,7 @@ func NewDevice(tapDevice tap.Device, id mtypes.Vertex, bind conn.Bind, logger *L
 		device.SuperConfig.DampingFilterRadius = device.EdgeConfig.DynamicRoute.DampingFilterRadius
 
 	}
-
+	go device.RoutineSendPacket()
 	go func() {
 		<-device.Chan_Device_Initialized
 		if device.LogLevel.LogInternal {

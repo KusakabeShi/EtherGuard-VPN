@@ -400,9 +400,9 @@ To avoid this issue, please use the external IP of the supernode in the edge con
 ## Quick start
 Run this example_config (please open three terminals):
 ```bash
-./etherguard-go -config example_config/super_mode/Node_super.yaml -mode super
-./etherguard-go -config example_config/super_mode/Node_edge001.yaml -mode edge
-./etherguard-go -config example_config/super_mode/Node_edge002.yaml -mode edge
+./etherguard-go -config example_config/super_mode/EgNet_super.yaml -mode super
+./etherguard-go -config example_config/super_mode/EgNet_edge001.yaml -mode edge
+./etherguard-go -config example_config/super_mode/EgNet_edge002.yaml -mode edge
 ```
 Because it is in `stdio` mode, stdin will be read into the VPN network  
 Please type in one of the edge windows

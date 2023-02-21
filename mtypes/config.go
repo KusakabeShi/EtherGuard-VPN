@@ -108,6 +108,7 @@ type LoggerInfo struct {
 	LogLevel    string `yaml:"LogLevel"`
 	LogTransit  bool   `yaml:"LogTransit"`
 	LogNormal   bool   `yaml:"LogNormal"`
+	DumpNormal  bool   `yaml:"DumpNormal"`
 	LogControl  bool   `yaml:"LogControl"`
 	LogInternal bool   `yaml:"LogInternal"`
 	LogNTP      bool   `yaml:"LogNTP"`

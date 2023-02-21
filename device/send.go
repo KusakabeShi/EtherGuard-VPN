@@ -219,15 +219,11 @@ func (device *Device) RoutineReadFromTUN() {
 
 	device.log.Verbosef("Routine: TUN reader - started")
 
-	var elem *QueueOutboundElement
+	elem := &QueueOutboundElement{
+		buffer: &[MaxMessageSize]byte{},
+	}
 
 	for {
-		if elem != nil {
-			device.PutMessageBuffer(elem.buffer)
-			device.PutOutboundElement(elem)
-		}
-		elem = device.NewOutboundElement()
-
 		// read packet
 
 		offset := MessageTransportHeaderSize
@@ -288,14 +284,12 @@ func (device *Device) RoutineReadFromTUN() {
 				if device.LogLevel.LogNormal {
 					packet_len := len(elem.packet) - path.EgHeaderLen
 					fmt.Printf("Normal: Send Len:%v S:%v D:%v TTL:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
-					packet := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
-					fmt.Println(packet.Dump())
+					if device.LogLevel.DumpNormal {
+						packet_dump := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
+						fmt.Println(packet_dump.Dump())
+					}
 				}
-				if peer.isRunning.Get() {
-					peer.StagePacket(elem)
-					elem = nil
-					peer.SendStagedPackets()
-				}
+				device.SendPacket(peer, elem.Type, elem.TTL, elem.packet, offset)
 			}
 		} else {
 			device.BoardcastPacket(make(map[mtypes.Vertex]bool, 0), elem.Type, elem.TTL, elem.packet, offset)
