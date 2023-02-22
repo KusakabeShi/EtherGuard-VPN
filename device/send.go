@@ -19,8 +19,6 @@ import (
 	"github.com/KusakabeSi/EtherGuard-VPN/mtypes"
 	"github.com/KusakabeSi/EtherGuard-VPN/path"
 	"github.com/KusakabeSi/EtherGuard-VPN/tap"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -280,14 +278,6 @@ func (device *Device) RoutineReadFromTUN() {
 				device.peers.RUnlock()
 				if peer == nil {
 					continue
-				}
-				if device.LogLevel.LogNormal {
-					packet_len := len(elem.packet) - path.EgHeaderLen
-					fmt.Printf("Normal: Send Len:%v S:%v D:%v TTL:%v To:%v IP:%v:\n", packet_len, device.ID.ToString(), dst_nodeID.ToString(), elem.TTL, peer.ID.ToString(), peer.GetEndpointDstStr())
-					if device.LogLevel.DumpNormal {
-						packet_dump := gopacket.NewPacket(elem.packet[path.EgHeaderLen:], layers.LayerTypeEthernet, gopacket.Default)
-						fmt.Println(packet_dump.Dump())
-					}
 				}
 				device.SendPacket(peer, elem.Type, elem.TTL, elem.packet, offset)
 			}

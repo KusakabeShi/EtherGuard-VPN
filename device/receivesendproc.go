@@ -83,8 +83,12 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 }
 
 func (device *Device) RoutineSendPacket() {
+	var elem *QueueOutboundElement
 	for {
-		var elem *QueueOutboundElement
+		if elem != nil {
+			device.PutMessageBuffer(elem.buffer)
+			device.PutOutboundElement(elem)
+		}
 		elem = device.NewOutboundElement()
 		params := <-device.chan_send_packet
 		offset := params.offset
