@@ -112,7 +112,6 @@ func (device *Device) BoardcastPacket(skip_list map[mtypes.Vertex]bool, usage pa
 		send_list[node_id] = false
 	}
 	device.peers.RLock()
-	fmt.Printf("Transit: Boardcast to %v\n", send_list)
 	for node_id, should_send := range send_list {
 		if should_send {
 			peer_out := device.peers.IDMap[node_id]
