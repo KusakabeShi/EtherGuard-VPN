@@ -30,11 +30,8 @@ import (
 )
 
 type packet_send_params struct {
-	peer   *Peer
-	usage  path.Usage
-	ttl    uint8
-	packet []byte
-	offset int
+	peer *Peer
+	elem *QueueOutboundElement
 }
 
 func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet []byte, offset int) {
@@ -72,13 +69,15 @@ func (device *Device) SendPacket(peer *Peer, usage path.Usage, ttl uint8, packet
 			}
 		}
 	}
-
+	var elem *QueueOutboundElement
+	elem = device.NewOutboundElement()
+	copy(elem.buffer[offset:offset+len(packet)], packet)
+	elem.Type = usage
+	elem.TTL = ttl
+	elem.packet = elem.buffer[offset : offset+len(packet)]
 	device.chan_send_packet <- &packet_send_params{
-		peer:   peer,
-		usage:  usage,
-		ttl:    ttl,
-		packet: packet,
-		offset: offset,
+		peer: peer,
+		elem: elem,
 	}
 }
 
@@ -91,13 +90,8 @@ func (device *Device) RoutineSendPacket() {
 		}
 		elem = device.NewOutboundElement()
 		params := <-device.chan_send_packet
-		offset := params.offset
-		packet := params.packet
+		elem := params.elem
 		peer := params.peer
-		copy(elem.buffer[offset:offset+len(packet)], packet)
-		elem.Type = params.usage
-		elem.TTL = params.ttl
-		elem.packet = elem.buffer[offset : offset+len(packet)]
 		if peer.isRunning.Get() {
 			peer.StagePacket(elem)
 			elem = nil

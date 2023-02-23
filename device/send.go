@@ -217,13 +217,11 @@ func (device *Device) RoutineReadFromTUN() {
 
 	device.log.Verbosef("Routine: TUN reader - started")
 
-	elem := &QueueOutboundElement{
-		buffer: &[MaxMessageSize]byte{},
-	}
+	var elem *QueueOutboundElement
 
 	for {
+		elem = device.NewOutboundElement()
 		// read packet
-
 		offset := MessageTransportHeaderSize
 		size, err := device.tap.device.Read(elem.buffer[:], offset+path.EgHeaderLen)
 
@@ -279,7 +277,10 @@ func (device *Device) RoutineReadFromTUN() {
 				if peer == nil {
 					continue
 				}
-				device.SendPacket(peer, elem.Type, elem.TTL, elem.packet, offset)
+				device.chan_send_packet <- &packet_send_params{
+					peer: peer,
+					elem: elem,
+				}
 			}
 		} else {
 			device.BoardcastPacket(make(map[mtypes.Vertex]bool, 0), elem.Type, elem.TTL, elem.packet, offset)
