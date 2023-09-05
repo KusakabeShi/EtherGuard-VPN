@@ -934,7 +934,7 @@ func (device *Device) RoutinePostPeerInfo(startchan <-chan struct{}) {
 					Src_nodeID:  id,
 					Dst_nodeID:  device.ID,
 					Timediff:    peer.SingleWayLatency.GetVal(),
-					TimeToAlive: time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
+					TimeToAlive: -time.Since(*peer.LastPacketReceivedAdd1Sec.Load().(*time.Time)).Seconds() + device.EdgeConfig.DynamicRoute.PeerAliveTimeout,
 				}
 				pongs = append(pongs, pong)
 				if device.LogLevel.LogControl {
