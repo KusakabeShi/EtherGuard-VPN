@@ -25,7 +25,7 @@ jobs:
 
       - name: Build x86_64
         run: |
-          make all static vpp
+          make all static
 
       - uses: actions/upload-artifact@v2
         with:
@@ -84,7 +84,6 @@ jobs:
             apt-get install -y wireguard-tools golang-go build-essential git
           run: |
             make all static
-            make vpp || true
             mkdir /artifacts/${artifact_dir}
             cp etherguard-go* /artifacts/${artifact_dir}
 

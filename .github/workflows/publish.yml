@@ -38,15 +38,12 @@ jobs:
           go-version: 1.17
       - name: Install requirements
         run: |
-          echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/99fd.io.list > /dev/null
-          curl -L https://packagecloud.io/fdio/release/gpgkey | sudo apt-key add -
           sudo apt-get -y update
-          sudo apt-get install -y libmemif libmemif-dev
           sudo apt-get install -y wireguard-tools upx-ucl
 
       - name: Build x86_64
         run: |
-          make all static vpp
+          make all static
 
       - uses: actions/upload-artifact@v2
         with:
@@ -60,16 +57,6 @@ jobs:
           file: etherguard-go
           overwrite: true
           asset_name: etherguard-go-x86_64
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
-
-      - name: Upload x86_64 dynamic vpp build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go-vpp
-          overwrite: true
-          asset_name: etherguard-go-vpp-x86_64
           release_name:  ${{ steps.version.outputs.VERSION }}
           tag: ${{ steps.version.outputs.VERSION }}
 
@@ -170,7 +157,6 @@ jobs:
             apt-get install -y wireguard-tools golang-go build-essential git
           run: |
             make all static
-            make vpp || true
             mkdir /artifacts/${artifact_dir}
             cp etherguard-go* /artifacts/${artifact_dir}
 
@@ -192,17 +178,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: artifacts/${{ matrix.arch }}/etherguard-go
           asset_name: etherguard-go-${{ matrix.arch }}
-          overwrite: true
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
-
-      - name: Upload ${{ matrix.arch }} dynamic vpp build
-        if: ${{ matrix.arch == 'aarch64' }}
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ matrix.arch }}/etherguard-go
-          asset_name: etherguard-go-vpp-${{ matrix.arch }}
           overwrite: true
           release_name:  ${{ steps.version.outputs.VERSION }}
           tag: ${{ steps.version.outputs.VERSION }}
