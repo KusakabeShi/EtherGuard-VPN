@@ -23,6 +23,7 @@ type EdgeConfig struct {
 	Interface             InterfaceConf    `yaml:"Interface"`
 	NodeID                Vertex           `yaml:"NodeID"`
 	NodeName              string           `yaml:"NodeName"`
+	FwMark                uint32           `yaml:"FwMark"`
 	PostScript            string           `yaml:"PostScript"`
 	DefaultTTL            uint8            `yaml:"DefaultTTL"`
 	L2FIBTimeout          float64          `yaml:"L2FIBTimeout"`
@@ -39,6 +40,7 @@ type EdgeConfig struct {
 
 type SuperConfig struct {
 	NodeName                string                  `yaml:"NodeName"`
+	FwMark                  uint32                  `yaml:"FwMark"`
 	PostScript              string                  `yaml:"PostScript"`
 	PrivKeyV4               string                  `yaml:"PrivKeyV4"`
 	PrivKeyV6               string                  `yaml:"PrivKeyV6"`

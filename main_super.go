@@ -144,10 +144,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 	}
 	thetap4, _ := tap.CreateDummyTAP()
-	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf4, bindmode), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf4, bindmode, sconfig.FwMark), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device4.Close()
 	thetap6, _ := tap.CreateDummyTAP()
-	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf6, bindmode), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf6, bindmode, sconfig.FwMark), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device6.Close()
 	if sconfig.PrivKeyV4 != "" {
 		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)
@@ -156,7 +156,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 			return err
 		}
 		httpobj.http_device4.SetPrivateKey(pk4)
-		httpobj.http_device4.IpcSet("fwmark=0\n")
+		httpobj.http_device4.IpcSet("fwmark=" + fmt.Sprint(sconfig.FwMark) + "\n")
 		httpobj.http_device4.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
 		httpobj.http_device4.IpcSet("replace_peers=true\n")
 	}
@@ -168,7 +168,7 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 			return err
 		}
 		httpobj.http_device6.SetPrivateKey(pk6)
-		httpobj.http_device6.IpcSet("fwmark=0\n")
+		httpobj.http_device6.IpcSet("fwmark=" + fmt.Sprint(sconfig.FwMark) + "\n")
 		httpobj.http_device6.IpcSet("listen_port=" + strconv.Itoa(sconfig.ListenPort) + "\n")
 		httpobj.http_device6.IpcSet("replace_peers=true\n")
 	}

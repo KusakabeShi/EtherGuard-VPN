@@ -125,7 +125,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		IPv6: !econfig.DisableAf.IPv6,
 	}
 
-	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(EnabledAf, bindmode), logger, graph, false, configPath, &econfig, nil, nil, Version)
+	the_device := device.NewDevice(thetap, econfig.NodeID, conn.NewDefaultBind(EnabledAf, bindmode, econfig.FwMark), logger, graph, false, configPath, &econfig, nil, nil, Version)
 	defer the_device.Close()
 	pk, err := device.Str2PriKey(econfig.PrivKey)
 	if err != nil {
@@ -133,7 +133,7 @@ func Edge(configPath string, useUAPI bool, printExample bool, bindmode string) (
 		return err
 	}
 	the_device.SetPrivateKey(pk)
-	the_device.IpcSet("fwmark=0\n")
+	the_device.IpcSet("fwmark=" + fmt.Sprint(econfig.FwMark) + "\n")
 	the_device.IpcSet("listen_port=" + strconv.Itoa(econfig.ListenPort) + "\n")
 	the_device.IpcSet("replace_peers=true\n")
 	for _, peerconf := range econfig.Peers {

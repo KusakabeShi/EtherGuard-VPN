@@ -57,23 +57,24 @@ func (endpoint *LinuxSocketEndpoint) dst6() *unix.SockaddrInet6 {
 type LinuxSocketBind struct {
 	// mu guards sock4 and sock6 and the associated fds.
 	// As long as someone holds mu (read or write), the associated fds are valid.
-	mu    sync.RWMutex
-	sock4 int
-	sock6 int
-	use4  bool
-	use6  bool
+	mu     sync.RWMutex
+	fwmark uint32
+	sock4  int
+	sock6  int
+	use4   bool
+	use6   bool
 }
 
 func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1, use4: true, use6: true} }
-func NewLinuxSocketBindAf(use4 bool, use6 bool) Bind {
-	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6}
+func NewLinuxSocketBindAf(use4 bool, use6 bool, fwmark uint32) Bind {
+	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6, fwmark: fwmark}
 }
 
-func NewDefaultBind(Af EnabledAf, bindmode string) Bind {
+func NewDefaultBind(Af EnabledAf, bindmode string, fwmark uint32) Bind {
 	if bindmode == "std" {
-		return NewStdNetBindAf(Af.IPv4, Af.IPv6)
+		return NewStdNetBindAf(Af.IPv4, Af.IPv6, fwmark)
 	}
-	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6)
+	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6, fwmark)
 }
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)
@@ -185,6 +186,9 @@ again:
 	if len(fns) == 0 {
 		return nil, 0, syscall.EAFNOSUPPORT
 	}
+	if bind.fwmark != 0 {
+		bind.setMark(bind.fwmark)
+	}
 	return fns, port, nil
 }
 
@@ -192,6 +196,10 @@ func (bind *LinuxSocketBind) SetMark(value uint32) error {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
 
+	return bind.setMark(value)
+}
+
+func (bind *LinuxSocketBind) setMark(value uint32) error {
 	if bind.sock6 != -1 {
 		err := unix.SetsockoptInt(
 			bind.sock6,

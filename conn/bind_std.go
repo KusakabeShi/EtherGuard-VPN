@@ -20,15 +20,16 @@ type StdNetBind struct {
 	mu         sync.Mutex // protects following fields
 	ipv4       *net.UDPConn
 	ipv6       *net.UDPConn
+	fwmark     uint32
 	blackhole4 bool
 	blackhole6 bool
 	use4       bool
 	use6       bool
 }
 
-func NewStdNetBind() Bind { return &StdNetBind{use4: true, use6: true} }
-func NewStdNetBindAf(use4 bool, use6 bool) Bind {
-	return &StdNetBind{use4: use4, use6: use6}
+func NewStdNetBind() Bind { return &StdNetBind{use4: true, use6: true, fwmark: 0} }
+func NewStdNetBindAf(use4 bool, use6 bool, fwmark uint32) Bind {
+	return &StdNetBind{use4: use4, use6: use6, fwmark: fwmark}
 }
 
 type StdNetEndpoint net.UDPAddr
