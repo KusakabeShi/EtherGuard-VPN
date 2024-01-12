@@ -5,6 +5,12 @@ PrivKeyV6: xUJ4yaVl/O//PRS24UFMNXgmeF/rhykroCxdJrljFgE=
 ListenPort: 3456
 ListenPort_EdgeAPI: "3456"
 ListenPort_ManageAPI: "3456"
+FwMark: 0
+DisabledAf:
+  IPv4: false
+  IPv6: false
+  ListenIPv4: ""
+  ListenIPv6: ""
 API_Prefix: /eg_net/eg_api
 RePushConfigInterval: 30
 HttpPostInterval: 50

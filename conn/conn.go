@@ -48,8 +48,37 @@ type Bind interface {
 }
 
 type EnabledAf struct {
-	IPv4 bool `yaml:"IPv4"`
-	IPv6 bool `yaml:"IPv6"`
+	IPv4       bool   `yaml:"IPv4"`
+	IPv6       bool   `yaml:"IPv6"`
+	ListenIPv4 string `yaml:"ListenIPv4"`
+	ListenIPv6 string `yaml:"ListenIPv6"`
+}
+
+func (self EnabledAf) Disalbed2Enabled() EnabledAf {
+	return EnabledAf{
+		!self.IPv4,
+		!self.IPv6,
+		self.ListenIPv4,
+		self.ListenIPv6,
+	}
+}
+
+func (self EnabledAf) GetOnly4() EnabledAf {
+	return EnabledAf{
+		self.IPv4,
+		false,
+		self.ListenIPv4,
+		"",
+	}
+}
+
+func (self EnabledAf) GetOnly6() EnabledAf {
+	return EnabledAf{
+		false,
+		self.IPv6,
+		"",
+		self.ListenIPv6,
+	}
 }
 
 var EnabledAf4 = EnabledAf{

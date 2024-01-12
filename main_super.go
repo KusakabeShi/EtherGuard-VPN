@@ -121,6 +121,14 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		fmt.Sprintf("(%s) ", NodeName+"_v6"),
 	)
 
+	EnabledAf := sconfig.DisableAf.Disalbed2Enabled()
+	if !EnabledAf.IPv4 {
+		sconfig.PrivKeyV4 = ""
+	}
+	if !EnabledAf.IPv6 {
+		sconfig.PrivKeyV6 = ""
+	}
+
 	httpobj.http_sconfig_path = configPath
 	httpobj.http_PeerState = make(map[string]*PeerState)
 	httpobj.http_PeerIPs = make(map[string]*HttpPeerLocalIP)
@@ -144,10 +152,10 @@ func Super(configPath string, useUAPI bool, printExample bool, bindmode string) 
 		}
 	}
 	thetap4, _ := tap.CreateDummyTAP()
-	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf4, bindmode, sconfig.FwMark), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device4 = device.NewDevice(thetap4, mtypes.NodeID_SuperNode, conn.NewDefaultBind(EnabledAf.GetOnly4(), bindmode, sconfig.FwMark), logger4, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device4.Close()
 	thetap6, _ := tap.CreateDummyTAP()
-	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(conn.EnabledAf6, bindmode, sconfig.FwMark), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
+	httpobj.http_device6 = device.NewDevice(thetap6, mtypes.NodeID_SuperNode, conn.NewDefaultBind(EnabledAf.GetOnly6(), bindmode, sconfig.FwMark), logger6, httpobj.http_graph, true, configPath, nil, &sconfig, httpobj.http_super_chains, Version)
 	defer httpobj.http_device6.Close()
 	if sconfig.PrivKeyV4 != "" {
 		pk4, err := device.Str2PriKey(sconfig.PrivKeyV4)

@@ -23,12 +23,12 @@ type EdgeConfig struct {
 	Interface             InterfaceConf    `yaml:"Interface"`
 	NodeID                Vertex           `yaml:"NodeID"`
 	NodeName              string           `yaml:"NodeName"`
-	FwMark                uint32           `yaml:"FwMark"`
 	PostScript            string           `yaml:"PostScript"`
 	DefaultTTL            uint8            `yaml:"DefaultTTL"`
 	L2FIBTimeout          float64          `yaml:"L2FIBTimeout"`
 	PrivKey               string           `yaml:"PrivKey"`
 	ListenPort            int              `yaml:"ListenPort"`
+	FwMark                uint32           `yaml:"FwMark"`
 	DisableAf             conn.EnabledAf   `yaml:"DisabledAf"`
 	AfPrefer              int              `yaml:"AfPrefer"`
 	LogLevel              LoggerInfo       `yaml:"LogLevel"`
@@ -40,13 +40,14 @@ type EdgeConfig struct {
 
 type SuperConfig struct {
 	NodeName                string                  `yaml:"NodeName"`
-	FwMark                  uint32                  `yaml:"FwMark"`
 	PostScript              string                  `yaml:"PostScript"`
 	PrivKeyV4               string                  `yaml:"PrivKeyV4"`
 	PrivKeyV6               string                  `yaml:"PrivKeyV6"`
 	ListenPort              int                     `yaml:"ListenPort"`
 	ListenPort_EdgeAPI      string                  `yaml:"ListenPort_EdgeAPI"`
 	ListenPort_ManageAPI    string                  `yaml:"ListenPort_ManageAPI"`
+	FwMark                  uint32                  `yaml:"FwMark"`
+	DisableAf               conn.EnabledAf          `yaml:"DisabledAf"`
 	API_Prefix              string                  `yaml:"API_Prefix"`
 	RePushConfigInterval    float64                 `yaml:"RePushConfigInterval"`
 	HttpPostInterval        float64                 `yaml:"HttpPostInterval"`

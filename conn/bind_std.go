@@ -8,6 +8,7 @@ package conn
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"sync"
 	"syscall"
 )
@@ -25,11 +26,13 @@ type StdNetBind struct {
 	blackhole6 bool
 	use4       bool
 	use6       bool
+	listen_ip4 [4]byte
+	listen_ip6 [16]byte
 }
 
 func NewStdNetBind() Bind { return &StdNetBind{use4: true, use6: true, fwmark: 0} }
-func NewStdNetBindAf(use4 bool, use6 bool, fwmark uint32) Bind {
-	return &StdNetBind{use4: use4, use6: use6, fwmark: fwmark}
+func NewStdNetBindAf(use4 bool, use6 bool, listen_ip4 [4]byte, listen_ip6 [16]byte, fwmark uint32) Bind {
+	return &StdNetBind{use4: use4, use6: use6, fwmark: fwmark, listen_ip4: listen_ip4, listen_ip6: listen_ip6}
 }
 
 type StdNetEndpoint net.UDPAddr
@@ -46,8 +49,8 @@ func (*StdNetEndpoint) ClearSrc() {}
 
 func (s *StdNetBind) EnabledAf() EnabledAf {
 	return EnabledAf{
-		s.use4,
-		s.use6,
+		IPv4: s.use4,
+		IPv6: s.use6,
 	}
 }
 
@@ -78,8 +81,8 @@ func (e *StdNetEndpoint) SrcToString() string {
 	return ""
 }
 
-func listenNet(network string, port int) (*net.UDPConn, int, error) {
-	conn, err := net.ListenUDP(network, &net.UDPAddr{Port: port})
+func listenNet(network string, listen_ip net.IP, port int) (*net.UDPConn, int, error) {
+	conn, err := net.ListenUDP(network, &net.UDPAddr{IP: listen_ip, Port: port})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -114,7 +117,7 @@ again:
 	var ipv4, ipv6 *net.UDPConn
 
 	if bind.use4 {
-		ipv4, port, err = listenNet("udp4", port)
+		ipv4, port, err = listenNet("udp4", netip.AddrFrom4(bind.listen_ip4).AsSlice(), port)
 		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
 			ipv6.Close()
 			tries++
@@ -128,7 +131,7 @@ again:
 
 	if bind.use6 {
 		// Listen on the same port as we're using for ipv4.
-		ipv6, port, err = listenNet("udp6", port)
+		ipv6, port, err = listenNet("udp6", bind.listen_ip6[:], port)
 		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
 			ipv4.Close()
 			tries++

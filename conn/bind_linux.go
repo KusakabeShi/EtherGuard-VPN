@@ -8,6 +8,7 @@ package conn
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"syscall"
@@ -57,24 +58,45 @@ func (endpoint *LinuxSocketEndpoint) dst6() *unix.SockaddrInet6 {
 type LinuxSocketBind struct {
 	// mu guards sock4 and sock6 and the associated fds.
 	// As long as someone holds mu (read or write), the associated fds are valid.
-	mu     sync.RWMutex
-	fwmark uint32
-	sock4  int
-	sock6  int
-	use4   bool
-	use6   bool
+	mu         sync.RWMutex
+	fwmark     uint32
+	sock4      int
+	sock6      int
+	use4       bool
+	use6       bool
+	listen_ip4 [4]byte
+	listen_ip6 [16]byte
 }
 
 func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1, use4: true, use6: true} }
-func NewLinuxSocketBindAf(use4 bool, use6 bool, fwmark uint32) Bind {
-	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6, fwmark: fwmark}
+func NewLinuxSocketBindAf(use4 bool, use6 bool, listen_ip4 [4]byte, listen_ip6 [16]byte, fwmark uint32) Bind {
+	return &LinuxSocketBind{sock4: -1, sock6: -1, use4: use4, use6: use6, fwmark: fwmark, listen_ip4: listen_ip4, listen_ip6: listen_ip6}
 }
 
 func NewDefaultBind(Af EnabledAf, bindmode string, fwmark uint32) Bind {
-	if bindmode == "std" {
-		return NewStdNetBindAf(Af.IPv4, Af.IPv6, fwmark)
+	listen_ip4 := Af.ListenIPv4
+	listen_ip6 := Af.ListenIPv6
+	var err error
+	ListenIP4, _ := netip.ParseAddr("0.0.0.0")
+	if listen_ip4 != "" {
+		ListenIP4, err = netip.ParseAddr(listen_ip4)
+		if err != nil {
+			ListenIP4, _ = netip.ParseAddr("0.0.0.0")
+		}
 	}
-	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6, fwmark)
+
+	ListenIP6, _ := netip.ParseAddr("::")
+	if listen_ip6 != "" {
+		ListenIP6, err = netip.ParseAddr(listen_ip6)
+		if err != nil {
+			ListenIP6, _ = netip.ParseAddr("::")
+		}
+	}
+
+	if bindmode == "std" {
+		return NewStdNetBindAf(Af.IPv4, Af.IPv6, ListenIP4.As4(), ListenIP6.As16(), fwmark)
+	}
+	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6, ListenIP4.As4(), ListenIP6.As16(), fwmark)
 }
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)
@@ -82,8 +104,8 @@ var _ Bind = (*LinuxSocketBind)(nil)
 
 func (s *LinuxSocketBind) EnabledAf() EnabledAf {
 	return EnabledAf{
-		s.use4,
-		s.use6,
+		IPv4: s.use4,
+		IPv6: s.use6,
 	}
 }
 
@@ -141,7 +163,7 @@ again:
 	var sock4, sock6 int
 	if bind.use6 {
 		// Attempt ipv6 bind, update port if successful.
-		sock6, newPort, err = create6(port)
+		sock6, newPort, err = create6(bind.listen_ip6, port)
 		if err != nil {
 			if originalPort == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
 				unix.Close(sock4)
@@ -159,7 +181,7 @@ again:
 
 	if bind.use4 {
 		// Attempt ipv4 bind, update port if successful.
-		sock4, newPort, err = create4(port)
+		sock4, newPort, err = create4(bind.listen_ip4, port)
 		if err != nil {
 			if originalPort == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
 				unix.Close(sock6)
@@ -373,7 +395,7 @@ func zoneToUint32(zone string) (uint32, error) {
 	return uint32(n), err
 }
 
-func create4(port uint16) (int, uint16, error) {
+func create4(listen_ip [4]byte, port uint16) (int, uint16, error) {
 
 	// create socket
 
@@ -388,6 +410,7 @@ func create4(port uint16) (int, uint16, error) {
 	}
 
 	addr := unix.SockaddrInet4{
+		Addr: listen_ip,
 		Port: int(port),
 	}
 
@@ -417,7 +440,7 @@ func create4(port uint16) (int, uint16, error) {
 	return fd, uint16(addr.Port), err
 }
 
-func create6(port uint16) (int, uint16, error) {
+func create6(listen_ip [16]byte, port uint16) (int, uint16, error) {
 
 	// create socket
 
@@ -434,6 +457,7 @@ func create6(port uint16) (int, uint16, error) {
 	// set sockopts and bind
 
 	addr := unix.SockaddrInet6{
+		Addr: listen_ip,
 		Port: int(port),
 	}
 
