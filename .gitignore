@@ -3,3 +3,4 @@ etherguard-go-vpp
 etherguard-go-static
 vendor
 .ipynb_checkpoints
+.worktrees/
