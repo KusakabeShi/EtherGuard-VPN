@@ -1,20 +1,32 @@
 name: Go
 
 on:
-  - workflow_dispatch
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   x86_64:
-      runs-on: ubuntu-20.04
-      name: Build for ${{ matrix.distro }} x86_64 and mipsle
+      runs-on: ubuntu-22.04
+      name: Build x86_64 and mipsle
       steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.26.5
+      - name: Cross-compile Windows
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          go test -exec=/bin/true ./...
+          go build -o /tmp/etherguard-go-windows-amd64.exe .
       - name: Install requirements
         run: |
           echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/99fd.io.list > /dev/null
@@ -27,7 +39,7 @@ jobs:
         run: |
           make all static
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: etherguard-x86_64
           path: etherguard-go*
@@ -38,31 +50,50 @@ jobs:
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat make all static
           upx -9 etherguard-go*
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: etherguard-mipsle
           path: etherguard-go*
 
+  windows:
+    runs-on: windows-2022
+    name: Test and build Windows amd64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.5
+      - name: Test
+        run: go test ./...
+      - name: Build
+        run: go build -o etherguard-go-windows-amd64.exe .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: etherguard-windows-amd64
+          path: etherguard-go-windows-amd64.exe
+
 
   multi-arch:
-    runs-on: ubuntu-20.04
-    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+    runs-on: ubuntu-22.04
+    name: Build on Ubuntu 20.04 ${{ matrix.arch }}
     strategy:
       matrix:
         include:
           - arch: aarch64
           - arch: armv7
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@v2.0.5
+      - uses: uraimo/run-on-arch-action@cd5f294c3b7be88bc5b708fe25e1af36818f9ead # v2.0.5
         name: Build artifact
         id: build
         with:
           arch: ${{ matrix.arch }}
           distro: ubuntu20.04
-          githubToken: ${{ github.token }}
           setup: |
             mkdir -p "${PWD}/artifacts"
           dockerRunArgs: |
@@ -73,27 +104,46 @@ jobs:
           install: |
             apt-get -y update
 
-            apt install software-properties-common curl -y
+            apt-get install -y ca-certificates curl software-properties-common
 
             echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
             curl -L https://packagecloud.io/fdio/release/gpgkey | apt-key add -
-            add-apt-repository ppa:longsleep/golang-backports
-
             apt-get -y update
             apt-get install -y libmemif libmemif-dev || true
-            apt-get install -y wireguard-tools golang-go build-essential git
+            apt-get install -y wireguard-tools build-essential git
+
+            case "$(uname -m)" in
+              aarch64)
+                go_archive=go1.26.5.linux-arm64.tar.gz
+                go_sha256=fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49
+                ;;
+              armv7l|armv6l)
+                go_archive=go1.26.5.linux-armv6l.tar.gz
+                go_sha256=6dae9edab81c13bccf962dec15f1fd2ec26c14a6821b4d2c92dab4130c289d7a
+                ;;
+              *)
+                echo "unsupported build architecture: $(uname -m)" >&2
+                exit 1
+                ;;
+            esac
+            curl -fsSL "https://go.dev/dl/${go_archive}" -o "/tmp/${go_archive}"
+            echo "${go_sha256}  /tmp/${go_archive}" | sha256sum -c -
+            rm -rf /usr/local/go
+            tar -C /usr/local -xzf "/tmp/${go_archive}"
+            ln -sf /usr/local/go/bin/go /usr/local/bin/go
+            go version
           run: |
             make all static
             mkdir /artifacts/${artifact_dir}
             cp etherguard-go* /artifacts/${artifact_dir}
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ matrix.arch == 'armv7' }}
         with:
           name: etherguard-arm32
           path: artifacts/armv7
           
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ matrix.arch == 'aarch64' }}
         with:
           name: etherguard-arm64

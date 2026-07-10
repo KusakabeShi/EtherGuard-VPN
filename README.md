@@ -59,7 +59,7 @@ P2P Mode | Inspired by [tinc](https://github.com/gsliepen/tinc), There are no Su
 
 Build Etherguard.  
 
-Install Go 1.16
+Install Go 1.26.5 or newer
 
 ```bash
 add-apt-repository ppa:longsleep/golang-backports
@@ -72,6 +72,21 @@ Build
 ```bash
 make
 ```
+
+### Windows
+
+Install TAP-Windows6 and create a TAP adapter whose friendly name is `tap1`. Run EtherGuard from an elevated Administrator terminal and configure the interface with `IType: tap` and `Name: tap1`. EtherGuard is a Layer 2 VPN, so Wintun cannot replace the Ethernet-capable TAP adapter.
+
+The current dependency baseline requires Go 1.26.5 and therefore supports Windows 10 / Windows Server 2016 or newer. Windows 7 and Windows 8 require the legacy Go 1.20 dependency baseline and are not supported by this branch.
+
+Build with Go 1.26.5:
+
+```powershell
+go test ./...
+go build -o etherguard-go-windows-amd64.exe .
+```
+
+The hosted Windows CI validates user-space tests and builds only. Installing the TAP kernel driver and opening the adapter require a separate elevated Windows test environment.
 
 ### VPP version
 
