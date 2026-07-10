@@ -8,7 +8,6 @@ package conn
 import (
 	"errors"
 	"net"
-	"net/netip"
 	"strconv"
 	"sync"
 	"syscall"
@@ -74,29 +73,12 @@ func NewLinuxSocketBindAf(use4 bool, use6 bool, listen_ip4 [4]byte, listen_ip6 [
 }
 
 func NewDefaultBind(Af EnabledAf, bindmode string, fwmark uint32) Bind {
-	listen_ip4 := Af.ListenIPv4
-	listen_ip6 := Af.ListenIPv6
-	var err error
-	ListenIP4, _ := netip.ParseAddr("0.0.0.0")
-	if listen_ip4 != "" {
-		ListenIP4, err = netip.ParseAddr(listen_ip4)
-		if err != nil {
-			ListenIP4, _ = netip.ParseAddr("0.0.0.0")
-		}
-	}
-
-	ListenIP6, _ := netip.ParseAddr("::")
-	if listen_ip6 != "" {
-		ListenIP6, err = netip.ParseAddr(listen_ip6)
-		if err != nil {
-			ListenIP6, _ = netip.ParseAddr("::")
-		}
-	}
+	listenIP4, listenIP6 := listenAddresses(Af)
 
 	if bindmode == "std" {
-		return NewStdNetBindAf(Af.IPv4, Af.IPv6, ListenIP4.As4(), ListenIP6.As16(), fwmark)
+		return NewStdNetBindAf(Af.IPv4, Af.IPv6, listenIP4, listenIP6, fwmark)
 	}
-	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6, ListenIP4.As4(), ListenIP6.As16(), fwmark)
+	return NewLinuxSocketBindAf(Af.IPv4, Af.IPv6, listenIP4, listenIP6, fwmark)
 }
 
 var _ Endpoint = (*LinuxSocketEndpoint)(nil)

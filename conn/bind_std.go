@@ -99,6 +99,8 @@ func listenNet(network string, listen_ip net.IP, port int) (*net.UDPConn, int, e
 	return conn, uaddr.Port, nil
 }
 
+var listenNetFunc = listenNet
+
 func (bind *StdNetBind) Open(uport uint16) ([]ReceiveFunc, uint16, error) {
 	bind.mu.Lock()
 	defer bind.mu.Unlock()
@@ -117,28 +119,44 @@ again:
 	var ipv4, ipv6 *net.UDPConn
 
 	if bind.use4 {
-		ipv4, port, err = listenNet("udp4", netip.AddrFrom4(bind.listen_ip4).AsSlice(), port)
+		var candidatePort int
+		ipv4, candidatePort, err = listenNetFunc("udp4", netip.AddrFrom4(bind.listen_ip4).AsSlice(), port)
+		if err == nil {
+			port = candidatePort
+		}
 		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-			ipv6.Close()
+			if ipv6 != nil {
+				ipv6.Close()
+			}
 			tries++
 			goto again
 		}
 		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-			ipv6.Close()
+			if ipv6 != nil {
+				ipv6.Close()
+			}
 			return nil, 0, err
 		}
 	}
 
 	if bind.use6 {
 		// Listen on the same port as we're using for ipv4.
-		ipv6, port, err = listenNet("udp6", bind.listen_ip6[:], port)
+		var candidatePort int
+		ipv6, candidatePort, err = listenNetFunc("udp6", bind.listen_ip6[:], port)
+		if err == nil {
+			port = candidatePort
+		}
 		if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-			ipv4.Close()
+			if ipv4 != nil {
+				ipv4.Close()
+			}
 			tries++
 			goto again
 		}
 		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-			ipv4.Close()
+			if ipv4 != nil {
+				ipv4.Close()
+			}
 			return nil, 0, err
 		}
 	}

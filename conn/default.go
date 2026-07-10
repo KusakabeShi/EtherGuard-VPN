@@ -8,22 +8,7 @@
 
 package conn
 
-import "net/netip"
-
-func NewDefaultBind(Af EnabledAf, bindmode string, fwmark uint32) Bind {
-	listen_ip4 := Af.ListenIPv4
-	listen_ip6 := Af.ListenIPv6
-	ListenIP4, _ := netip.ParseAddr("0.0.0.0")
-	if listen_ip4 != "" {
-		if addr, err := netip.ParseAddr(listen_ip4); err == nil && addr.Is4() {
-			ListenIP4 = addr
-		}
-	}
-	ListenIP6, _ := netip.ParseAddr("::")
-	if listen_ip6 != "" {
-		if addr, err := netip.ParseAddr(listen_ip6); err == nil && addr.Is6() {
-			ListenIP6 = addr
-		}
-	}
-	return NewStdNetBindAf(Af.IPv4, Af.IPv6, ListenIP4.As4(), ListenIP6.As16(), fwmark)
+func NewDefaultBind(af EnabledAf, bindmode string, fwmark uint32) Bind {
+	ipv4, ipv6 := listenAddresses(af)
+	return NewStdNetBindAf(af.IPv4, af.IPv6, ipv4, ipv6, fwmark)
 }

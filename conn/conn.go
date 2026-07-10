@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"runtime"
 	"strings"
@@ -92,6 +93,18 @@ var EnabledAf6 = EnabledAf{
 var EnabledAf46 = EnabledAf{
 	IPv4: true,
 	IPv6: true,
+}
+
+func listenAddresses(af EnabledAf) ([4]byte, [16]byte) {
+	var ipv4 [4]byte
+	var ipv6 [16]byte
+	if address, err := netip.ParseAddr(af.ListenIPv4); err == nil && address.Is4() {
+		ipv4 = address.As4()
+	}
+	if address, err := netip.ParseAddr(af.ListenIPv6); err == nil && address.Is6() {
+		ipv6 = address.As16()
+	}
+	return ipv4, ipv6
 }
 
 // BindSocketToInterface is implemented by Bind objects that support being
