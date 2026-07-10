@@ -9,6 +9,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/sirupsen/logrus v1.9.4
+	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	go.fd.io/govpp v0.13.0
 	go.fd.io/govpp/extras v0.6.1-0.20241115131743-4ccd4339c942
 	golang.org/x/crypto v0.54.0
