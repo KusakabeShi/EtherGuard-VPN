@@ -1,4 +1,3 @@
-//go:build windows
 // +build windows
 
 /* SPDX-License-Identifier: MIT
@@ -22,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KusakabeSi/EtherGuard-VPN/ipc/winpipe"
 	"golang.org/x/sys/windows"
+	"github.com/KusakabeSi/EtherGuard-VPN/ipc/winpipe"
 )
 
 func randomPipePath() string {
@@ -48,24 +47,21 @@ func TestPingPong(t *testing.T) {
 	go func() {
 		incoming, err := listener.Accept()
 		if err != nil {
-			t.Errorf("unable to accept pipe connection: %v", err)
-			return
+			t.Fatalf("unable to accept pipe connection: %v", err)
 		}
 		defer incoming.Close()
 		var data [1]byte
 		_, err = incoming.Read(data[:])
 		if err != nil {
-			t.Errorf("unable to read ping from pipe: %v", err)
-			return
+			t.Fatalf("unable to read ping from pipe: %v", err)
 		}
 		if data[0] != ping {
-			t.Errorf("expected ping, got %d", data[0])
-			return
+			t.Fatalf("expected ping, got %d", data[0])
 		}
 		data[0] = pong
 		_, err = incoming.Write(data[:])
 		if err != nil {
-			t.Errorf("unable to write pong to pipe: %v", err)
+			t.Fatalf("unable to write pong to pipe: %v", err)
 		}
 	}()
 	client, err := winpipe.Dial(pipePath, nil, nil)
@@ -117,8 +113,7 @@ func TestDialContextListenerTimesOut(t *testing.T) {
 	}
 	defer l.Close()
 	d := 10 * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), d)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), d)
 	_, err = winpipe.DialContext(ctx, pipePath, nil)
 	if err != context.DeadlineExceeded {
 		t.Fatalf("expected context.DeadlineExceeded, got %v", err)
@@ -398,8 +393,7 @@ func TestTimeoutPendingRead(t *testing.T) {
 	go func() {
 		s, err := l.Accept()
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 		time.Sleep(1 * time.Second)
 		s.Close()
@@ -447,8 +441,7 @@ func TestTimeoutPendingWrite(t *testing.T) {
 	go func() {
 		s, err := l.Accept()
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 		time.Sleep(1 * time.Second)
 		s.Close()
@@ -505,8 +498,7 @@ func TestEchoWithMessaging(t *testing.T) {
 		// server echo
 		conn, e := l.Accept()
 		if e != nil {
-			t.Error(e)
-			return
+			t.Fatal(e)
 		}
 		defer conn.Close()
 
@@ -527,12 +519,10 @@ func TestEchoWithMessaging(t *testing.T) {
 		bytes := make([]byte, 2)
 		n, e := client.Read(bytes)
 		if e != nil {
-			t.Error(e)
-			return
+			t.Fatal(e)
 		}
 		if n != 2 {
-			t.Errorf("expected 2 bytes, got %v", n)
-			return
+			t.Fatalf("expected 2 bytes, got %v", n)
 		}
 		close(clientDone)
 	}()
@@ -568,8 +558,7 @@ func TestConnectRace(t *testing.T) {
 			}
 
 			if err != nil {
-				t.Error(err)
-				return
+				t.Fatal(err)
 			}
 			s.Close()
 		}
@@ -604,13 +593,11 @@ func TestMessageReadMode(t *testing.T) {
 		defer wg.Done()
 		s, err := l.Accept()
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 		_, err = s.Write(msg)
 		if err != nil {
-			t.Error(err)
-			return
+			t.Fatal(err)
 		}
 		s.Close()
 	}()

@@ -1,0 +1,8 @@
+--- vendor/go.fd.io/govpp/adapter/socketclient/socketclient.go
++++ vendor/go.fd.io/govpp/adapter/socketclient/socketclient.go
+@@ -403,0 +404,2 @@
++		nameslice := strings.Split(name, "_")
++		name = strings.Join(nameslice[:len(nameslice)-1], "_")
+@@ -469 +471 @@
+-	if msgID, ok := c.msgTable[msgName+"_"+msgCrc]; ok {
++	if msgID, ok := c.msgTable[msgName]; ok {

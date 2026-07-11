@@ -1,4 +1,3 @@
-//go:build windows
 // +build windows
 
 /* SPDX-License-Identifier: MIT
@@ -153,8 +152,7 @@ func Dial(path string, timeout *time.Duration, config *DialConfig) (net.Conn, er
 	} else {
 		absTimeout = time.Now().Add(2 * time.Second)
 	}
-	ctx, cancel := context.WithDeadline(context.Background(), absTimeout)
-	defer cancel()
+	ctx, _ := context.WithDeadline(context.Background(), absTimeout)
 	conn, err := DialContext(ctx, path, config)
 	if err == context.DeadlineExceeded {
 		return nil, os.ErrDeadlineExceeded

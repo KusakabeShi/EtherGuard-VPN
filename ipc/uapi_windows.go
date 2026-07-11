@@ -7,7 +7,6 @@ package ipc
 
 import (
 	"net"
-	"os"
 
 	"golang.org/x/sys/windows"
 
@@ -61,13 +60,7 @@ func init() {
 	}
 }
 
-func SetsocketDirectory(path string) {}
-
-func UAPIOpen(name string) (*os.File, error) {
-	return nil, nil
-}
-
-func UAPIListen(name string, _ *os.File) (net.Listener, error) {
+func UAPIListen(name string) (net.Listener, error) {
 	config := winpipe.ListenConfig{
 		SecurityDescriptor: UAPISecurityDescriptor,
 	}

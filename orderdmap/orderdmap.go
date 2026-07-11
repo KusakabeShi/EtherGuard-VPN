@@ -197,6 +197,16 @@ func decodeOrderedMap(dec *json.Decoder, o *OrderedMap) error {
 						return err
 					}
 					o.values[key] = newMap
+				} else if oldMap, ok := o.values[key].(OrderedMap); ok {
+					newMap := &OrderedMap{
+						keys:       make([]string, 0, len(oldMap.values)),
+						values:     oldMap.values,
+						escapeHTML: o.escapeHTML,
+					}
+					if err = decodeOrderedMap(dec, newMap); err != nil {
+						return err
+					}
+					o.values[key] = newMap
 				} else if err = decodeOrderedMap(dec, &OrderedMap{}); err != nil {
 					return err
 				}
@@ -227,6 +237,16 @@ func decodeSlice(dec *json.Decoder, s []interface{}, escapeHTML bool) error {
 						newMap := &OrderedMap{
 							keys:       make([]string, 0, len(values)),
 							values:     values,
+							escapeHTML: escapeHTML,
+						}
+						if err = decodeOrderedMap(dec, newMap); err != nil {
+							return err
+						}
+						s[index] = newMap
+					} else if oldMap, ok := s[index].(OrderedMap); ok {
+						newMap := &OrderedMap{
+							keys:       make([]string, 0, len(oldMap.values)),
+							values:     oldMap.values,
 							escapeHTML: escapeHTML,
 						}
 						if err = decodeOrderedMap(dec, newMap); err != nil {
