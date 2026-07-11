@@ -43,7 +43,6 @@ etherguard-go-vpp: $(wildcard *.go) $(wildcard */*.go)
 	go mod download && \
 	go mod tidy && \
 	go mod vendor && \
-	patch -p0 -i govpp_remove_crcstring_check.patch && \
 	go build -v -tags vpp -ldflags '-X main.Version=$(FULLTAG)' -o "$@"
 
 static:

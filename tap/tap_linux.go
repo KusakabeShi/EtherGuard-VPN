@@ -292,7 +292,7 @@ func (tap *NativeTap) addIPAddr(version string, ip net.IP, mask net.IPMask) (err
 		ret, err := e.CombinedOutput()
 		if err != nil {
 			fmt.Printf("Failed to set ip %v to interface %v, please make sure `ip` tool installed\n", ip.String()+"/"+masklen, name)
-			return fmt.Errorf(string(ret))
+			return fmt.Errorf("%s", ret)
 		}
 	} else if version == "6ll" {
 		_, llnet, _ := net.ParseCIDR("fe80::/64")
@@ -304,7 +304,7 @@ func (tap *NativeTap) addIPAddr(version string, ip net.IP, mask net.IPMask) (err
 		ret, err := e.CombinedOutput()
 		if err != nil {
 			fmt.Printf("Failed to set ip %v to interface %v, please make sure `ip` tool installed\n", ip.String()+"/64", name)
-			return fmt.Errorf(string(ret))
+			return fmt.Errorf("%s", ret)
 		}
 	}
 	return

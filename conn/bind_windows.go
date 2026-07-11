@@ -9,6 +9,8 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"net/netip"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -31,7 +33,8 @@ type ringPacket struct {
 }
 
 type ringBuffer struct {
-	packets    uintptr
+	packets    []ringPacket
+	pinner     runtime.Pinner
 	head, tail uint32
 	id         winrio.BufferId
 	iocp       windows.Handle
@@ -45,7 +48,7 @@ func (rb *ringBuffer) Push() *ringPacket {
 	for rb.isFull {
 		panic("ring is full")
 	}
-	ret := (*ringPacket)(unsafe.Pointer(rb.packets + (uintptr(rb.tail%packetsPerRing) * unsafe.Sizeof(ringPacket{}))))
+	ret := &rb.packets[rb.tail%packetsPerRing]
 	rb.tail += 1
 	if rb.tail%packetsPerRing == rb.head%packetsPerRing {
 		rb.isFull = true
@@ -76,7 +79,7 @@ type WinRingBind struct {
 	isOpen uint32
 }
 
-func NewDefaultBind() Bind { return NewWinRingBind() }
+func NewDefaultBind(Af EnabledAf, bindmode string, fwmark uint32) Bind { return NewWinRingBind() }
 
 func NewWinRingBind() Bind {
 	if !winrio.Initialize() {
@@ -84,6 +87,8 @@ func NewWinRingBind() Bind {
 	}
 	return new(WinRingBind)
 }
+
+func (*WinRingBind) EnabledAf() EnabledAf { return EnabledAf46 }
 
 type WinRingEndpoint struct {
 	family uint16
@@ -98,34 +103,40 @@ func (*WinRingBind) ParseEndpoint(s string) (Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	host16, err := windows.UTF16PtrFromString(host)
+	portNumber, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
 		return nil, err
 	}
-	port16, err := windows.UTF16PtrFromString(port)
+	addr, err := netip.ParseAddr(host)
 	if err != nil {
 		return nil, err
 	}
-	hints := windows.AddrinfoW{
-		Flags:    windows.AI_NUMERICHOST,
-		Family:   windows.AF_UNSPEC,
-		Socktype: windows.SOCK_DGRAM,
-		Protocol: windows.IPPROTO_UDP,
+	endpoint := &WinRingEndpoint{}
+	binary.BigEndian.PutUint16(endpoint.data[:2], uint16(portNumber))
+	if addr.Is4() {
+		endpoint.family = windows.AF_INET
+		ip := addr.As4()
+		copy(endpoint.data[2:6], ip[:])
+		return endpoint, nil
 	}
-	var addrinfo *windows.AddrinfoW
-	err = windows.GetAddrInfoW(host16, port16, &hints, &addrinfo)
-	if err != nil {
-		return nil, err
+	if addr.Is6() {
+		endpoint.family = windows.AF_INET6
+		ip := addr.As16()
+		copy(endpoint.data[6:22], ip[:])
+		if zone := addr.Zone(); zone != "" {
+			scope, parseErr := strconv.ParseUint(zone, 10, 32)
+			if parseErr != nil {
+				iface, lookupErr := net.InterfaceByName(zone)
+				if lookupErr != nil {
+					return nil, lookupErr
+				}
+				scope = uint64(iface.Index)
+			}
+			binary.LittleEndian.PutUint32(endpoint.data[22:26], uint32(scope))
+		}
+		return endpoint, nil
 	}
-	defer windows.FreeAddrInfoW(addrinfo)
-	if (addrinfo.Family != windows.AF_INET && addrinfo.Family != windows.AF_INET6) || addrinfo.Addrlen > unsafe.Sizeof(WinRingEndpoint{}) {
-		return nil, windows.ERROR_INVALID_ADDRESS
-	}
-	var src []byte
-	var dst [unsafe.Sizeof(WinRingEndpoint{})]byte
-	unsafeSlice(unsafe.Pointer(&src), unsafe.Pointer(addrinfo.Addr), int(addrinfo.Addrlen))
-	copy(dst[:], src)
-	return (*WinRingEndpoint)(unsafe.Pointer(&dst[0])), nil
+	return nil, windows.ERROR_INVALID_ADDRESS
 }
 
 func (*WinRingEndpoint) ClearSrc() {}
@@ -167,7 +178,7 @@ func (e *WinRingEndpoint) DstToString() string {
 		return addr.String()
 	case windows.AF_INET6:
 		var zone string
-		if scope := *(*uint32)(unsafe.Pointer(&e.data[22])); scope > 0 {
+		if scope := binary.LittleEndian.Uint32(e.data[22:26]); scope > 0 {
 			zone = strconv.FormatUint(uint64(scope), 10)
 		}
 		addr := net.UDPAddr{IP: e.data[6:22], Zone: zone, Port: int(binary.BigEndian.Uint16(e.data[0:2]))}
@@ -193,9 +204,9 @@ func (ring *ringBuffer) CloseAndZero() {
 		winrio.DeregisterBuffer(ring.id)
 		ring.id = 0
 	}
-	if ring.packets != 0 {
-		windows.VirtualFree(ring.packets, 0, windows.MEM_RELEASE)
-		ring.packets = 0
+	if len(ring.packets) != 0 {
+		ring.pinner.Unpin()
+		ring.packets = nil
 	}
 	ring.head = 0
 	ring.tail = 0
@@ -219,14 +230,14 @@ func (bind *WinRingBind) closeAndZero() {
 }
 
 func (ring *ringBuffer) Open() error {
+	packetsLen := uint32(unsafe.Sizeof(ringPacket{}) * packetsPerRing)
+	ring.packets = make([]ringPacket, packetsPerRing)
+	ring.pinner.Pin(&ring.packets[0])
 	var err error
-	packetsLen := unsafe.Sizeof(ringPacket{}) * packetsPerRing
-	ring.packets, err = windows.VirtualAlloc(0, packetsLen, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	ring.id, err = winrio.RegisterPointer(unsafe.Pointer(&ring.packets[0]), packetsLen)
 	if err != nil {
-		return err
-	}
-	ring.id, err = winrio.RegisterPointer(unsafe.Pointer(ring.packets), uint32(packetsLen))
-	if err != nil {
+		ring.pinner.Unpin()
+		ring.packets = nil
 		return err
 	}
 	ring.iocp, err = windows.CreateIoCompletionPort(windows.InvalidHandle, 0, 0, 0)
@@ -330,12 +341,12 @@ func (bind *afWinRingBind) InsertReceiveRequest() error {
 	packet := bind.rx.Push()
 	dataBuffer := &winrio.Buffer{
 		Id:     bind.rx.id,
-		Offset: uint32(uintptr(unsafe.Pointer(&packet.data[0])) - bind.rx.packets),
+		Offset: uint32(uintptr(unsafe.Pointer(&packet.data[0])) - uintptr(unsafe.Pointer(&bind.rx.packets[0]))),
 		Length: uint32(len(packet.data)),
 	}
 	addressBuffer := &winrio.Buffer{
 		Id:     bind.rx.id,
-		Offset: uint32(uintptr(unsafe.Pointer(&packet.addr)) - bind.rx.packets),
+		Offset: uint32(uintptr(unsafe.Pointer(&packet.addr)) - uintptr(unsafe.Pointer(&bind.rx.packets[0]))),
 		Length: uint32(unsafe.Sizeof(packet.addr)),
 	}
 	bind.mu.Lock()
@@ -405,7 +416,7 @@ retry:
 	if results[0].Status != 0 {
 		return 0, nil, windows.Errno(results[0].Status)
 	}
-	packet := (*ringPacket)(unsafe.Pointer(uintptr(results[0].RequestContext)))
+	packet := (*ringPacket)(results[0].RequestContext)
 	ep := packet.addr
 	n := copy(buf, packet.data[:results[0].BytesTransferred])
 	return n, &ep, nil
@@ -462,12 +473,12 @@ func (bind *afWinRingBind) Send(buf []byte, nend *WinRingEndpoint, isOpen *uint3
 	copy(packet.data[:], buf)
 	dataBuffer := &winrio.Buffer{
 		Id:     bind.tx.id,
-		Offset: uint32(uintptr(unsafe.Pointer(&packet.data[0])) - bind.tx.packets),
+		Offset: uint32(uintptr(unsafe.Pointer(&packet.data[0])) - uintptr(unsafe.Pointer(&bind.tx.packets[0]))),
 		Length: uint32(len(buf)),
 	}
 	addressBuffer := &winrio.Buffer{
 		Id:     bind.tx.id,
-		Offset: uint32(uintptr(unsafe.Pointer(&packet.addr)) - bind.tx.packets),
+		Offset: uint32(uintptr(unsafe.Pointer(&packet.addr)) - uintptr(unsafe.Pointer(&bind.tx.packets[0]))),
 		Length: uint32(unsafe.Sizeof(packet.addr)),
 	}
 	bind.mu.Lock()

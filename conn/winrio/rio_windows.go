@@ -60,8 +60,8 @@ type Buffer struct {
 type Result struct {
 	Status           int32
 	BytesTransferred uint32
-	SocketContext    uint64
-	RequestContext   uint64
+	SocketContext    unsafe.Pointer
+	RequestContext   unsafe.Pointer
 }
 
 type notificationCompletionType uint32
@@ -108,7 +108,12 @@ func Initialize() bool {
 			return
 		}
 		defer windows.CloseHandle(socket)
-		var WSAID_MULTIPLE_RIO = &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
+		var WSAID_MULTIPLE_RIO = &windows.GUID{
+			Data1: 0x8509e081,
+			Data2: 0x96dd,
+			Data3: 0x4005,
+			Data4: [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f},
+		}
 		const SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER = 0xc8000024
 		ob := uint32(0)
 		err = windows.WSAIoctl(socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
