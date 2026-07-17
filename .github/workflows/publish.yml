@@ -2,18 +2,23 @@ name: Publish
 
 on:
   push:
-  workflow_dispatch: 
+    tags:
+      - '*'
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   x86_64:
-      runs-on: ubuntu-20.04
-      name: Build for ${{ matrix.distro }} x86_64 and mipsle
+      runs-on: ubuntu-22.04
+      name: Build x86_64 and mipsle
       steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Retrieve version
@@ -21,7 +26,7 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           VERSION=$(git describe --abbrev=0)
-          echo "::set-output name=VERSION::$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
         id: version
       - name: Print main version
         shell: bash
@@ -31,11 +36,11 @@ jobs:
           git describe
           git describe --abbrev=0
           git describe --tags --abbrev=0
-          echo $VERSION
+          echo "$VERSION"
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.26.5
       - name: Install requirements
         run: |
           sudo apt-get -y update
@@ -45,30 +50,10 @@ jobs:
         run: |
           make all static
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: etherguard-x86_64
           path: etherguard-go*
-
-      - name: Upload x86_64 dynamic build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go
-          overwrite: true
-          asset_name: etherguard-go-x86_64
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
-
-      - name: Upload x86_64 static build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go-static
-          overwrite: true
-          asset_name: etherguard-go-static-x86_64
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
 
       - name: Build mipsle
         run: |
@@ -76,41 +61,21 @@ jobs:
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat make all static
           upx -9 etherguard-go*
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: etherguard-mipsle
           path: etherguard-go*
 
-      - name: Upload mipsle dynamic build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go
-          asset_name: etherguard-go-mipsle
-          overwrite: true
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
-
-      - name: Upload mipsle static build
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: etherguard-go-static
-          asset_name: etherguard-go-static-mipsle
-          overwrite: true
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
-
   multi-arch:
-    runs-on: ubuntu-20.04
-    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+    runs-on: ubuntu-22.04
+    name: Build on Ubuntu 20.04 ${{ matrix.arch }}
     strategy:
       matrix:
         include:
           - arch: aarch64
           - arch: armv7
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Retrieve version
@@ -118,7 +83,7 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           VERSION=$(git describe --abbrev=0)
-          echo "::set-output name=VERSION::$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
         id: version
       - name: Print main version
         shell: bash
@@ -128,14 +93,13 @@ jobs:
           git describe
           git describe --abbrev=0
           git describe --tags --abbrev=0
-          echo $VERSION
-      - uses: uraimo/run-on-arch-action@v2.0.5
+          echo "$VERSION"
+      - uses: uraimo/run-on-arch-action@cd5f294c3b7be88bc5b708fe25e1af36818f9ead # v2.0.5
         name: Build artifact
         id: build
         with:
           arch: ${{ matrix.arch }}
           distro: ubuntu20.04
-          githubToken: ${{ github.token }}
           setup: |
             mkdir -p "${PWD}/artifacts"
           dockerRunArgs: |
@@ -146,48 +110,105 @@ jobs:
           install: |
             apt-get -y update
 
-            apt install software-properties-common curl -y
+            apt-get install -y ca-certificates curl software-properties-common
 
             echo "deb [trusted=yes] https://packagecloud.io/fdio/release/ubuntu focal main" > /etc/apt/sources.list.d/99fd.io.list
             curl -L https://packagecloud.io/fdio/release/gpgkey | apt-key add -
-            add-apt-repository ppa:longsleep/golang-backports
-
             apt-get -y update
             apt-get install -y libmemif libmemif-dev || true
-            apt-get install -y wireguard-tools golang-go build-essential git
+            apt-get install -y wireguard-tools build-essential git
+
+            case "$(uname -m)" in
+              aarch64)
+                go_archive=go1.26.5.linux-arm64.tar.gz
+                go_sha256=fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49
+                ;;
+              armv7l|armv6l)
+                go_archive=go1.26.5.linux-armv6l.tar.gz
+                go_sha256=6dae9edab81c13bccf962dec15f1fd2ec26c14a6821b4d2c92dab4130c289d7a
+                ;;
+              *)
+                echo "unsupported build architecture: $(uname -m)" >&2
+                exit 1
+                ;;
+            esac
+            curl -fsSL "https://go.dev/dl/${go_archive}" -o "/tmp/${go_archive}"
+            echo "${go_sha256}  /tmp/${go_archive}" | sha256sum -c -
+            rm -rf /usr/local/go
+            tar -C /usr/local -xzf "/tmp/${go_archive}"
+            ln -sf /usr/local/go/bin/go /usr/local/bin/go
+            go version
           run: |
             make all static
             mkdir /artifacts/${artifact_dir}
             cp etherguard-go* /artifacts/${artifact_dir}
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
 
         if: ${{ matrix.arch == 'armv7' }}
         with:
           name: etherguard-arm32
           path: artifacts/armv7
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ matrix.arch == 'aarch64' }}
         with:
           name: etherguard-arm64
           path: artifacts/aarch64
 
-      - name: Upload ${{ matrix.arch }} dynamic build
-        uses: svenstaro/upload-release-action@v2
+  windows:
+    runs-on: windows-2022
+    name: Build Windows amd64
+    steps:
+      - uses: actions/checkout@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ matrix.arch }}/etherguard-go
-          asset_name: etherguard-go-${{ matrix.arch }}
-          overwrite: true
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.5
+      - name: Build and checksum
+        shell: pwsh
+        run: |
+          go build -o etherguard-go-windows-amd64.exe .
+          $hash = (Get-FileHash etherguard-go-windows-amd64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *etherguard-go-windows-amd64.exe" | Set-Content -Encoding ascii etherguard-go-windows-amd64.exe.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: etherguard-windows-amd64
+          path: |
+            etherguard-go-windows-amd64.exe
+            etherguard-go-windows-amd64.exe.sha256
 
-      - name: Upload ${{ matrix.arch }} static build
-        uses: svenstaro/upload-release-action@v2
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - x86_64
+      - multi-arch
+      - windows
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: artifacts/${{ matrix.arch }}/etherguard-go-static
-          asset_name: etherguard-go-static-${{ matrix.arch }}
-          overwrite: true
-          release_name:  ${{ steps.version.outputs.VERSION }}
-          tag: ${{ steps.version.outputs.VERSION }}
+          pattern: etherguard-*
+          path: artifacts
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir release
+          cp artifacts/etherguard-x86_64/etherguard-go release/etherguard-go-x86_64
+          cp artifacts/etherguard-x86_64/etherguard-go-static release/etherguard-go-static-x86_64
+          cp artifacts/etherguard-mipsle/etherguard-go release/etherguard-go-mipsle
+          cp artifacts/etherguard-mipsle/etherguard-go-static release/etherguard-go-static-mipsle
+          cp artifacts/etherguard-arm32/etherguard-go release/etherguard-go-armv7
+          cp artifacts/etherguard-arm32/etherguard-go-static release/etherguard-go-static-armv7
+          cp artifacts/etherguard-arm64/etherguard-go release/etherguard-go-aarch64
+          cp artifacts/etherguard-arm64/etherguard-go-static release/etherguard-go-static-aarch64
+          cp artifacts/etherguard-windows-amd64/etherguard-go-windows-amd64.exe release/
+          cp artifacts/etherguard-windows-amd64/etherguard-go-windows-amd64.exe.sha256 release/
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" release/* --clobber

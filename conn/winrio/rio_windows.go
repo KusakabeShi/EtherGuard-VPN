@@ -107,7 +107,7 @@ func Initialize() bool {
 		if err != nil {
 			return
 		}
-		defer windows.CloseHandle(socket)
+		defer windows.Closesocket(socket)
 		var WSAID_MULTIPLE_RIO = &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
 		const SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER = 0xc8000024
 		ob := uint32(0)

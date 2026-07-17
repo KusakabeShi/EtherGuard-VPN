@@ -7,6 +7,7 @@ package conn
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"strconv"
@@ -20,9 +21,10 @@ import (
 )
 
 const (
-	packetsPerRing = 1024
-	bytesPerPacket = 2048 - 32
-	receiveSpins   = 15
+	packetsPerRing       = 1024
+	bytesPerPacket       = 2048 - 32
+	receiveSpins         = 15
+	maxRandomPortRetries = 100
 )
 
 type ringPacket struct {
@@ -71,18 +73,58 @@ type afWinRingBind struct {
 
 // WinRingBind uses Windows registered I/O for fast ring buffered networking.
 type WinRingBind struct {
-	v4, v6 afWinRingBind
-	mu     sync.RWMutex
-	isOpen uint32
+	v4, v6    afWinRingBind
+	mu        sync.RWMutex
+	isOpen    uint32
+	use4      bool
+	use6      bool
+	listenIP4 [4]byte
+	listenIP6 [16]byte
+	ops       *winRingOperations
 }
 
-func NewDefaultBind() Bind { return NewWinRingBind() }
+var winRIOAvailable = winrio.Initialize
+
+type winRingOperations struct {
+	openFamily    func(*afWinRingBind, int32, windows.Sockaddr) (windows.Sockaddr, error)
+	insertReceive func(*afWinRingBind) error
+	closeFamily   func(*afWinRingBind) error
+}
+
+func (bind *WinRingBind) openFamily(family *afWinRingBind, af int32, sa windows.Sockaddr) (windows.Sockaddr, error) {
+	if bind.ops != nil && bind.ops.openFamily != nil {
+		return bind.ops.openFamily(family, af, sa)
+	}
+	return family.Open(af, sa)
+}
+
+func (bind *WinRingBind) insertReceive(family *afWinRingBind) error {
+	if bind.ops != nil && bind.ops.insertReceive != nil {
+		return bind.ops.insertReceive(family)
+	}
+	return family.InsertReceiveRequest()
+}
+
+func (bind *WinRingBind) closeFamily(family *afWinRingBind) error {
+	if bind.ops != nil && bind.ops.closeFamily != nil {
+		return bind.ops.closeFamily(family)
+	}
+	return family.CloseAndZero()
+}
+
+func NewDefaultBind(af EnabledAf, bindmode string, fwmark uint32) Bind {
+	ipv4, ipv6 := listenAddresses(af)
+	if bindmode == "std" || !winRIOAvailable() {
+		return NewStdNetBindAf(af.IPv4, af.IPv6, ipv4, ipv6, fwmark)
+	}
+	return &WinRingBind{use4: af.IPv4, use6: af.IPv6, listenIP4: ipv4, listenIP6: ipv6}
+}
 
 func NewWinRingBind() Bind {
-	if !winrio.Initialize() {
+	if !winRIOAvailable() {
 		return NewStdNetBind()
 	}
-	return new(WinRingBind)
+	return &WinRingBind{use4: true, use6: true}
 }
 
 type WinRingEndpoint struct {
@@ -92,6 +134,10 @@ type WinRingEndpoint struct {
 
 var _ Bind = (*WinRingBind)(nil)
 var _ Endpoint = (*WinRingEndpoint)(nil)
+
+func (bind *WinRingBind) EnabledAf() EnabledAf {
+	return EnabledAf{IPv4: bind.use4, IPv6: bind.use6}
+}
 
 func (*WinRingBind) ParseEndpoint(s string) (Endpoint, error) {
 	host, port, err := net.SplitHostPort(s)
@@ -200,22 +246,29 @@ func (ring *ringBuffer) CloseAndZero() {
 	ring.head = 0
 	ring.tail = 0
 	ring.isFull = false
+	ring.overlapped = windows.Overlapped{}
 }
 
-func (bind *afWinRingBind) CloseAndZero() {
-	bind.rx.CloseAndZero()
-	bind.tx.CloseAndZero()
+func (bind *afWinRingBind) CloseAndZero() error {
+	return bind.closeAndZeroWith(windows.Closesocket, func(ring *ringBuffer) { ring.CloseAndZero() })
+}
+
+func (bind *afWinRingBind) closeAndZeroWith(closeSocket func(windows.Handle) error, closeRing func(*ringBuffer)) error {
+	var err error
 	if bind.sock != 0 {
-		windows.CloseHandle(bind.sock)
+		err = closeSocket(bind.sock)
 		bind.sock = 0
 	}
+	bind.rq = 0
+	closeRing(&bind.rx)
+	closeRing(&bind.tx)
 	bind.blackhole = false
+	return err
 }
 
-func (bind *WinRingBind) closeAndZero() {
+func (bind *WinRingBind) closeAndZero() error {
 	atomic.StoreUint32(&bind.isOpen, 0)
-	bind.v4.CloseAndZero()
-	bind.v6.CloseAndZero()
+	return errors.Join(bind.closeFamily(&bind.v4), bind.closeFamily(&bind.v6))
 }
 
 func (ring *ringBuffer) Open() error {
@@ -274,34 +327,58 @@ func (bind *WinRingBind) Open(port uint16) (recvFns []ReceiveFunc, selectedPort 
 	defer bind.mu.Unlock()
 	defer func() {
 		if err != nil {
-			bind.closeAndZero()
+			err = errors.Join(err, bind.closeAndZero())
 		}
 	}()
 	if atomic.LoadUint32(&bind.isOpen) != 0 {
 		return nil, 0, ErrBindAlreadyOpen
 	}
-	var sa windows.Sockaddr
-	sa, err = bind.v4.Open(windows.AF_INET, &windows.SockaddrInet4{Port: int(port)})
-	if err != nil {
-		return nil, 0, err
+	if !bind.use4 && !bind.use6 {
+		return nil, 0, windows.WSAEAFNOSUPPORT
 	}
-	sa, err = bind.v6.Open(windows.AF_INET6, &windows.SockaddrInet6{Port: sa.(*windows.SockaddrInet4).Port})
-	if err != nil {
-		return nil, 0, err
-	}
-	selectedPort = uint16(sa.(*windows.SockaddrInet6).Port)
-	for i := 0; i < packetsPerRing; i++ {
-		err = bind.v4.InsertReceiveRequest()
-		if err != nil {
-			return nil, 0, err
+	for tries := 0; ; tries++ {
+		selectedPort = port
+		recvFns = recvFns[:0]
+		if bind.use4 {
+			sa, openErr := bind.openFamily(&bind.v4, windows.AF_INET, &windows.SockaddrInet4{Port: int(selectedPort), Addr: bind.listenIP4})
+			if openErr != nil {
+				return nil, 0, openErr
+			}
+			selectedPort = uint16(sa.(*windows.SockaddrInet4).Port)
+			recvFns = append(recvFns, bind.receiveIPv4)
 		}
-		err = bind.v6.InsertReceiveRequest()
-		if err != nil {
-			return nil, 0, err
+		if bind.use6 {
+			sa, openErr := bind.openFamily(&bind.v6, windows.AF_INET6, &windows.SockaddrInet6{Port: int(selectedPort), Addr: bind.listenIP6})
+			if openErr != nil {
+				if port == 0 && tries < maxRandomPortRetries && (errors.Is(openErr, windows.WSAEADDRINUSE) || errors.Is(openErr, windows.WSAEACCES)) {
+					if closeErr := errors.Join(bind.closeFamily(&bind.v4), bind.closeFamily(&bind.v6)); closeErr != nil {
+						return nil, 0, errors.Join(openErr, closeErr)
+					}
+					continue
+				}
+				return nil, 0, openErr
+			}
+			selectedPort = uint16(sa.(*windows.SockaddrInet6).Port)
+			recvFns = append(recvFns, bind.receiveIPv6)
+		}
+		break
+	}
+	for i := 0; i < packetsPerRing; i++ {
+		if bind.use4 {
+			err = bind.insertReceive(&bind.v4)
+			if err != nil {
+				return nil, 0, err
+			}
+		}
+		if bind.use6 {
+			err = bind.insertReceive(&bind.v6)
+			if err != nil {
+				return nil, 0, err
+			}
 		}
 	}
 	atomic.StoreUint32(&bind.isOpen, 1)
-	return []ReceiveFunc{bind.receiveIPv4, bind.receiveIPv6}, selectedPort, err
+	return recvFns, selectedPort, nil
 }
 
 func (bind *WinRingBind) Close() error {
@@ -311,15 +388,26 @@ func (bind *WinRingBind) Close() error {
 		return nil
 	}
 	atomic.StoreUint32(&bind.isOpen, 2)
-	windows.PostQueuedCompletionStatus(bind.v4.rx.iocp, 0, 0, nil)
-	windows.PostQueuedCompletionStatus(bind.v4.tx.iocp, 0, 0, nil)
-	windows.PostQueuedCompletionStatus(bind.v6.rx.iocp, 0, 0, nil)
-	windows.PostQueuedCompletionStatus(bind.v6.tx.iocp, 0, 0, nil)
+	if bind.use4 {
+		if bind.v4.rx.iocp != 0 {
+			windows.PostQueuedCompletionStatus(bind.v4.rx.iocp, 0, 0, nil)
+		}
+		if bind.v4.tx.iocp != 0 {
+			windows.PostQueuedCompletionStatus(bind.v4.tx.iocp, 0, 0, nil)
+		}
+	}
+	if bind.use6 {
+		if bind.v6.rx.iocp != 0 {
+			windows.PostQueuedCompletionStatus(bind.v6.rx.iocp, 0, 0, nil)
+		}
+		if bind.v6.tx.iocp != 0 {
+			windows.PostQueuedCompletionStatus(bind.v6.tx.iocp, 0, 0, nil)
+		}
+	}
 	bind.mu.RUnlock()
 	bind.mu.Lock()
 	defer bind.mu.Unlock()
-	bind.closeAndZero()
-	return nil
+	return bind.closeAndZero()
 }
 
 func (bind *WinRingBind) SetMark(mark uint32) error {
@@ -484,11 +572,17 @@ func (bind *WinRingBind) Send(buf []byte, endpoint Endpoint) error {
 	defer bind.mu.RUnlock()
 	switch nend.family {
 	case windows.AF_INET:
+		if !bind.use4 {
+			return net.ErrClosed
+		}
 		if bind.v4.blackhole {
 			return nil
 		}
 		return bind.v4.Send(buf, nend, &bind.isOpen)
 	case windows.AF_INET6:
+		if !bind.use6 {
+			return net.ErrClosed
+		}
 		if bind.v6.blackhole {
 			return nil
 		}
@@ -539,7 +633,7 @@ func (bind *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole 
 func (bind *WinRingBind) BindSocketToInterface4(interfaceIndex uint32, blackhole bool) error {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
-	if atomic.LoadUint32(&bind.isOpen) != 1 {
+	if !bind.use4 || atomic.LoadUint32(&bind.isOpen) != 1 {
 		return net.ErrClosed
 	}
 	err := bindSocketToInterface4(bind.v4.sock, interfaceIndex)
@@ -553,7 +647,7 @@ func (bind *WinRingBind) BindSocketToInterface4(interfaceIndex uint32, blackhole
 func (bind *WinRingBind) BindSocketToInterface6(interfaceIndex uint32, blackhole bool) error {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
-	if atomic.LoadUint32(&bind.isOpen) != 1 {
+	if !bind.use6 || atomic.LoadUint32(&bind.isOpen) != 1 {
 		return net.ErrClosed
 	}
 	err := bindSocketToInterface6(bind.v6.sock, interfaceIndex)
